@@ -1,4 +1,4 @@
-package com.vtheodoro.APPWACS
+package com.wacs.app
 
 import android.os.Build
 import android.os.Bundle

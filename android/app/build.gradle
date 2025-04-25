@@ -86,9 +86,9 @@ android {
     buildToolsVersion rootProject.ext.buildToolsVersion
     compileSdk rootProject.ext.compileSdkVersion
 
-    namespace 'com.vtheodoro.APPWACS'
+    namespace 'com.wacs.app'
     defaultConfig {
-        applicationId 'com.vtheodoro.APPWACS'
+        applicationId 'com.wacs.app'
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1

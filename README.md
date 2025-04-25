@@ -1,3 +1,4 @@
+
 # WACS - Wheelchair Automation Control System
 
 **WACS** (Wheelchair Automation Control System) é um projeto inovador para o controle de uma **cadeira de rodas automatizada**. O aplicativo foi desenvolvido para proporcionar **mobilidade e acessibilidade** a pessoas com deficiência, permitindo o controle da cadeira de rodas via **Bluetooth** e fornecendo funcionalidades de **mapeamento urbano acessível**. Ele é colaborativo, permitindo que os usuários compartilhem informações sobre **locais acessíveis**, **rotas**, e **estabelecimentos**.
@@ -36,3 +37,64 @@ Primeiro, clone o repositório para o seu computador:
 ```bash
 git clone https://github.com/seu-usuario/wacs-app.git
 cd wacs-app
+```
+
+### 2. Instalando Dependências
+
+Instale as dependências necessárias usando o **npm** ou **yarn**:
+
+```bash
+npm install
+# ou
+yarn install
+```
+
+### 3. Executando o Projeto
+
+Para rodar o projeto no modo de desenvolvimento, use o comando abaixo:
+
+```bash
+npm start
+# ou
+yarn start
+```
+
+Isso abrirá o Expo Developer Tools, onde você poderá escanear o código QR com o aplicativo **Expo Go** no seu celular ou rodar o projeto em um emulador.
+
+### 4. Configurações de Ambiente
+
+Certifique-se de configurar corretamente seu arquivo `.env` com as chaves de API necessárias (Google Maps, Firebase, etc.).
+
+```env
+GOOGLE_MAPS_API_KEY=your_google_maps_api_key
+FIREBASE_API_KEY=your_firebase_api_key
+```
+
+### 5. Contribuindo
+
+Se quiser contribuir para o desenvolvimento deste projeto, fique à vontade para abrir **issues** ou **pull requests**!
+
+## Estrutura do Projeto
+
+A estrutura do projeto é organizada da seguinte maneira:
+
+```
+/wacs-app
+├── /assets           # Imagens, ícones, fontes e outros recursos estáticos.
+├── /components       # Componentes reutilizáveis do React.
+├── /screens          # Telas principais do app (ex: mapa, login, configurações).
+├── /services         # Funções e serviços para integração com APIs (Google Maps, Firebase).
+├── /store            # Gerenciamento de estado global (usando React Context API).
+├── /utils            # Funções auxiliares e utilitários (ex: validações, cálculos).
+├── /App.tsx          # Arquivo principal que inicia o aplicativo.
+├── /package.json     # Dependências do projeto e scripts.
+└── .env              # Variáveis de ambiente (não subir no repositório).
+```
+
+## Licença
+
+Este projeto está licenciado sob a licença MIT - veja o arquivo [LICENSE](LICENSE) para mais detalhes.
+
+## Contato
+
+Para mais informações ou dúvidas, sinta-se à vontade para abrir uma **issue** ou entrar em contato diretamente.
