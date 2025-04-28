@@ -8,31 +8,50 @@ import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
+  Alert,
 } from 'react-native';
 import { useAuth } from '../contexts/AuthContext';
 
 export const LoginScreen = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [name, setName] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState('');
-  const { login } = useAuth();
+  const [isRegistering, setIsRegistering] = useState(false);
+  const { login, register, error: authError } = useAuth();
 
-  const handleLogin = async () => {
+  const handleAuth = async () => {
     if (!email || !password) {
-      setError('Por favor, preencha todos os campos');
+      Alert.alert('Erro', 'Por favor, preencha todos os campos');
+      return;
+    }
+
+    if (isRegistering && !name) {
+      Alert.alert('Erro', 'Por favor, informe seu nome para registrar');
       return;
     }
 
     try {
       setIsLoading(true);
-      setError('');
-      await login(email, password);
+      
+      if (isRegistering) {
+        await register(email, password, name);
+        Alert.alert('Sucesso', 'Conta criada com sucesso! Você já pode fazer login.');
+        setIsRegistering(false);
+        setName('');
+      } else {
+        await login(email, password);
+      }
     } catch (err) {
-      setError('Email ou senha incorretos');
+      // Erro já tratado no contexto
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const toggleMode = () => {
+    setIsRegistering(!isRegistering);
+    setName('');
   };
 
   return (
@@ -44,7 +63,17 @@ export const LoginScreen = () => {
         <Text style={styles.title}>WACS</Text>
         <Text style={styles.subtitle}>Controle de Arduino</Text>
 
-        {error ? <Text style={styles.error}>{error}</Text> : null}
+        {authError ? <Text style={styles.error}>{authError}</Text> : null}
+
+        {isRegistering && (
+          <TextInput
+            style={styles.input}
+            placeholder="Nome completo"
+            value={name}
+            onChangeText={setName}
+            autoCapitalize="words"
+          />
+        )}
 
         <TextInput
           style={styles.input}
@@ -66,14 +95,28 @@ export const LoginScreen = () => {
 
         <TouchableOpacity
           style={styles.button}
-          onPress={handleLogin}
+          onPress={handleAuth}
           disabled={isLoading}
         >
           {isLoading ? (
             <ActivityIndicator color="#fff" />
           ) : (
-            <Text style={styles.buttonText}>Entrar</Text>
+            <Text style={styles.buttonText}>
+              {isRegistering ? 'Registrar' : 'Entrar'}
+            </Text>
           )}
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.toggleButton}
+          onPress={toggleMode}
+          disabled={isLoading}
+        >
+          <Text style={styles.toggleText}>
+            {isRegistering
+              ? 'Já tem uma conta? Faça login'
+              : 'Não tem uma conta? Registre-se'}
+          </Text>
         </TouchableOpacity>
       </View>
     </KeyboardAvoidingView>
@@ -124,5 +167,13 @@ const styles = StyleSheet.create({
     color: '#FF3B30',
     textAlign: 'center',
     marginBottom: 15,
+  },
+  toggleButton: {
+    marginTop: 20,
+    alignItems: 'center',
+  },
+  toggleText: {
+    color: '#007AFF',
+    fontSize: 16,
   },
 }); 

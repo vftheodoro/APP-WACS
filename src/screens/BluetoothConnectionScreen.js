@@ -9,7 +9,7 @@ import {
 } from 'react-native';
 import { useBluetooth } from '../contexts/BluetoothContext';
 
-export const BluetoothConnectionScreen: React.FC = () => {
+export const BluetoothConnectionScreen = () => {
   const {
     devices,
     isScanning,

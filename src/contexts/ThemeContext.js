@@ -1,13 +1,8 @@
 import React, { createContext, useContext, useState } from 'react';
 
-interface ThemeContextData {
-  isDark: boolean;
-  toggleTheme: () => void;
-}
+const ThemeContext = createContext({});
 
-const ThemeContext = createContext<ThemeContextData>({} as ThemeContextData);
-
-export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+export const ThemeProvider = ({ children }) => {
   const [isDark, setIsDark] = useState(true);
 
   const toggleTheme = () => {

@@ -2,31 +2,14 @@ import React, { createContext, useState, useContext, useEffect } from 'react';
 import * as Device from 'expo-device';
 import { Platform } from 'react-native';
 
-interface BluetoothDevice {
-  id: string;
-  name: string | null;
-}
+const BluetoothContext = createContext({});
 
-interface BluetoothContextData {
-  devices: BluetoothDevice[];
-  connectedDevice: BluetoothDevice | null;
-  isScanning: boolean;
-  batteryLevel: number | null;
-  scanDevices: () => void;
-  connectToDevice: (deviceId: string) => Promise<void>;
-  disconnectDevice: () => Promise<void>;
-  sendCommand: (command: string) => Promise<void>;
-  connectionStatus: 'connected' | 'disconnected' | 'connecting';
-}
-
-const BluetoothContext = createContext<BluetoothContextData>({} as BluetoothContextData);
-
-export const BluetoothProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [devices, setDevices] = useState<BluetoothDevice[]>([]);
-  const [connectedDevice, setConnectedDevice] = useState<BluetoothDevice | null>(null);
+export const BluetoothProvider = ({ children }) => {
+  const [devices, setDevices] = useState([]);
+  const [connectedDevice, setConnectedDevice] = useState(null);
   const [isScanning, setIsScanning] = useState(false);
-  const [batteryLevel, setBatteryLevel] = useState<number | null>(null);
-  const [connectionStatus, setConnectionStatus] = useState<'connected' | 'disconnected' | 'connecting'>('disconnected');
+  const [batteryLevel, setBatteryLevel] = useState(null);
+  const [connectionStatus, setConnectionStatus] = useState('disconnected');
 
   // Função simulada para escanear dispositivos
   const scanDevices = async () => {
@@ -36,7 +19,7 @@ export const BluetoothProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
       // Simula a descoberta de dispositivos
       setTimeout(() => {
-        const mockDevices: BluetoothDevice[] = [
+        const mockDevices = [
           { id: '1', name: 'Arduino Uno' },
           { id: '2', name: 'HC-05' },
           { id: '3', name: 'BT Module' },
@@ -48,7 +31,7 @@ export const BluetoothProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   };
 
   // Função simulada para conectar ao dispositivo
-  const connectToDevice = async (deviceId: string) => {
+  const connectToDevice = async (deviceId) => {
     try {
       setConnectionStatus('connecting');
       
@@ -82,7 +65,7 @@ export const BluetoothProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   };
 
   // Função simulada para enviar comandos
-  const sendCommand = async (command: string) => {
+  const sendCommand = async (command) => {
     try {
       if (connectionStatus === 'connected' && connectedDevice) {
         console.log('Comando enviado:', command);

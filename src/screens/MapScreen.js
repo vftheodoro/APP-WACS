@@ -34,8 +34,8 @@ const LOCATIONS = [
 ];
 
 export const MapScreen = () => {
-  const [location, setLocation] = useState<Location.LocationObject | null>(null);
-  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [location, setLocation] = useState(null);
+  const [errorMsg, setErrorMsg] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const { isDark } = useTheme();
   const [region, setRegion] = React.useState({

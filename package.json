@@ -1,12 +1,14 @@
 {
   "name": "app-wacs",
   "version": "1.0.0",
-  "main": "index.ts",
+  "main": "index.js",
   "scripts": {
     "start": "expo start",
     "android": "expo run:android",
     "ios": "expo run:ios",
-    "web": "expo start --web"
+    "web": "expo start --web",
+    "check-migration": "node scripts/check_js_migration.js",
+    "cleanup-ts": "node scripts/cleanup_ts_files.js"
   },
   "dependencies": {
     "@babel/plugin-proposal-export-namespace-from": "^7.18.9",
@@ -36,9 +38,7 @@
     "react-native-screens": "~4.4.0"
   },
   "devDependencies": {
-    "@babel/core": "^7.25.2",
-    "@types/react": "~18.3.12",
-    "typescript": "^5.3.3"
+    "@babel/core": "^7.25.2"
   },
   "private": true
 }
