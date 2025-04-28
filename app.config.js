@@ -16,7 +16,11 @@ module.exports = {
     ],
     ios: {
       supportsTablet: true,
-      bundleIdentifier: 'com.wacs.app'
+      bundleIdentifier: 'com.wacs.app',
+      infoPlist: {
+        NSPhotoLibraryUsageDescription: "O WACS precisa de acesso à sua biblioteca de fotos para que você possa selecionar uma foto de perfil.",
+        NSCameraUsageDescription: "O WACS precisa de acesso à sua câmera para que você possa capturar uma foto de perfil."
+      }
     },
     android: {
       adaptiveIcon: {
@@ -26,7 +30,11 @@ module.exports = {
       package: 'com.wacs.app',
       permissions: [
         'android.permission.ACCESS_COARSE_LOCATION',
-        'android.permission.ACCESS_FINE_LOCATION'
+        'android.permission.ACCESS_FINE_LOCATION',
+        'android.permission.CAMERA',
+        'android.permission.READ_EXTERNAL_STORAGE',
+        'android.permission.WRITE_EXTERNAL_STORAGE',
+        'android.permission.MEDIA_LIBRARY'
       ]
     },
     web: {
@@ -38,7 +46,14 @@ module.exports = {
         {
           locationAlwaysAndWhenInUsePermission: 'Permitir WACS acessar sua localização.'
         }
+      ],
+      [
+        'expo-image-picker',
+        {
+          photosPermission: 'O WACS precisa de acesso à sua biblioteca de fotos para que você possa selecionar uma foto de perfil.'
+        }
       ]
-    ]
+    ],
+    newArchEnabled: true
   }
 }; 

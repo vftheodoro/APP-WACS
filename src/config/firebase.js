@@ -1,5 +1,7 @@
 import { initializeApp } from 'firebase/app';
-import { getAuth } from 'firebase/auth';
+import { initializeAuth, getReactNativePersistence } from 'firebase/auth';
+import { getStorage } from 'firebase/storage';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   FIREBASE_API_KEY,
   FIREBASE_AUTH_DOMAIN,
@@ -19,8 +21,26 @@ const firebaseConfig = {
   appId: FIREBASE_APP_ID
 };
 
-// Inicializar Firebase
-const app = initializeApp(firebaseConfig);
-const auth = getAuth(app);
+// Verificar configuração
+console.log('Configuração do Firebase (mascarada):', {
+  apiKey: FIREBASE_API_KEY ? '***' : 'não definido',
+  authDomain: FIREBASE_AUTH_DOMAIN ? '***' : 'não definido',
+  projectId: FIREBASE_PROJECT_ID ? '***' : 'não definido',
+  storageBucket: FIREBASE_STORAGE_BUCKET ? '***' : 'não definido',
+  messagingSenderId: FIREBASE_MESSAGING_SENDER_ID ? '***' : 'não definido',
+  appId: FIREBASE_APP_ID ? '***' : 'não definido'
+});
 
-export { auth, app }; 
+// Inicializar Firebase
+const firebase = initializeApp(firebaseConfig);
+
+// Inicializar Auth com persistência
+const auth = initializeAuth(firebase, {
+  persistence: getReactNativePersistence(AsyncStorage)
+});
+
+// Inicializar Storage
+const storage = getStorage(firebase);
+console.log('Firebase Storage inicializado:', storage ? 'sim' : 'não');
+
+export { auth, firebase, storage }; 

@@ -1,30 +1,48 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   TouchableOpacity,
   ScrollView,
+  Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../contexts/AuthContext';
 import { useBluetooth } from '../contexts/BluetoothContext';
+import { ProfilePicture } from '../components/ProfilePicture';
 
 export const ProfileScreen = () => {
   const { user, logout } = useAuth();
   const { connectedDevice, batteryLevel, disconnectDevice } = useBluetooth();
+  const [refreshKey, setRefreshKey] = useState(0);
 
   const handleLogout = async () => {
-    if (connectedDevice) {
-      await disconnectDevice();
+    try {
+      if (connectedDevice) {
+        await disconnectDevice();
+      }
+      await logout();
+    } catch (error) {
+      console.error('Erro ao fazer logout:', error);
+      Alert.alert('Erro', 'Não foi possível sair. Tente novamente.');
     }
-    logout();
+  };
+
+  const handleImageUpdated = () => {
+    // Forçar atualização do componente quando a imagem for atualizada
+    setRefreshKey(prev => prev + 1);
   };
 
   return (
     <ScrollView style={styles.container}>
       <View style={styles.header}>
-        <Ionicons name="person-circle" size={100} color="#007AFF" />
+        <ProfilePicture 
+          key={refreshKey}
+          size={120}
+          editable={true}
+          onImageUpdated={handleImageUpdated}
+        />
         <Text style={styles.name}>{user?.name || 'Usuário'}</Text>
         <Text style={styles.email}>{user?.email}</Text>
       </View>
