@@ -18,8 +18,7 @@ module.exports = {
       supportsTablet: true,
       bundleIdentifier: 'com.wacs.app',
       infoPlist: {
-        NSPhotoLibraryUsageDescription: "O WACS precisa de acesso à sua biblioteca de fotos para que você possa selecionar uma foto de perfil.",
-        NSCameraUsageDescription: "O WACS precisa de acesso à sua câmera para que você possa capturar uma foto de perfil."
+        NSPhotoLibraryUsageDescription: "O WACS precisa de acesso à sua biblioteca de fotos para que você possa selecionar uma foto de perfil."
       }
     },
     android: {
@@ -31,10 +30,8 @@ module.exports = {
       permissions: [
         'android.permission.ACCESS_COARSE_LOCATION',
         'android.permission.ACCESS_FINE_LOCATION',
-        'android.permission.CAMERA',
         'android.permission.READ_EXTERNAL_STORAGE',
-        'android.permission.WRITE_EXTERNAL_STORAGE',
-        'android.permission.MEDIA_LIBRARY'
+        'android.permission.WRITE_EXTERNAL_STORAGE'
       ]
     },
     web: {

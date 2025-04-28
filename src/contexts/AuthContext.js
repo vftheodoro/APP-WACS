@@ -8,7 +8,7 @@ import {
 } from 'firebase/auth';
 import { auth } from '../config/firebase';
 import { saveLastUser } from '../utils/storage';
-import { uploadImageToFirebase, deleteImageFromFirebase } from '../services/storage';
+import { saveImageLocally, deleteLocalImage } from '../services/storage';
 import { Alert } from 'react-native';
 
 const AuthContext = createContext({});
@@ -124,45 +124,39 @@ export const AuthProvider = ({ children }) => {
       setIsUploading(true);
       setError(null);
 
-      // Se já existir uma foto, tenta excluir a antiga (não bloqueia em caso de erro)
+      // Se já existir uma foto, tenta excluir a antiga
       if (user.photoURL) {
         try {
           console.log('Tentando excluir foto antiga');
-          await deleteImageFromFirebase(user.id);
+          await deleteLocalImage(user.id);
           console.log('Foto antiga excluída com sucesso');
         } catch (error) {
           console.warn('Erro ao excluir imagem antiga:', error);
-          // Não interrompe o fluxo em caso de erro na exclusão
         }
       }
 
-      // Fazer upload da nova imagem
-      console.log('Iniciando upload da nova imagem');
-      const downloadURL = await uploadImageToFirebase(user.id, imageAsset);
+      // Salvar a nova imagem localmente
+      console.log('Iniciando salvamento da nova imagem');
+      const localPath = await saveImageLocally(user.id, imageAsset);
       
-      if (!downloadURL) {
-        console.error('Não foi possível obter URL de download após o upload');
-        throw new Error('Não foi possível obter URL da imagem após o upload');
+      if (!localPath) {
+        console.error('Não foi possível salvar a imagem localmente');
+        throw new Error('Não foi possível salvar a imagem localmente');
       }
 
-      console.log('Imagem enviada com sucesso. URL:', downloadURL);
+      console.log('Imagem salva com sucesso. Caminho:', localPath);
 
-      // Atualizar o perfil do usuário com a nova URL
-      console.log('Atualizando perfil do usuário com a nova URL');
-      await updateProfile(auth.currentUser, { photoURL: downloadURL });
-      console.log('Perfil atualizado com sucesso');
-      
       // Atualizar estado local
       setUser(prev => ({
         ...prev,
-        photoURL: downloadURL
+        photoURL: localPath
       }));
 
       // Atualizar dados do último usuário
       if (user) {
         saveLastUser({
           ...user,
-          photoURL: downloadURL
+          photoURL: localPath
         });
       }
 

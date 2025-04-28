@@ -1,7 +1,6 @@
-import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
 import * as ImagePicker from 'expo-image-picker';
-import { Alert, Platform } from 'react-native';
-import { storage } from '../config/firebase';
+import { Alert } from 'react-native';
+import * as FileSystem from 'expo-file-system';
 
 /**
  * Opções para seleção de imagem
@@ -70,119 +69,57 @@ export const pickImage = async () => {
 };
 
 /**
- * Converte URI para Blob
- */
-const uriToBlob = async (uri) => {
-  try {
-    console.log('Convertendo URI para blob:', uri);
-    const response = await fetch(uri);
-    console.log('Fetch response status:', response.status);
-    const blob = await response.blob();
-    console.log('Blob criado com sucesso, tamanho:', blob.size);
-    return blob;
-  } catch (error) {
-    console.error('Erro ao converter URI para blob:', error);
-    throw new Error('Falha ao converter imagem para formato adequado');
-  }
-};
-
-/**
- * Faz upload de uma imagem para o Firebase Storage
+ * Salva a imagem localmente no dispositivo
  * @param {string} userId ID do usuário
  * @param {object} imageAsset Objeto da imagem selecionada
- * @param {string} fileName Nome do arquivo (opcional)
- * @returns {Promise<string|null>} URL da imagem ou null em caso de erro
+ * @returns {Promise<string|null>} URI da imagem salva ou null em caso de erro
  */
-export const uploadImageToFirebase = async (userId, imageAsset, fileName = 'profile_picture.jpg') => {
+export const saveImageLocally = async (userId, imageAsset) => {
   if (!userId || !imageAsset || !imageAsset.uri) {
-    console.error('Parâmetros inválidos para upload de imagem:', { userId, imageAsset });
+    console.error('Parâmetros inválidos para salvar imagem:', { userId, imageAsset });
     return null;
   }
 
   try {
-    console.log('Iniciando upload de imagem para o Firebase Storage...');
-    console.log('Informações da imagem:', { uri: imageAsset.uri, type: imageAsset.type });
+    console.log('Iniciando salvamento local da imagem...');
     
-    // Caminho onde a imagem será armazenada no Firebase Storage
-    const storagePath = `users/${userId}/${fileName}`;
-    console.log('Caminho de armazenamento:', storagePath);
+    // Criar diretório se não existir
+    const directory = `${FileSystem.documentDirectory}profile_pictures/`;
+    await FileSystem.makeDirectoryAsync(directory, { intermediates: true });
     
-    // Converter a URI da imagem para Blob
-    const blob = await uriToBlob(imageAsset.uri);
+    // Caminho onde a imagem será salva
+    const filePath = `${directory}${userId}_profile_picture.jpg`;
     
-    // Referência ao local de armazenamento
-    const storageRef = ref(storage, storagePath);
-    console.log('Referência do storage criada');
+    // Copiar a imagem para o local desejado
+    await FileSystem.copyAsync({
+      from: imageAsset.uri,
+      to: filePath
+    });
     
-    // Fazer upload
-    console.log('Iniciando upload...');
-    const snapshot = await uploadBytes(storageRef, blob);
-    console.log('Upload concluído com sucesso:', snapshot);
-    
-    // Obter URL da imagem
-    const downloadURL = await getDownloadURL(snapshot.ref);
-    console.log('URL de download obtida:', downloadURL);
-    
-    return downloadURL;
+    console.log('Imagem salva com sucesso em:', filePath);
+    return filePath;
   } catch (error) {
-    // Log detalhado do erro completo
-    console.error('Erro detalhado ao fazer upload da imagem (objeto completo):', JSON.stringify(error, null, 2));
-    
-    console.error('Código de erro:', error.code);
-    console.error('Mensagem de erro:', error.message);
-    
-    // Tentar acessar a resposta do servidor, se existir
-    if (error.serverResponse) {
-      console.error('Resposta do servidor:', error.serverResponse);
-    }
-
-    // Mensagens de erro mais específicas
-    let errorMessage = 'Ocorreu um problema ao enviar a imagem.';
-    
-    if (error.code === 'storage/unauthorized') {
-      errorMessage = 'Você não tem permissão para fazer upload desta imagem.';
-    } else if (error.code === 'storage/canceled') {
-      errorMessage = 'Upload cancelado.';
-    } else if (error.code === 'storage/unknown') {
-      errorMessage = 'Erro desconhecido durante o upload. Verifique sua conexão.';
-    }
-    
-    Alert.alert('Erro', errorMessage);
+    console.error('Erro ao salvar imagem localmente:', error);
+    Alert.alert('Erro', 'Ocorreu um erro ao salvar a imagem. Tente novamente.');
     return null;
   }
 };
 
 /**
- * Exclui uma imagem do Firebase Storage
+ * Remove a imagem salva localmente
  * @param {string} userId ID do usuário
- * @param {string} fileName Nome do arquivo (opcional)
  * @returns {Promise<boolean>} true se a exclusão for bem-sucedida
  */
-export const deleteImageFromFirebase = async (userId, fileName = 'profile_picture.jpg') => {
+export const deleteLocalImage = async (userId) => {
   if (!userId) return false;
   
   try {
-    console.log('Tentando excluir imagem:', userId, fileName);
-    
-    // Caminho da imagem no Firebase Storage
-    const storagePath = `users/${userId}/${fileName}`;
-    
-    // Referência ao arquivo
-    const storageRef = ref(storage, storagePath);
-    
-    // Excluir arquivo
-    await deleteObject(storageRef);
-    console.log('Imagem excluída com sucesso');
+    const filePath = `${FileSystem.documentDirectory}profile_pictures/${userId}_profile_picture.jpg`;
+    await FileSystem.deleteAsync(filePath, { idempotent: true });
+    console.log('Imagem local excluída com sucesso');
     return true;
   } catch (error) {
-    console.error('Erro ao excluir imagem:', error);
-    
-    // Não exibir erro se o arquivo não existir
-    if (error.code === 'storage/object-not-found') {
-      console.log('Arquivo não encontrado para exclusão, ignorando erro');
-      return true;
-    }
-    
+    console.error('Erro ao excluir imagem local:', error);
     return false;
   }
 }; 
