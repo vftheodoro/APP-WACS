@@ -3,7 +3,10 @@ import { initializeApp, getApps } from 'firebase/app';
 import { initializeAuth, getReactNativePersistence } from 'firebase/auth';
 import { getStorage } from 'firebase/storage';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import {
+import Constants from 'expo-constants';
+
+// Obter as variáveis de ambiente do Expo
+const {
   FIREBASE_API_KEY,
   FIREBASE_AUTH_DOMAIN,
   FIREBASE_PROJECT_ID,
@@ -11,7 +14,7 @@ import {
   FIREBASE_MESSAGING_SENDER_ID,
   FIREBASE_APP_ID,
   FIREBASE_MEASUREMENT_ID
-} from '@env';
+} = Constants.expoConfig.extra;
 
 // Verificar se todas as variáveis de ambiente estão definidas
 const requiredEnvVars = {

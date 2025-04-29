@@ -24,9 +24,10 @@
     "@react-navigation/stack": "^7.2.10",
     "dotenv": "^16.5.0",
     "expo": "~52.0.46",
+    "expo-constants": "^17.0.8",
     "expo-dev-client": "~5.0.20",
     "expo-device": "^7.0.3",
-    "expo-firebase-recaptcha": "^2.3.1",
+    "expo-firebase-recaptcha": "^1.4.4",
     "expo-image-manipulator": "^13.0.6",
     "expo-image-picker": "^16.0.6",
     "expo-local-authentication": "^15.0.2",
@@ -44,7 +45,9 @@
     "react-native-webview": "^13.13.5"
   },
   "devDependencies": {
-    "@babel/core": "^7.25.2"
+    "@babel/core": "^7.25.2",
+    "typescript": "^5.3.3",
+    "@types/react": "~18.3.12"
   },
   "private": true
 }

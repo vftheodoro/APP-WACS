@@ -60,3 +60,14 @@ build/
 *.apk
 *.aab
 *.ipa
+
+# Testing
+coverage/
+
+# Production
+dist/
+
+# Misc
+*.lock
+.DS_Store
+Thumbs.db

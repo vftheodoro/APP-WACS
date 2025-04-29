@@ -1,0 +1,57 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-wacs
+  labels:
+    app: app-wacs
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: app-wacs
+  template:
+    metadata:
+      labels:
+        app: app-wacs
+    spec:
+      containers:
+      - name: app
+        image: app-wacs:latest
+        ports:
+        - containerPort: 3000
+        env:
+        - name: NODE_ENV
+          value: "production"
+        - name: REACT_APP_API_URL
+          value: "http://api:3001"
+        resources:
+          requests:
+            cpu: "100m"
+            memory: "128Mi"
+          limits:
+            cpu: "500m"
+            memory: "512Mi"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 3000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 3000
+          initialDelaySeconds: 5
+          periodSeconds: 5
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: app-wacs
+spec:
+  selector:
+    app: app-wacs
+  ports:
+  - port: 80
+    targetPort: 3000
+  type: LoadBalancer 

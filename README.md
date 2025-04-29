@@ -1,125 +1,114 @@
-# 🚀 Aplicativo WACS
+# APP-WACS
 
-> **WACS** é um aplicativo móvel robusto, colaborativo e acessível, focado em mobilidade urbana e autonomia de pessoas com deficiência. Permite controle de cadeira de rodas, mapeamento de acessibilidade, perfis sociais e muito mais!
+Aplicativo de navegação desenvolvido em React Native com foco em experiência do usuário e eficiência.
 
----
+## 🚀 Funcionalidades
 
-## ✨ Funcionalidades Principais
+- Navegação em tempo real
+- Rastreamento de localização
+- Cálculo de rotas
+- Instruções de navegação
+- Modos de transporte
+- Histórico de rotas
+- Favoritos
+- Configurações personalizadas
 
-<p align="center">
-  <img src="https://cdn-icons-png.flaticon.com/512/3062/3062634.png" alt="Controle Bluetooth" width="120"/>
-  <img src="https://cdn-icons-png.flaticon.com/512/854/854878.png" alt="Mapa Acessível" width="120"/>
-  <img src="https://cdn-icons-png.flaticon.com/512/3135/3135715.png" alt="Perfil Usuário" width="120"/>
-  <img src="https://cdn-icons-png.flaticon.com/512/1827/1827504.png" alt="Notificações" width="120"/>
-</p>
+## 📋 Pré-requisitos
 
-- **Controle e Configuração da Cadeira:**
-  - Ajuste de parâmetros, status em tempo real e controle total da mobilidade via Bluetooth.
-- **Mapeamento Colaborativo de Acessibilidade:**
-  - Marcação e avaliação de locais acessíveis (restaurantes, banheiros, calçadas, pontos de ônibus).
-  - GPS com rotas adaptadas e informações sobre rampas, banheiros e facilidades.
-  - Fotos e comentários da comunidade.
-- **Sistema de Perfis:**
-  - Criação, personalização e compartilhamento de perfis, interação social e troca de experiências.
-- **Tema Claro/Escuro**
-- **Notificações Push**
+- Node.js 16.x ou superior
+- npm 7.x ou superior
+- Expo CLI
+- Android Studio (para desenvolvimento Android)
+- Xcode (para desenvolvimento iOS)
 
----
+## 🔧 Instalação
 
-## 🛠️ Tecnologias Utilizadas
-
-<p align="center">
-  <img src="https://cdn.jsdelivr.net/gh/devicons/devicon@latest/icons/react/react-original.svg" width="60" alt="React Native" title="React Native">
-  <img src="https://cdn.jsdelivr.net/gh/devicons/devicon@latest/icons/firebase/firebase-plain.svg" width="60" alt="Firebase" title="Firebase">
-  <img src="https://upload.wikimedia.org/wikipedia/commons/7/75/Google_Maps_icon.svg" width="60" alt="Google Maps" title="Google Maps">
-  <img src="https://upload.wikimedia.org/wikipedia/commons/4/4f/Bluetooth.svg" width="60" alt="Bluetooth" title="Bluetooth">
-  <img src="https://cdn.jsdelivr.net/gh/devicons/devicon@latest/icons/arduino/arduino-original.svg" width="60" alt="Arduino" title="Arduino">
-</p>
-
-| Mobile/App         | Backend/Cloud | Hardware   | Extras         |
-|--------------------|--------------|------------|----------------|
-| React Native (Expo)| Firebase     | Arduino    | Google Maps API|
-| Bluetooth          |              | C++        | IA/ML          |
-
----
-
-## 📁 Estrutura do Projeto
-
-```
-├── src
-│   ├── contexts        # Contextos React (Auth, Theme, etc)
-│   ├── screens         # Telas do aplicativo
-│   ├── navigation      # Navegação (Stack, Tabs)
-│   └── config          # Configurações (ex: Google Maps)
-├── assets              # Imagens e ícones
-├── scripts             # Scripts auxiliares
-├── .env                # Variáveis de ambiente (NÃO subir para o Git!)
+1. Clone o repositório:
+```bash
+git clone https://github.com/seu-usuario/app-wacs.git
+cd app-wacs
 ```
 
----
-
-## ⚙️ Configuração e Execução
-
-### 1. Pré-requisitos
-- Node.js >= 18
-- Expo CLI (`npm install -g expo-cli`)
-- Conta Google Maps API e Firebase
-
-### 2. Instalação
+2. Instale as dependências:
 ```bash
 npm install
 ```
 
-### 3. Variáveis de Ambiente
-Crie um arquivo `.env` na raiz do projeto com:
-```env
-GOOGLE_MAPS_API_KEY=SuaChaveAqui
+3. Configure as variáveis de ambiente:
+- Crie um arquivo .env na raiz do projeto
+- Adicione as seguintes variáveis:
 ```
-> **Nunca compartilhe sua chave pública!**
+MAPBOX_ACCESS_TOKEN=seu_token
+FIREBASE_API_KEY=sua_chave
+FIREBASE_AUTH_DOMAIN=seu_dominio
+FIREBASE_PROJECT_ID=seu_projeto
+FIREBASE_STORAGE_BUCKET=seu_bucket
+FIREBASE_MESSAGING_SENDER_ID=seu_sender_id
+FIREBASE_APP_ID=seu_app_id
+```
 
-### 4. Executando o Projeto
+4. Inicie o aplicativo:
 ```bash
-# Iniciar o Metro Bundler
 npm start
-# ou
-expo start
 ```
 
-#### Android/iOS
+## 🛠️ Desenvolvimento
+
+### Estrutura do Projeto
+```
+src/
+├── app/                    # Configurações do app e ponto de entrada
+├── assets/                 # Recursos estáticos
+├── components/             # Componentes reutilizáveis
+├── config/                 # Configurações globais
+├── constants/              # Constantes e enums
+├── hooks/                  # Custom hooks
+├── navigation/             # Configuração de navegação
+├── screens/                # Telas da aplicação
+├── services/               # Serviços e APIs
+├── store/                  # Gerenciamento de estado
+├── theme/                  # Temas e estilos globais
+└── utils/                  # Funções utilitárias
+```
+
+### Padrões de Código
+- Componentes funcionais com hooks
+- Separação de lógica em custom hooks
+- Componentes pequenos e focados
+- PropTypes para tipagem
+- StyleSheet.create para estilos
+- Temas centralizados
+
+### Testes
+- Jest para testes unitários
+- React Native Testing Library
+- Cobertura mínima de 80%
+
+## 📚 Documentação
+
+A documentação completa está disponível na pasta `Documentos/`:
+- `1-Configuracao/` - Documentação principal
+- `2-Desenvolvimento/` - Guia de desenvolvimento
+- `3-Testes/` - Guia de testes
+
+## 📦 Deploy
+
+1. Build:
 ```bash
-expo run:android
-expo run:ios
+npm run build:android
+npm run build:ios
 ```
 
-#### Web
-```bash
-expo start --web
-```
-
-### 5. Dicas para Google Maps
-- Certifique-se de ativar a API de Maps no console do Google Cloud.
-- Se usar Expo Go, variáveis de ambiente podem não funcionar. Prefira build nativo (`expo prebuild`).
-
----
-
-## 🧑‍💻 Contribuição
-1. Faça um fork do projeto
-2. Crie uma branch: `git checkout -b minha-feature`
-3. Commit suas alterações: `git commit -m 'feat: minha nova feature'`
-4. Push na branch: `git push origin minha-feature`
-5. Abra um Pull Request
-
----
+2. Publicação:
+- Expo publish
+- Google Play Store
+- Apple App Store
 
 ## 📄 Licença
-Este projeto está sob a licença MIT. Veja o arquivo [LICENSE](LICENSE) para mais detalhes.
 
----
+Este projeto está licenciado sob a licença MIT - veja o arquivo LICENSE para detalhes.
 
-## 📬 Contato & Suporte
-- Desenvolvedor: [Seu Nome](mailto:seuemail@exemplo.com)
-- Issues e sugestões: [GitHub Issues](https://github.com/seuusuario/app-wacs/issues)
+## 📞 Contato
 
----
-
-> Feito com ❤️ para promover acessibilidade e autonomia!
+Seu Nome - seu.email@exemplo.com
+Link do Projeto: https://github.com/seu-usuario/app-wacs 
