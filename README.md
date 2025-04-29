@@ -25,8 +25,8 @@ Aplicativo de navegação desenvolvido em React Native com foco em experiência 
 
 1. Clone o repositório:
 ```bash
-git clone https://github.com/seu-usuario/app-wacs.git
-cd app-wacs
+git clone https://github.com/VTheodoro/APP-WACS.git
+cd APP-WACS
 ```
 
 2. Instale as dependências:
@@ -78,6 +78,7 @@ src/
 - PropTypes para tipagem
 - StyleSheet.create para estilos
 - Temas centralizados
+- JavaScript puro (sem TypeScript)
 
 ### Testes
 - Jest para testes unitários
@@ -110,5 +111,5 @@ Este projeto está licenciado sob a licença MIT - veja o arquivo LICENSE para d
 
 ## 📞 Contato
 
-Seu Nome - seu.email@exemplo.com
-Link do Projeto: https://github.com/seu-usuario/app-wacs 
+Victor Theodoro - victor.theodoro@exemplo.com
+Link do Projeto: https://github.com/VTheodoro/APP-WACS 
