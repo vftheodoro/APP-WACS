@@ -1,9 +1,5 @@
 # 🚀 Aplicativo WACS
 
-<p align="center">
-  <img src="https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=800&q=80" alt="Banner Acessibilidade" width="100%"/>
-</p>
-
 > **WACS** é um aplicativo móvel robusto, colaborativo e acessível, focado em mobilidade urbana e autonomia de pessoas com deficiência. Permite controle de cadeira de rodas, mapeamento de acessibilidade, perfis sociais e muito mais!
 
 ---
@@ -19,15 +15,12 @@
 
 - **Controle e Configuração da Cadeira:**
   - Ajuste de parâmetros, status em tempo real e controle total da mobilidade via Bluetooth.
-  - <img src="https://images.unsplash.com/photo-1517841905240-472988babdf9?auto=format&fit=crop&w=400&q=80" alt="Controle Cadeira de Rodas" width="300"/>
 - **Mapeamento Colaborativo de Acessibilidade:**
   - Marcação e avaliação de locais acessíveis (restaurantes, banheiros, calçadas, pontos de ônibus).
   - GPS com rotas adaptadas e informações sobre rampas, banheiros e facilidades.
   - Fotos e comentários da comunidade.
-  - <img src="https://images.unsplash.com/photo-1500534314209-a25ddb2bd429?auto=format&fit=crop&w=400&q=80" alt="Mapa Acessível" width="300"/>
 - **Sistema de Perfis:**
   - Criação, personalização e compartilhamento de perfis, interação social e troca de experiências.
-  - <img src="https://images.unsplash.com/photo-1519125323398-675f0ddb6308?auto=format&fit=crop&w=400&q=80" alt="Perfil Usuário" width="300"/>
 - **Tema Claro/Escuro**
 - **Notificações Push**
 
