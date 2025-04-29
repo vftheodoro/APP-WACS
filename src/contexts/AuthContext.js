@@ -122,8 +122,13 @@ export const AuthProvider = ({ children }) => {
     try {
       setIsUploading(true);
       
-      // Fazer upload da imagem para o Firebase Storage com monitoramento de progresso
-      const photoURL = await uploadProfilePicture(user.id, imageAsset, onProgress);
+      // Fazer upload da imagem para o Firebase Storage com monitoramento de progresso e nome do usuário
+      const photoURL = await uploadProfilePicture(
+        user.id, 
+        imageAsset, 
+        onProgress, 
+        user.name
+      );
       
       if (!photoURL) {
         throw new Error('Falha ao fazer upload da imagem');

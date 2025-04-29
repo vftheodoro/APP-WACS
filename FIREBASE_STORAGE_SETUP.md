@@ -49,12 +49,26 @@ Para fazer o deploy das regras de segurança, siga os passos abaixo:
 As fotos de perfil são armazenadas no seguinte formato:
 
 ```
-/profile_pictures/{userId}_profile_picture_{timestamp}.jpg
+/profile_pictures/{userId}_{userName}_profile_{timestamp}.jpg
 ```
 
 Onde:
 - `userId` é o ID do usuário no Firebase Authentication
+- `userName` é o nome do usuário formatado para uso em arquivos (sem acentos ou caracteres especiais)
 - `timestamp` é um timestamp que garante unicidade e evita problemas de cache
+
+## Gerenciamento de Fotos
+
+O sistema gerencia automaticamente as fotos de perfil da seguinte forma:
+
+1. **Upload de nova foto**: 
+   - A imagem é comprimida e redimensionada para otimizar o armazenamento
+   - As fotos antigas do mesmo usuário são excluídas automaticamente
+   - O nome do arquivo inclui o nome do usuário para melhor organização
+
+2. **Remoção de foto**:
+   - O usuário pode remover sua foto a qualquer momento
+   - Um avatar com as iniciais do usuário é exibido quando não há foto de perfil
 
 ## Políticas de Retenção
 

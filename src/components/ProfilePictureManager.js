@@ -10,7 +10,7 @@ import {
   Pressable,
   Alert
 } from 'react-native';
-import { MaterialIcons } from '@expo/vector-icons';
+import { MaterialIcons, Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../contexts/AuthContext';
 import { pickImage } from '../services/storage';
 import { colors, shadows, borderRadius } from '../utils/theme';
@@ -25,6 +25,7 @@ const ProfilePictureManager = ({ size = 120, style }) => {
   const [showProgress, setShowProgress] = useState(false);
   const [previewImage, setPreviewImage] = useState(null);
   const [showPreview, setShowPreview] = useState(false);
+  const [showOptionsModal, setShowOptionsModal] = useState(false);
   const [avatarImage, setAvatarImage] = useState(null);
 
   // Gerar avatar com iniciais quando o usuário não tem foto
@@ -38,7 +39,7 @@ const ProfilePictureManager = ({ size = 120, style }) => {
         .substring(0, 2)
         .toUpperCase();
       
-      setAvatarImage(`https://ui-avatars.com/api/?name=${initials}&background=${colors.primary.replace('#', '')}&color=fff&size=100`);
+      setAvatarImage(`https://ui-avatars.com/api/?name=${initials}&background=${colors.primary.replace('#', '')}&color=fff&size=200`);
     } else if (user?.photoURL) {
       setAvatarImage(null);
     }
@@ -66,6 +67,7 @@ const ProfilePictureManager = ({ size = 120, style }) => {
 
   const handleImagePick = async () => {
     try {
+      setShowOptionsModal(false);
       setIsLoading(true);
       setShowProgress(false);
       setUploadProgress(0);
@@ -88,8 +90,26 @@ const ProfilePictureManager = ({ size = 120, style }) => {
 
   const handleRemovePicture = async () => {
     try {
-      setIsLoading(true);
-      await removeProfilePicture(user?.photoURL);
+      setShowOptionsModal(false);
+      Alert.alert(
+        'Remover foto',
+        'Tem certeza que deseja remover sua foto de perfil?',
+        [
+          {
+            text: 'Cancelar',
+            style: 'cancel'
+          },
+          {
+            text: 'Remover',
+            onPress: async () => {
+              setIsLoading(true);
+              await removeProfilePicture(user?.photoURL);
+              Alert.alert('Sucesso', 'Sua foto de perfil foi removida.');
+            },
+            style: 'destructive'
+          }
+        ]
+      );
     } catch (error) {
       console.error('Erro ao remover foto:', error);
     } finally {
@@ -116,6 +136,7 @@ const ProfilePictureManager = ({ size = 120, style }) => {
           },
           handleProgress
         );
+        Alert.alert('Sucesso', 'Sua foto de perfil foi atualizada.');
       }
     } catch (error) {
       console.error('Erro ao confirmar imagem:', error);
@@ -129,6 +150,10 @@ const ProfilePictureManager = ({ size = 120, style }) => {
   const handleCancelPreview = () => {
     setShowPreview(false);
     setPreviewImage(null);
+  };
+
+  const handleOpenOptions = () => {
+    setShowOptionsModal(true);
   };
 
   return (
@@ -148,6 +173,7 @@ const ProfilePictureManager = ({ size = 120, style }) => {
             source={{ uri: avatarImage }}
             style={[styles.image, { width: size, height: size }]}
             resizeMode="cover"
+            accessibilityLabel={`Avatar com iniciais ${user?.name?.split(' ')[0] || 'do usuário'}`}
           />
         ) : (
           // Placeholder padrão
@@ -162,13 +188,14 @@ const ProfilePictureManager = ({ size = 120, style }) => {
           </View>
         )}
 
-        {/* Ícone de câmera flutuante */}
+        {/* Ícone para editar foto - nova versão com animação de pressionar */}
         <TouchableOpacity
-          style={styles.cameraButton}
-          onPress={handleImagePick}
+          style={styles.editPhotoButton}
+          onPress={handleOpenOptions}
           disabled={isUploading || isLoading}
+          activeOpacity={0.7}
         >
-          <MaterialIcons name="photo-camera" size={20} color={colors.white} />
+          <Ionicons name="camera" size={20} color={colors.white} />
         </TouchableOpacity>
       </View>
 
@@ -187,17 +214,46 @@ const ProfilePictureManager = ({ size = 120, style }) => {
         </View>
       )}
 
-      {/* Botões de ação */}
-      {user?.photoURL && (
-        <TouchableOpacity
-          style={[styles.removeButton]}
-          onPress={handleRemovePicture}
-          disabled={isUploading || isLoading}
+      {/* Modal de opções */}
+      <Modal
+        visible={showOptionsModal}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowOptionsModal(false)}
+      >
+        <Pressable 
+          style={styles.modalOverlay}
+          onPress={() => setShowOptionsModal(false)}
         >
-          <MaterialIcons name="delete" size={16} color={colors.error} />
-          <Text style={styles.removeButtonText}>Remover foto</Text>
-        </TouchableOpacity>
-      )}
+          <View style={styles.optionsContainer}>
+            <TouchableOpacity 
+              style={styles.optionButton}
+              onPress={handleImagePick}
+            >
+              <Ionicons name="image-outline" size={24} color={colors.primary} />
+              <Text style={styles.optionText}>Escolher nova foto</Text>
+            </TouchableOpacity>
+            
+            {user?.photoURL && (
+              <TouchableOpacity 
+                style={[styles.optionButton, styles.removeOption]}
+                onPress={handleRemovePicture}
+              >
+                <Ionicons name="trash-outline" size={24} color={colors.error} />
+                <Text style={[styles.optionText, styles.removeText]}>Remover foto atual</Text>
+              </TouchableOpacity>
+            )}
+            
+            <TouchableOpacity 
+              style={[styles.optionButton, styles.cancelOption]}
+              onPress={() => setShowOptionsModal(false)}
+            >
+              <Ionicons name="close-circle-outline" size={24} color={colors.darkGray} />
+              <Text style={[styles.optionText, styles.cancelText]}>Cancelar</Text>
+            </TouchableOpacity>
+          </View>
+        </Pressable>
+      </Modal>
 
       {/* Modal de pré-visualização */}
       <Modal
@@ -268,31 +324,20 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderRadius: 100,
   },
-  cameraButton: {
+  editPhotoButton: {
     position: 'absolute',
     bottom: 0,
     right: 0,
     backgroundColor: colors.primary,
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 2,
     borderColor: colors.white,
-    ...shadows.sm,
-  },
-  removeButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 10,
-    padding: 8,
-    borderRadius: borderRadius.md,
-  },
-  removeButtonText: {
-    color: colors.error,
-    marginLeft: 4,
-    fontSize: 14,
+    ...shadows.md,
+    elevation: 5,
   },
   progressContainer: {
     width: '80%',
@@ -314,6 +359,44 @@ const styles = StyleSheet.create({
     marginTop: 4,
     fontSize: 12,
     color: colors.textSecondary,
+  },
+  modalOverlay: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+  },
+  optionsContainer: {
+    backgroundColor: colors.background,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingVertical: 20,
+    paddingHorizontal: 16,
+    ...shadows.lg,
+  },
+  optionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.borderLight,
+  },
+  optionText: {
+    marginLeft: 16,
+    fontSize: 16,
+    color: colors.text,
+  },
+  removeOption: {
+    marginTop: 8,
+  },
+  removeText: {
+    color: colors.error,
+  },
+  cancelOption: {
+    marginTop: 8,
+    borderBottomWidth: 0,
+  },
+  cancelText: {
+    color: colors.darkGray,
   },
   modalContainer: {
     flex: 1,

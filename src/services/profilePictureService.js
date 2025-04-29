@@ -1,5 +1,5 @@
 import { storage } from '../config/firebase';
-import { ref, uploadBytes, getDownloadURL, deleteObject, uploadBytesResumable } from 'firebase/storage';
+import { ref, uploadBytes, getDownloadURL, deleteObject, uploadBytesResumable, listAll } from 'firebase/storage';
 import * as FileSystem from 'expo-file-system';
 import * as ImageManipulator from 'expo-image-manipulator';
 import { Alert } from 'react-native';
@@ -82,13 +82,57 @@ const processImage = async (uri) => {
 };
 
 /**
+ * Deleta as fotos de perfil antigas do usuário
+ * @param {string} userId ID do usuário
+ * @returns {Promise<void>}
+ */
+const deleteOldProfilePictures = async (userId) => {
+  try {
+    const profilePicsRef = ref(storage, 'profile_pictures');
+    const listResult = await listAll(profilePicsRef);
+    
+    const userPics = listResult.items.filter(item => {
+      // Filtrar imagens que começam com o ID do usuário
+      const name = item.name;
+      return name.startsWith(userId);
+    });
+
+    // Deletar todas as fotos antigas do usuário
+    const deletePromises = userPics.map(pic => deleteObject(pic));
+    await Promise.all(deletePromises);
+    
+    console.log(`${userPics.length} fotos antigas deletadas com sucesso.`);
+  } catch (error) {
+    console.error('Erro ao deletar fotos antigas:', error);
+    // Não propagamos o erro para não afetar o upload da nova foto
+  }
+};
+
+/**
+ * Formata o nome para usar em nomes de arquivos (remove caracteres especiais)
+ * @param {string} name Nome original
+ * @returns {string} Nome formatado
+ */
+const formatNameForFile = (name) => {
+  if (!name) return '';
+  // Remove caracteres especiais, acentos e espaços
+  return name
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^\w\s]/gi, '')
+    .replace(/\s+/g, '_')
+    .toLowerCase();
+};
+
+/**
  * Faz upload da foto de perfil para o Firebase Storage
  * @param {string} userId ID do usuário
  * @param {object} imageAsset Objeto da imagem selecionada
  * @param {function} onProgress Função de callback para progresso do upload
+ * @param {string} userName Nome do usuário para incluir no nome do arquivo
  * @returns {Promise<string|null>} URL da imagem no Firebase Storage ou null em caso de erro
  */
-export const uploadProfilePicture = async (userId, imageAsset, onProgress = null) => {
+export const uploadProfilePicture = async (userId, imageAsset, onProgress = null, userName = null) => {
   if (!userId || !imageAsset || !imageAsset.uri) {
     console.error('Parâmetros inválidos para upload:', { userId, imageAsset });
     return null;
@@ -103,13 +147,17 @@ export const uploadProfilePicture = async (userId, imageAsset, onProgress = null
       return null;
     }
 
+    // Deletar fotos antigas primeiro
+    await deleteOldProfilePictures(userId);
+
     // Processar imagem (comprimir e redimensionar)
     console.log('Processando imagem...');
     const processedImageUri = await processImage(imageAsset.uri);
     
-    // Gerar nome de arquivo único com timestamp para evitar problemas de cache
+    // Gerar nome de arquivo com nome do usuário, se disponível
     const timestamp = new Date().getTime();
-    const fileName = `${userId}_profile_picture_${timestamp}.jpg`;
+    const formattedName = formatNameForFile(userName || 'user');
+    const fileName = `${userId}_${formattedName}_profile_${timestamp}.jpg`;
     const storageRef = ref(storage, `profile_pictures/${fileName}`);
 
     // Converter a imagem para blob
