@@ -27,6 +27,7 @@
     "expo-dev-client": "~5.0.20",
     "expo-device": "^7.0.3",
     "expo-firebase-recaptcha": "^2.3.1",
+    "expo-image-manipulator": "^13.0.6",
     "expo-image-picker": "^16.0.6",
     "expo-local-authentication": "^15.0.2",
     "expo-location": "~18.0.10",

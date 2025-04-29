@@ -113,7 +113,7 @@ export const AuthProvider = ({ children }) => {
   };
 
   // Atualizar foto de perfil
-  const updateProfilePicture = async (imageAsset) => {
+  const updateProfilePicture = async (imageAsset, onProgress = null) => {
     if (!user || !imageAsset) {
       Alert.alert('Erro', 'Usuário ou imagem inválidos');
       return;
@@ -122,8 +122,8 @@ export const AuthProvider = ({ children }) => {
     try {
       setIsUploading(true);
       
-      // Fazer upload da imagem para o Firebase Storage
-      const photoURL = await uploadProfilePicture(user.id, imageAsset);
+      // Fazer upload da imagem para o Firebase Storage com monitoramento de progresso
+      const photoURL = await uploadProfilePicture(user.id, imageAsset, onProgress);
       
       if (!photoURL) {
         throw new Error('Falha ao fazer upload da imagem');
@@ -140,8 +140,13 @@ export const AuthProvider = ({ children }) => {
 
       // Salvar imagem localmente para cache
       await saveImageLocally(user.id, imageAsset);
+      
+      // Atualizar dados do último usuário
+      saveLastUser({
+        ...user,
+        photoURL
+      });
 
-      Alert.alert('Sucesso', 'Foto de perfil atualizada com sucesso!');
       return photoURL;
     } catch (error) {
       console.error('Erro ao atualizar foto de perfil:', error);
@@ -153,7 +158,7 @@ export const AuthProvider = ({ children }) => {
   };
 
   // Deletar foto de perfil
-  const removeProfilePicture = async () => {
+  const removeProfilePicture = async (photoURL = null) => {
     if (!user) {
       Alert.alert('Erro', 'Usuário não encontrado');
       return;
@@ -163,7 +168,7 @@ export const AuthProvider = ({ children }) => {
       setIsUploading(true);
 
       // Deletar foto do Firebase Storage
-      await deleteProfilePicture(user.id);
+      await deleteProfilePicture(user.id, photoURL || user.photoURL);
 
       // Atualizar perfil do usuário removendo a foto
       await updateProfile(auth.currentUser, { photoURL: null });
@@ -176,6 +181,12 @@ export const AuthProvider = ({ children }) => {
 
       // Deletar imagem local
       await deleteLocalImage(user.id);
+      
+      // Atualizar dados do último usuário
+      saveLastUser({
+        ...user,
+        photoURL: null
+      });
 
       Alert.alert('Sucesso', 'Foto de perfil removida com sucesso!');
     } catch (error) {
