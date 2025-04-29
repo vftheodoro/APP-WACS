@@ -9,6 +9,7 @@ import {
 import { auth } from '../config/firebase';
 import { saveLastUser } from '../utils/storage';
 import { saveImageLocally, deleteLocalImage } from '../services/storage';
+import { uploadProfilePicture, deleteProfilePicture } from '../services/profilePictureService';
 import { Alert } from 'react-native';
 
 const AuthContext = createContext({});
@@ -111,63 +112,76 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  // Atualizar foto de perfil do usuário
+  // Atualizar foto de perfil
   const updateProfilePicture = async (imageAsset) => {
-    if (!user || !user.id || !imageAsset) {
-      console.error('Dados inválidos para atualizar foto de perfil:', { user, imageAsset });
-      Alert.alert('Erro', 'Não foi possível atualizar a foto de perfil.');
-      return false;
+    if (!user || !imageAsset) {
+      Alert.alert('Erro', 'Usuário ou imagem inválidos');
+      return;
     }
 
     try {
-      console.log('Iniciando processo de atualização de foto de perfil');
       setIsUploading(true);
-      setError(null);
-
-      // Se já existir uma foto, tenta excluir a antiga
-      if (user.photoURL) {
-        try {
-          console.log('Tentando excluir foto antiga');
-          await deleteLocalImage(user.id);
-          console.log('Foto antiga excluída com sucesso');
-        } catch (error) {
-          console.warn('Erro ao excluir imagem antiga:', error);
-        }
-      }
-
-      // Salvar a nova imagem localmente
-      console.log('Iniciando salvamento da nova imagem');
-      const localPath = await saveImageLocally(user.id, imageAsset);
       
-      if (!localPath) {
-        console.error('Não foi possível salvar a imagem localmente');
-        throw new Error('Não foi possível salvar a imagem localmente');
+      // Fazer upload da imagem para o Firebase Storage
+      const photoURL = await uploadProfilePicture(user.id, imageAsset);
+      
+      if (!photoURL) {
+        throw new Error('Falha ao fazer upload da imagem');
       }
 
-      console.log('Imagem salva com sucesso. Caminho:', localPath);
+      // Atualizar o perfil do usuário com a nova URL da foto
+      await updateProfile(auth.currentUser, { photoURL });
 
       // Atualizar estado local
       setUser(prev => ({
         ...prev,
-        photoURL: localPath
+        photoURL
       }));
 
-      // Atualizar dados do último usuário
-      if (user) {
-        saveLastUser({
-          ...user,
-          photoURL: localPath
-        });
-      }
+      // Salvar imagem localmente para cache
+      await saveImageLocally(user.id, imageAsset);
 
-      console.log('Processo de atualização de foto concluído com sucesso');
-      Alert.alert('Sucesso', 'Sua foto de perfil foi atualizada com sucesso!');
-      return true;
-    } catch (err) {
-      console.error('Erro ao atualizar foto de perfil:', err);
-      setError('Ocorreu um erro ao atualizar sua foto de perfil. Tente novamente.');
-      Alert.alert('Erro', 'Ocorreu um erro ao atualizar sua foto de perfil. Tente novamente.');
-      return false;
+      Alert.alert('Sucesso', 'Foto de perfil atualizada com sucesso!');
+      return photoURL;
+    } catch (error) {
+      console.error('Erro ao atualizar foto de perfil:', error);
+      Alert.alert('Erro', 'Não foi possível atualizar a foto de perfil. Tente novamente.');
+      throw error;
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  // Deletar foto de perfil
+  const removeProfilePicture = async () => {
+    if (!user) {
+      Alert.alert('Erro', 'Usuário não encontrado');
+      return;
+    }
+
+    try {
+      setIsUploading(true);
+
+      // Deletar foto do Firebase Storage
+      await deleteProfilePicture(user.id);
+
+      // Atualizar perfil do usuário removendo a foto
+      await updateProfile(auth.currentUser, { photoURL: null });
+
+      // Atualizar estado local
+      setUser(prev => ({
+        ...prev,
+        photoURL: null
+      }));
+
+      // Deletar imagem local
+      await deleteLocalImage(user.id);
+
+      Alert.alert('Sucesso', 'Foto de perfil removida com sucesso!');
+    } catch (error) {
+      console.error('Erro ao remover foto de perfil:', error);
+      Alert.alert('Erro', 'Não foi possível remover a foto de perfil. Tente novamente.');
+      throw error;
     } finally {
       setIsUploading(false);
     }
@@ -193,16 +207,17 @@ export const AuthProvider = ({ children }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ 
-      user, 
-      login, 
-      logout, 
+    <AuthContext.Provider value={{
+      user,
+      loading,
+      error,
+      isUploading,
+      login,
       register,
+      logout,
       updateUser,
       updateProfilePicture,
-      isUploading, 
-      loading, 
-      error 
+      removeProfilePicture
     }}>
       {children}
     </AuthContext.Provider>
