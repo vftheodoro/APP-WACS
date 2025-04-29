@@ -28,9 +28,9 @@ module.exports = function (api) {
         moduleName: '@env',
         path: '.env',
         blacklist: null,
-        whitelist: null,
-        safe: false,
-        allowUndefined: false
+        whitelist: ['GOOGLE_MAPS_API_KEY'],
+        safe: true,
+        allowUndefined: true
       }]
     ]
   };

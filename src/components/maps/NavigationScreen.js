@@ -1,8 +1,10 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, StyleSheet, Text, TouchableOpacity, Dimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import MapView, { Polyline, Marker } from 'react-native-maps';
+import MapView, { Polyline, Marker, PROVIDER_GOOGLE } from 'react-native-maps';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import ErrorAlert from '../common/ErrorAlert';
+import { GOOGLE_MAPS_API_KEY } from '@env';
 
 const { width, height } = Dimensions.get('window');
 
@@ -15,6 +17,29 @@ const NavigationScreen = ({
   onClose,
 }) => {
   const insets = useSafeAreaInsets();
+  const [error, setError] = useState(null);
+  const [mapReady, setMapReady] = useState(false);
+
+  useEffect(() => {
+    if (!GOOGLE_MAPS_API_KEY) {
+      setError({
+        title: 'Erro de Configuração do Mapa',
+        messages: [
+          'A chave da API do Google Maps não está configurada',
+          'Verifique o arquivo .env e adicione GOOGLE_MAPS_API_KEY',
+          'Reinicie o aplicativo após a configuração'
+        ]
+      });
+    }
+  }, []);
+
+  if (error) {
+    return (
+      <View style={styles.container}>
+        <ErrorAlert title={error.title} messages={error.messages} />
+      </View>
+    );
+  }
 
   const formatDistance = (meters) => {
     if (meters < 1000) {
@@ -74,6 +99,7 @@ const NavigationScreen = ({
         }}
         showsUserLocation
         showsMyLocationButton
+        provider={PROVIDER_GOOGLE}
       >
         {routeData && (
           <Polyline
