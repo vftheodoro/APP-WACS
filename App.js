@@ -7,6 +7,7 @@ import { AppNavigator } from './src/navigation/AppNavigator';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { BluetoothProvider } from './src/contexts/BluetoothContext';
+import { SearchHistoryProvider } from './src/contexts/SearchHistoryContext';
 
 export default function App() {
   return (
@@ -14,12 +15,14 @@ export default function App() {
       <SafeAreaProvider>
         <AuthProvider>
           <ThemeProvider>
-            <BluetoothProvider>
-              <NavigationContainer>
-                <StatusBar style="auto" />
-                <AppNavigator />
-              </NavigationContainer>
-            </BluetoothProvider>
+            <SearchHistoryProvider>
+              <BluetoothProvider>
+                <NavigationContainer>
+                  <StatusBar style="auto" />
+                  <AppNavigator />
+                </NavigationContainer>
+              </BluetoothProvider>
+            </SearchHistoryProvider>
           </ThemeProvider>
         </AuthProvider>
       </SafeAreaProvider>
