@@ -5,7 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 
 import { LoginScreen } from '../screens/LoginScreen';
 import { ControlScreen } from '../screens/ControlScreen';
-import MapScreen from '../screens/MapScreen';
+import { MapScreen } from '../screens/MapScreen';
 import { ProfileScreen } from '../screens/ProfileScreen';
 import { BluetoothConnectionScreen } from '../screens/BluetoothConnectionScreen';
 import { useAuth } from '../contexts/AuthContext';
@@ -45,6 +45,7 @@ const MainTabs = () => {
         name="Mapa"
         component={MapScreen}
         options={{
+          headerShown: false,
           tabBarLabel: 'Mapa',
           tabBarIcon: ({ focused, color, size }) => (
             <Ionicons 
