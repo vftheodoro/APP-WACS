@@ -1,9 +1,10 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Platform, Alert, Dimensions, TextInput } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Platform, Alert, Dimensions, TextInput, Switch } from 'react-native';
 import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
 import * as Location from 'expo-location';
-import { Ionicons, MaterialIcons } from '@expo/vector-icons';
+import { Ionicons, MaterialIcons, FontAwesome5 } from '@expo/vector-icons';
 import Constants from 'expo-constants';
+import * as Speech from 'expo-speech';
 
 const GOOGLE_MAPS_APIKEY = Constants.expoConfig.extra.GOOGLE_MAPS_API_KEY;
 const { width, height } = Dimensions.get('window');
@@ -18,8 +19,14 @@ const MapScreen = () => {
   const [searchText, setSearchText] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [isSearching, setIsSearching] = useState(false);
+  const [voiceNavigation, setVoiceNavigation] = useState(true);
+  const [navigationSteps, setNavigationSteps] = useState([]);
+  const [currentStepIndex, setCurrentStepIndex] = useState(0);
+  const [isNavigating, setIsNavigating] = useState(false);
+  const [lastSpokenDistance, setLastSpokenDistance] = useState(null);
   const mapRef = useRef(null);
   const locationWatcher = useRef(null);
+  const navigationInterval = useRef(null);
 
   // Solicitar permissão e iniciar localização em tempo real
   useEffect(() => {
@@ -38,6 +45,16 @@ const MapScreen = () => {
     })();
     return () => {
       if (locationWatcher.current) locationWatcher.current.remove();
+    };
+  }, []);
+
+  // Limpar recursos quando o componente for desmontado
+  useEffect(() => {
+    return () => {
+      if (navigationInterval.current) {
+        clearInterval(navigationInterval.current);
+      }
+      Speech.stop();
     };
   }, []);
 
@@ -86,7 +103,7 @@ const MapScreen = () => {
   const getRoute = async (origin, dest) => {
     setLoadingRoute(true);
     try {
-      const url = `https://maps.googleapis.com/maps/api/directions/json?origin=${origin.latitude},${origin.longitude}&destination=${dest.latitude},${dest.longitude}&key=${GOOGLE_MAPS_APIKEY}`;
+      const url = `https://maps.googleapis.com/maps/api/directions/json?origin=${origin.latitude},${origin.longitude}&destination=${dest.latitude},${dest.longitude}&key=${GOOGLE_MAPS_APIKEY}&language=pt-BR`;
       const response = await fetch(url);
       const data = await response.json();
       if (data.routes && data.routes.length > 0) {
@@ -98,6 +115,25 @@ const MapScreen = () => {
           duration: leg.duration.text,
           instruction: leg.steps[0]?.html_instructions.replace(/<[^>]+>/g, '') || '',
         });
+        
+        // Processar passos da navegação
+        const steps = leg.steps.map(step => ({
+          distance: step.distance.text,
+          duration: step.duration.text,
+          instruction: step.html_instructions.replace(/<[^>]+>/g, ''),
+          startLocation: step.start_location,
+          endLocation: step.end_location,
+          maneuver: step.maneuver || '',
+          polyline: decodePolyline(step.polyline.points)
+        }));
+        setNavigationSteps(steps);
+        setCurrentStepIndex(0);
+        
+        // Iniciar navegação com voz
+        if (voiceNavigation) {
+          startVoiceNavigation(steps);
+        }
+        
         // Centralizar no início da rota
         if (mapRef.current) {
           mapRef.current.animateToRegion({
@@ -110,9 +146,11 @@ const MapScreen = () => {
       } else {
         setRouteCoords([]);
         setInfo({ distance: '', duration: '', instruction: 'Rota não encontrada' });
+        setNavigationSteps([]);
       }
     } catch (e) {
       setErrorMsg('Erro ao buscar rota');
+      console.error('Erro ao buscar rota:', e);
     }
     setLoadingRoute(false);
   };
@@ -172,13 +210,180 @@ const MapScreen = () => {
     setSearchText(place.name);
   };
 
+  // Iniciar navegação por voz
+  const startVoiceNavigation = (steps) => {
+    if (!steps || steps.length === 0) return;
+
+    // Anunciar início da navegação
+    speakText(`Iniciando navegação. ${steps[0].instruction}`);
+    
+    setIsNavigating(true);
+    setCurrentStepIndex(0);
+    setLastSpokenDistance(null);
+    
+    // Limpar intervalo anterior se existir
+    if (navigationInterval.current) {
+      clearInterval(navigationInterval.current);
+    }
+    
+    // Monitorar progresso da navegação
+    navigationInterval.current = setInterval(() => {
+      if (!location || !steps[currentStepIndex]) return;
+      
+      // Calcular distância até o próximo ponto de manobra
+      const nextStep = steps[currentStepIndex];
+      const distanceToNextStep = calculateDistance(
+        location.latitude,
+        location.longitude,
+        nextStep.endLocation.lat,
+        nextStep.endLocation.lng
+      );
+      
+      // Fornecer orientações com base na distância
+      provideVoiceGuidance(distanceToNextStep, nextStep, currentStepIndex, steps);
+      
+    }, 5000); // Verificar a cada 5 segundos
+  };
+
+  // Calcular distância entre dois pontos em metros
+  const calculateDistance = (lat1, lon1, lat2, lon2) => {
+    const R = 6371e3; // Raio da Terra em metros
+    const φ1 = lat1 * Math.PI / 180;
+    const φ2 = lat2 * Math.PI / 180;
+    const Δφ = (lat2 - lat1) * Math.PI / 180;
+    const Δλ = (lon2 - lon1) * Math.PI / 180;
+
+    const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) +
+              Math.cos(φ1) * Math.cos(φ2) *
+              Math.sin(Δλ/2) * Math.sin(Δλ/2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    const distance = R * c;
+
+    return distance; // Distância em metros
+  };
+
+  // Fornecer orientações por voz com base na distância
+  const provideVoiceGuidance = (distance, step, index, steps) => {
+    // Se já chegou ao destino final
+    if (index >= steps.length - 1 && distance < 20) {
+      if (lastSpokenDistance !== 'arrived') {
+        speakText('Você chegou ao seu destino.');
+        setLastSpokenDistance('arrived');
+        stopNavigation();
+      }
+      return;
+    }
+    
+    // Se está se aproximando do próximo ponto de manobra
+    if (distance < 50 && distance > 20) {
+      if (lastSpokenDistance !== 'prepare') {
+        const nextInstruction = index < steps.length - 1 
+          ? ` Em seguida, ${steps[index + 1].instruction}.` 
+          : '';
+        speakText(`Prepare-se para ${step.instruction}.${nextInstruction}`);
+        setLastSpokenDistance('prepare');
+      }
+    } 
+    // Quando estiver muito próximo, avance para o próximo passo
+    else if (distance < 20) {
+      if (lastSpokenDistance !== 'next') {
+        setCurrentStepIndex(prevIndex => {
+          const newIndex = prevIndex + 1;
+          if (newIndex < steps.length) {
+            speakText(steps[newIndex].instruction);
+          }
+          return newIndex;
+        });
+        setLastSpokenDistance('next');
+      }
+    }
+    // Distâncias para anunciar
+    else if (distance < 200 && lastSpokenDistance !== '200m') {
+      speakText(`Em 200 metros, ${step.instruction}`);
+      setLastSpokenDistance('200m');
+    }
+    else if (distance < 500 && lastSpokenDistance !== '500m') {
+      speakText(`Em 500 metros, ${step.instruction}`);
+      setLastSpokenDistance('500m');
+    }
+    else if (distance < 1000 && lastSpokenDistance !== '1km') {
+      speakText(`Em 1 quilômetro, ${step.instruction}`);
+      setLastSpokenDistance('1km');
+    }
+  };
+
+  // Função para falar texto
+  const speakText = (text) => {
+    if (!voiceNavigation) return;
+    
+    // Parar qualquer fala anterior
+    Speech.stop();
+    
+    // Falar o novo texto
+    Speech.speak(text, {
+      language: 'pt-BR',
+      pitch: 1.0,
+      rate: 0.9,
+    });
+  };
+
+  // Parar navegação
+  const stopNavigation = () => {
+    if (navigationInterval.current) {
+      clearInterval(navigationInterval.current);
+      navigationInterval.current = null;
+    }
+    setIsNavigating(false);
+    Speech.stop();
+  };
+
+  // Alternar navegação por voz
+  const toggleVoiceNavigation = () => {
+    setVoiceNavigation(prev => !prev);
+    if (!voiceNavigation && isNavigating) {
+      // Se estava desligado e agora está ligado
+      startVoiceNavigation(navigationSteps);
+    } else if (voiceNavigation && isNavigating) {
+      // Se estava ligado e agora está desligado
+      Speech.stop();
+    }
+  };
+
   // Cancelar navegação
   const cancelNavigation = () => {
+    stopNavigation();
     setDestination(null);
     setRouteCoords([]);
     setInfo({ distance: '', duration: '', instruction: '' });
     setSearchText('');
     setSearchResults([]);
+    setNavigationSteps([]);
+    setCurrentStepIndex(0);
+    setLastSpokenDistance(null);
+  };
+
+  // Obter ícone com base no tipo de manobra
+  const getManeuverIcon = (maneuver) => {
+    switch (maneuver) {
+      case 'turn-right':
+        return 'arrow-right';
+      case 'turn-left':
+        return 'arrow-left';
+      case 'uturn-right':
+      case 'uturn-left':
+        return 'undo';
+      case 'roundabout-right':
+      case 'roundabout-left':
+        return 'sync';
+      case 'merge':
+        return 'compress-arrows-alt';
+      case 'fork-right':
+      case 'fork-left':
+        return 'code-branch';
+      case 'straight':
+      default:
+        return 'arrow-up';
+    }
   };
 
   return (
@@ -215,6 +420,15 @@ const MapScreen = () => {
               coordinates={routeCoords}
               strokeWidth={6}
               strokeColor="#007bff"
+            />
+          )}
+          
+          {/* Mostrar polyline para o passo atual da navegação com destaque */}
+          {isNavigating && navigationSteps.length > 0 && currentStepIndex < navigationSteps.length && (
+            <Polyline
+              coordinates={navigationSteps[currentStepIndex].polyline}
+              strokeWidth={8}
+              strokeColor="#4CAF50"
             />
           )}
         </MapView>
@@ -286,11 +500,52 @@ const MapScreen = () => {
         <MaterialIcons name="search" size={28} color="#fff" />
       </TouchableOpacity>
       
-      {/* Painel de rota */}
+      {/* Botão de navegação por voz */}
       {destination && routeCoords.length > 0 && (
-        <View style={styles.routePanel}>
+        <TouchableOpacity 
+          style={[styles.voiceButton, !voiceNavigation && styles.voiceButtonDisabled]} 
+          onPress={toggleVoiceNavigation}
+        >
+          <FontAwesome5 
+            name={voiceNavigation ? "volume-up" : "volume-mute"} 
+            size={24} 
+            color="#fff" 
+          />
+        </TouchableOpacity>
+      )}
+      
+      {/* Painel de navegação */}
+      {destination && routeCoords.length > 0 && (
+        <View style={styles.navigationPanel}>
+          <View style={styles.navigationHeader}>
+            <Text style={styles.navigationTitle}>Navegação</Text>
+            <View style={styles.voiceToggleContainer}>
+              <Text style={styles.voiceToggleLabel}>Voz</Text>
+              <Switch 
+                value={voiceNavigation} 
+                onValueChange={toggleVoiceNavigation}
+                trackColor={{ false: "#767577", true: "#81b0ff" }}
+                thumbColor={voiceNavigation ? "#007bff" : "#f4f3f4"}
+              />
+            </View>
+          </View>
+          
           <Text style={styles.routeText}>Distância: {info.distance} | Tempo: {info.duration}</Text>
-          <Text style={styles.routeText}>Próxima instrução: {info.instruction}</Text>
+          
+          {isNavigating && navigationSteps.length > 0 && currentStepIndex < navigationSteps.length && (
+            <View style={styles.stepContainer}>
+              <FontAwesome5 
+                name={getManeuverIcon(navigationSteps[currentStepIndex].maneuver)} 
+                size={24} 
+                color="#007bff" 
+                style={styles.maneuverIcon}
+              />
+              <Text style={styles.stepInstruction}>
+                {navigationSteps[currentStepIndex].instruction}
+              </Text>
+            </View>
+          )}
+          
           <TouchableOpacity style={styles.cancelButton} onPress={cancelNavigation}>
             <Ionicons name="close" size={20} color="#fff" />
             <Text style={{ color: '#fff', marginLeft: 8 }}>Cancelar Navegação</Text>
@@ -414,7 +669,24 @@ const styles = StyleSheet.create({
     shadowRadius: 3.84,
     zIndex: 10,
   },
-  routePanel: {
+  voiceButton: {
+    position: 'absolute',
+    bottom: 30,
+    right: 160,
+    backgroundColor: '#007bff',
+    borderRadius: 30,
+    padding: 16,
+    elevation: 5,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    zIndex: 10,
+  },
+  voiceButtonDisabled: {
+    backgroundColor: '#ccc',
+  },
+  navigationPanel: {
     position: 'absolute',
     top: 120,
     left: 20,
@@ -433,6 +705,45 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: '#333',
     marginBottom: 6,
+  },
+  navigationHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  navigationTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#333',
+  },
+  voiceToggleContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  voiceToggleLabel: {
+    fontSize: 15,
+    color: '#333',
+    marginRight: 10,
+  },
+  stepContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: 10,
+    padding: 10,
+    backgroundColor: '#f8f9fa',
+    borderRadius: 8,
+  },
+  maneuverIcon: {
+    marginRight: 10,
+    width: 30,
+    textAlign: 'center',
+  },
+  stepInstruction: {
+    flex: 1,
+    fontSize: 15,
+    color: '#333',
+    lineHeight: 20,
   },
   cancelButton: {
     flexDirection: 'row',
