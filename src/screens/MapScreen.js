@@ -1,10 +1,10 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Platform, Alert, Dimensions, TextInput, Switch } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Platform, Alert, Dimensions, TextInput, FlatList, ScrollView } from 'react-native';
 import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
 import * as Location from 'expo-location';
 import { Ionicons, MaterialIcons, FontAwesome5 } from '@expo/vector-icons';
 import Constants from 'expo-constants';
-import * as Speech from 'expo-speech';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const GOOGLE_MAPS_APIKEY = Constants.expoConfig.extra.GOOGLE_MAPS_API_KEY;
 const { width, height } = Dimensions.get('window');
@@ -19,14 +19,102 @@ const MapScreen = () => {
   const [searchText, setSearchText] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [isSearching, setIsSearching] = useState(false);
-  const [voiceNavigation, setVoiceNavigation] = useState(true);
+  const [searchHistory, setSearchHistory] = useState([]);
+  const [showSearchHistory, setShowSearchHistory] = useState(false);
+  const [nearbyPlaces, setNearbyPlaces] = useState([]);
+  const [isLoadingNearby, setIsLoadingNearby] = useState(false);
   const [navigationSteps, setNavigationSteps] = useState([]);
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
   const [isNavigating, setIsNavigating] = useState(false);
-  const [lastSpokenDistance, setLastSpokenDistance] = useState(null);
   const mapRef = useRef(null);
   const locationWatcher = useRef(null);
   const navigationInterval = useRef(null);
+  const searchInputRef = useRef(null);
+  
+  // Carregar histórico de pesquisa
+  useEffect(() => {
+    loadSearchHistory();
+    if (location) {
+      fetchNearbyPlaces();
+    }
+  }, [location]);
+
+  // Carregar histórico de pesquisa do AsyncStorage
+  const loadSearchHistory = async () => {
+    try {
+      const historyJson = await AsyncStorage.getItem('mapSearchHistory');
+      if (historyJson) {
+        const history = JSON.parse(historyJson);
+        setSearchHistory(history);
+      }
+    } catch (error) {
+      console.error('Erro ao carregar histórico de pesquisa:', error);
+    }
+  };
+
+  // Salvar no histórico de pesquisa
+  const saveToSearchHistory = async (place) => {
+    try {
+      // Não salvar duplicatas no histórico
+      const exists = searchHistory.some(item => item.id === place.id);
+      if (exists) return;
+
+      // Adicionar ao início e limitar a 10 itens
+      const updatedHistory = [place, ...searchHistory].slice(0, 10);
+      setSearchHistory(updatedHistory);
+      await AsyncStorage.setItem('mapSearchHistory', JSON.stringify(updatedHistory));
+    } catch (error) {
+      console.error('Erro ao salvar histórico de pesquisa:', error);
+    }
+  };
+
+  // Limpar histórico de pesquisa
+  const clearSearchHistory = async () => {
+    try {
+      await AsyncStorage.removeItem('mapSearchHistory');
+      setSearchHistory([]);
+      Alert.alert('Histórico', 'Histórico de pesquisa limpo com sucesso.');
+    } catch (error) {
+      console.error('Erro ao limpar histórico:', error);
+    }
+  };
+
+  // Buscar locais próximos
+  const fetchNearbyPlaces = async () => {
+    if (!location) return;
+    
+    setIsLoadingNearby(true);
+    try {
+      const url = `https://maps.googleapis.com/maps/api/place/nearbysearch/json?location=${location.latitude},${location.longitude}&radius=1500&type=establishment&key=${GOOGLE_MAPS_APIKEY}&language=pt-BR`;
+      
+      const response = await fetch(url);
+      const data = await response.json();
+      
+      if (data.results && data.results.length > 0) {
+        const places = data.results.map(place => ({
+          id: place.place_id,
+          name: place.name,
+          address: place.vicinity,
+          location: {
+            latitude: place.geometry.location.lat,
+            longitude: place.geometry.location.lng
+          },
+          rating: place.rating || 0,
+          distance: calculateDistance(
+            location.latitude,
+            location.longitude,
+            place.geometry.location.lat,
+            place.geometry.location.lng
+          )
+        })).sort((a, b) => a.distance - b.distance);
+        
+        setNearbyPlaces(places.slice(0, 5)); // Limitar a 5 locais próximos
+      }
+    } catch (error) {
+      console.error('Erro ao buscar locais próximos:', error);
+    }
+    setIsLoadingNearby(false);
+  };
 
   // Solicitar permissão e iniciar localização em tempo real
   useEffect(() => {
@@ -54,7 +142,6 @@ const MapScreen = () => {
       if (navigationInterval.current) {
         clearInterval(navigationInterval.current);
       }
-      Speech.stop();
     };
   }, []);
 
@@ -70,25 +157,39 @@ const MapScreen = () => {
 
   // Função para buscar locais pelo texto de pesquisa
   const searchPlaces = async () => {
-    if (!searchText || searchText.trim().length < 3 || !location) return;
+    if (!searchText || searchText.trim().length < 2 || !location) return;
     
     setIsSearching(true);
+    setShowSearchHistory(false);
+    
     try {
-      const url = `https://maps.googleapis.com/maps/api/place/textsearch/json?query=${encodeURIComponent(searchText)}&location=${location.latitude},${location.longitude}&radius=5000&key=${GOOGLE_MAPS_APIKEY}&language=pt-BR`;
+      // Adicionar bias de localização para priorizar resultados próximos
+      const url = `https://maps.googleapis.com/maps/api/place/textsearch/json?query=${encodeURIComponent(searchText)}&location=${location.latitude},${location.longitude}&radius=50000&key=${GOOGLE_MAPS_APIKEY}&language=pt-BR`;
       
       const response = await fetch(url);
       const data = await response.json();
       
       if (data.results && data.results.length > 0) {
-        setSearchResults(data.results.map(place => ({
+        const places = data.results.map(place => ({
           id: place.place_id,
           name: place.name,
           address: place.formatted_address,
           location: {
             latitude: place.geometry.location.lat,
             longitude: place.geometry.location.lng
-          }
-        })));
+          },
+          rating: place.rating || 0,
+          distance: calculateDistance(
+            location.latitude,
+            location.longitude,
+            place.geometry.location.lat,
+            place.geometry.location.lng
+          )
+        }));
+        
+        // Ordenar resultados por distância
+        const sortedPlaces = places.sort((a, b) => a.distance - b.distance);
+        setSearchResults(sortedPlaces);
       } else {
         setSearchResults([]);
       }
@@ -129,20 +230,15 @@ const MapScreen = () => {
         setNavigationSteps(steps);
         setCurrentStepIndex(0);
         
-        // Iniciar navegação com voz
-        if (voiceNavigation) {
-          startVoiceNavigation(steps);
-        }
-        
         // Centralizar no início da rota
         if (mapRef.current) {
-          mapRef.current.animateToRegion({
+      mapRef.current.animateToRegion({
             latitude: origin.latitude,
             longitude: origin.longitude,
-            latitudeDelta: 0.01,
-            longitudeDelta: 0.01,
-          }, 1000);
-        }
+        latitudeDelta: 0.01,
+        longitudeDelta: 0.01,
+      }, 1000);
+    }
       } else {
         setRouteCoords([]);
         setInfo({ distance: '', duration: '', instruction: 'Rota não encontrada' });
@@ -201,6 +297,7 @@ const MapScreen = () => {
     setDestination({ latitude, longitude });
     setSearchText('');
     setSearchResults([]);
+    setShowSearchHistory(false);
   };
 
   // Selecionar local da lista de resultados
@@ -208,18 +305,25 @@ const MapScreen = () => {
     setDestination(place.location);
     setSearchResults([]);
     setSearchText(place.name);
+    setShowSearchHistory(false);
+    
+    // Salvar no histórico
+    saveToSearchHistory(place);
   };
 
-  // Iniciar navegação por voz
-  const startVoiceNavigation = (steps) => {
-    if (!steps || steps.length === 0) return;
+  // Selecionar um item do histórico
+  const selectHistoryItem = (item) => {
+    setDestination(item.location);
+    setSearchText(item.name);
+    setShowSearchHistory(false);
+  };
 
-    // Anunciar início da navegação
-    speakText(`Iniciando navegação. ${steps[0].instruction}`);
+  // Iniciar navegação
+  const startNavigation = (steps) => {
+    if (!steps || steps.length === 0) return;
     
     setIsNavigating(true);
     setCurrentStepIndex(0);
-    setLastSpokenDistance(null);
     
     // Limpar intervalo anterior se existir
     if (navigationInterval.current) {
@@ -239,9 +343,22 @@ const MapScreen = () => {
         nextStep.endLocation.lng
       );
       
-      // Fornecer orientações com base na distância
-      provideVoiceGuidance(distanceToNextStep, nextStep, currentStepIndex, steps);
+      // Se já chegou ao destino final
+      if (currentStepIndex >= steps.length - 1 && distanceToNextStep < 20) {
+        stopNavigation();
+        return;
+      }
       
+      // Quando estiver muito próximo, avance para o próximo passo
+      if (distanceToNextStep < 20) {
+        setCurrentStepIndex(prevIndex => {
+          const newIndex = prevIndex + 1;
+          if (newIndex < steps.length) {
+            return newIndex;
+          }
+          return prevIndex;
+        });
+      }
     }, 5000); // Verificar a cada 5 segundos
   };
 
@@ -260,106 +377,6 @@ const MapScreen = () => {
     const distance = R * c;
 
     return distance; // Distância em metros
-  };
-
-  // Fornecer orientações por voz com base na distância
-  const provideVoiceGuidance = (distance, step, index, steps) => {
-    // Se já chegou ao destino final
-    if (index >= steps.length - 1 && distance < 20) {
-      if (lastSpokenDistance !== 'arrived') {
-        speakText('Você chegou ao seu destino.');
-        setLastSpokenDistance('arrived');
-        stopNavigation();
-      }
-      return;
-    }
-    
-    // Se está se aproximando do próximo ponto de manobra
-    if (distance < 50 && distance > 20) {
-      if (lastSpokenDistance !== 'prepare') {
-        const nextInstruction = index < steps.length - 1 
-          ? ` Em seguida, ${steps[index + 1].instruction}.` 
-          : '';
-        speakText(`Prepare-se para ${step.instruction}.${nextInstruction}`);
-        setLastSpokenDistance('prepare');
-      }
-    } 
-    // Quando estiver muito próximo, avance para o próximo passo
-    else if (distance < 20) {
-      if (lastSpokenDistance !== 'next') {
-        setCurrentStepIndex(prevIndex => {
-          const newIndex = prevIndex + 1;
-          if (newIndex < steps.length) {
-            speakText(steps[newIndex].instruction);
-          }
-          return newIndex;
-        });
-        setLastSpokenDistance('next');
-      }
-    }
-    // Distâncias para anunciar
-    else if (distance < 200 && lastSpokenDistance !== '200m') {
-      speakText(`Em 200 metros, ${step.instruction}`);
-      setLastSpokenDistance('200m');
-    }
-    else if (distance < 500 && lastSpokenDistance !== '500m') {
-      speakText(`Em 500 metros, ${step.instruction}`);
-      setLastSpokenDistance('500m');
-    }
-    else if (distance < 1000 && lastSpokenDistance !== '1km') {
-      speakText(`Em 1 quilômetro, ${step.instruction}`);
-      setLastSpokenDistance('1km');
-    }
-  };
-
-  // Função para falar texto
-  const speakText = (text) => {
-    if (!voiceNavigation) return;
-    
-    // Parar qualquer fala anterior
-    Speech.stop();
-    
-    // Falar o novo texto
-    Speech.speak(text, {
-      language: 'pt-BR',
-      pitch: 1.0,
-      rate: 0.9,
-    });
-  };
-
-  // Parar navegação
-  const stopNavigation = () => {
-    if (navigationInterval.current) {
-      clearInterval(navigationInterval.current);
-      navigationInterval.current = null;
-    }
-    setIsNavigating(false);
-    Speech.stop();
-  };
-
-  // Alternar navegação por voz
-  const toggleVoiceNavigation = () => {
-    setVoiceNavigation(prev => !prev);
-    if (!voiceNavigation && isNavigating) {
-      // Se estava desligado e agora está ligado
-      startVoiceNavigation(navigationSteps);
-    } else if (voiceNavigation && isNavigating) {
-      // Se estava ligado e agora está desligado
-      Speech.stop();
-    }
-  };
-
-  // Cancelar navegação
-  const cancelNavigation = () => {
-    stopNavigation();
-    setDestination(null);
-    setRouteCoords([]);
-    setInfo({ distance: '', duration: '', instruction: '' });
-    setSearchText('');
-    setSearchResults([]);
-    setNavigationSteps([]);
-    setCurrentStepIndex(0);
-    setLastSpokenDistance(null);
   };
 
   // Obter ícone com base no tipo de manobra
@@ -386,13 +403,42 @@ const MapScreen = () => {
     }
   };
 
+  // Parar navegação
+  const stopNavigation = () => {
+    if (navigationInterval.current) {
+      clearInterval(navigationInterval.current);
+      navigationInterval.current = null;
+    }
+    setIsNavigating(false);
+  };
+
+  // Cancelar navegação
+  const cancelNavigation = () => {
+    stopNavigation();
+    setDestination(null);
+    setRouteCoords([]);
+    setInfo({ distance: '', duration: '', instruction: '' });
+    setSearchText('');
+    setSearchResults([]);
+    setNavigationSteps([]);
+    setCurrentStepIndex(0);
+  };
+
+  // Focar na barra de pesquisa
+  const focusSearchBar = () => {
+    if (searchInputRef.current) {
+      searchInputRef.current.focus();
+      setShowSearchHistory(true);
+    }
+  };
+
   return (
     <View style={{ flex: 1 }}>
       {location ? (
-        <MapView
+          <MapView
           ref={mapRef}
           style={{ flex: 1 }}
-          provider={PROVIDER_GOOGLE}
+            provider={PROVIDER_GOOGLE}
           initialRegion={{
             latitude: location.latitude,
             longitude: location.longitude,
@@ -431,7 +477,7 @@ const MapScreen = () => {
               strokeColor="#4CAF50"
             />
           )}
-        </MapView>
+          </MapView>
       ) : (
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color="#007bff" />
@@ -439,34 +485,48 @@ const MapScreen = () => {
         </View>
       )}
 
-      {/* Barra de pesquisa simplificada */}
+      {/* Barra de pesquisa melhorada */}
       <View style={styles.searchContainer}>
-        <View style={styles.searchInputContainer}>
+            <TouchableOpacity 
+          style={styles.searchInputContainer}
+          onPress={focusSearchBar}
+          activeOpacity={1}
+        >
           <MaterialIcons name="search" size={24} color="#666" style={styles.searchIcon} />
           <TextInput
+            ref={searchInputRef}
             style={styles.searchInput}
             value={searchText}
-            onChangeText={setSearchText}
+            onChangeText={(text) => {
+              setSearchText(text);
+              if (text.length > 1) {
+                searchPlaces();
+              } else if (text.length === 0) {
+                setShowSearchHistory(true);
+              }
+            }}
             placeholder="Pesquisar local..."
             placeholderTextColor="#999"
             returnKeyType="search"
             onSubmitEditing={searchPlaces}
+            onFocus={() => setShowSearchHistory(true)}
           />
           {searchText.length > 0 && (
             <TouchableOpacity onPress={() => {
               setSearchText('');
+              setShowSearchHistory(true);
               setSearchResults([]);
             }}>
               <MaterialIcons name="close" size={24} color="#666" />
             </TouchableOpacity>
           )}
-        </View>
-        
+            </TouchableOpacity>
+
         {/* Resultados da pesquisa */}
         {searchResults.length > 0 && (
           <View style={styles.searchResultsList}>
             {searchResults.map(place => (
-              <TouchableOpacity
+            <TouchableOpacity 
                 key={place.id}
                 style={styles.searchResultItem}
                 onPress={() => selectPlace(place)}
@@ -475,8 +535,69 @@ const MapScreen = () => {
                 <View style={styles.resultTextContainer}>
                   <Text style={styles.resultTitle} numberOfLines={1}>{place.name}</Text>
                   <Text style={styles.resultAddress} numberOfLines={1}>{place.address}</Text>
+                  {place.distance && (
+                    <Text style={styles.resultDistance}>
+                      {place.distance < 1000 
+                        ? `${Math.round(place.distance)}m` 
+                        : `${(place.distance / 1000).toFixed(1)}km`} de distância
+                    </Text>
+                  )}
                 </View>
-              </TouchableOpacity>
+            </TouchableOpacity>
+            ))}
+          </View>
+        )}
+        
+        {/* Histórico de pesquisa */}
+        {showSearchHistory && searchText.length === 0 && searchHistory.length > 0 && (
+          <View style={styles.searchResultsList}>
+            <View style={styles.historyHeader}>
+              <Text style={styles.historyTitle}>Histórico de pesquisa</Text>
+              <TouchableOpacity onPress={clearSearchHistory}>
+                <Text style={styles.clearHistoryText}>Limpar</Text>
+            </TouchableOpacity>
+            </View>
+
+            {searchHistory.map(item => (
+            <TouchableOpacity 
+                key={item.id}
+                style={styles.searchResultItem}
+                onPress={() => selectHistoryItem(item)}
+              >
+                <MaterialIcons name="history" size={20} color="#666" style={styles.resultIcon} />
+                <View style={styles.resultTextContainer}>
+                  <Text style={styles.resultTitle} numberOfLines={1}>{item.name}</Text>
+                  <Text style={styles.resultAddress} numberOfLines={1}>{item.address}</Text>
+                </View>
+            </TouchableOpacity>
+            ))}
+          </View>
+        )}
+        
+        {/* Locais próximos */}
+        {showSearchHistory && searchText.length === 0 && nearbyPlaces.length > 0 && (
+          <View style={[styles.searchResultsList, { marginTop: searchHistory.length > 0 ? 10 : 5 }]}>
+            <View style={styles.historyHeader}>
+              <Text style={styles.historyTitle}>Lugares próximos</Text>
+            </View>
+            
+            {nearbyPlaces.map(place => (
+            <TouchableOpacity 
+                key={place.id}
+                style={styles.searchResultItem}
+                onPress={() => selectPlace(place)}
+              >
+                <MaterialIcons name="near-me" size={20} color="#4CAF50" style={styles.resultIcon} />
+                <View style={styles.resultTextContainer}>
+                  <Text style={styles.resultTitle} numberOfLines={1}>{place.name}</Text>
+                  <Text style={styles.resultAddress} numberOfLines={1}>{place.address}</Text>
+                  <Text style={styles.resultDistance}>
+                    {place.distance < 1000 
+                      ? `${Math.round(place.distance)}m` 
+                      : `${(place.distance / 1000).toFixed(1)}km`} de distância
+                  </Text>
+                </View>
+            </TouchableOpacity>
             ))}
           </View>
         )}
@@ -495,48 +616,20 @@ const MapScreen = () => {
         <Ionicons name="locate" size={28} color="#fff" />
       </TouchableOpacity>
       
-      {/* Botão de busca */}
-      <TouchableOpacity style={styles.searchButton} onPress={searchPlaces}>
-        <MaterialIcons name="search" size={28} color="#fff" />
-      </TouchableOpacity>
-      
-      {/* Botão de navegação por voz */}
-      {destination && routeCoords.length > 0 && (
-        <TouchableOpacity 
-          style={[styles.voiceButton, !voiceNavigation && styles.voiceButtonDisabled]} 
-          onPress={toggleVoiceNavigation}
-        >
-          <FontAwesome5 
-            name={voiceNavigation ? "volume-up" : "volume-mute"} 
-            size={24} 
-            color="#fff" 
-          />
-        </TouchableOpacity>
-      )}
-      
       {/* Painel de navegação */}
       {destination && routeCoords.length > 0 && (
         <View style={styles.navigationPanel}>
           <View style={styles.navigationHeader}>
             <Text style={styles.navigationTitle}>Navegação</Text>
-            <View style={styles.voiceToggleContainer}>
-              <Text style={styles.voiceToggleLabel}>Voz</Text>
-              <Switch 
-                value={voiceNavigation} 
-                onValueChange={toggleVoiceNavigation}
-                trackColor={{ false: "#767577", true: "#81b0ff" }}
-                thumbColor={voiceNavigation ? "#007bff" : "#f4f3f4"}
-              />
-            </View>
           </View>
-          
+
           <Text style={styles.routeText}>Distância: {info.distance} | Tempo: {info.duration}</Text>
           
           {isNavigating && navigationSteps.length > 0 && currentStepIndex < navigationSteps.length && (
             <View style={styles.stepContainer}>
               <FontAwesome5 
                 name={getManeuverIcon(navigationSteps[currentStepIndex].maneuver)} 
-                size={24} 
+                    size={24}
                 color="#007bff" 
                 style={styles.maneuverIcon}
               />
@@ -545,16 +638,36 @@ const MapScreen = () => {
               </Text>
             </View>
           )}
-          
-          <TouchableOpacity style={styles.cancelButton} onPress={cancelNavigation}>
-            <Ionicons name="close" size={20} color="#fff" />
-            <Text style={{ color: '#fff', marginLeft: 8 }}>Cancelar Navegação</Text>
-          </TouchableOpacity>
-        </View>
-      )}
+
+          <View style={styles.navigationButtonsContainer}>
+            {!isNavigating ? (
+              <TouchableOpacity 
+                style={styles.startButton} 
+                onPress={() => startNavigation(navigationSteps)}
+              >
+                <MaterialIcons name="directions" size={20} color="#fff" />
+                <Text style={{ color: '#fff', marginLeft: 8 }}>Iniciar</Text>
+              </TouchableOpacity>
+            ) : (
+                  <TouchableOpacity
+                style={styles.stopButton} 
+                onPress={stopNavigation}
+              >
+                <MaterialIcons name="pause" size={20} color="#fff" />
+                <Text style={{ color: '#fff', marginLeft: 8 }}>Pausar</Text>
+              </TouchableOpacity>
+            )}
+            
+            <TouchableOpacity style={styles.cancelButton} onPress={cancelNavigation}>
+              <Ionicons name="close" size={20} color="#fff" />
+              <Text style={{ color: '#fff', marginLeft: 8 }}>Cancelar</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            )}
       
       {/* Dica de uso */}
-      {!destination && (
+      {!destination && !showSearchHistory && searchResults.length === 0 && (
         <View style={styles.tipPanel}>
           <Text style={styles.tipText}>Toque longo no mapa para definir o destino</Text>
         </View>
@@ -582,7 +695,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     borderRadius: 8,
     paddingHorizontal: 15,
-    height: 45,
+    height: 50,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.2,
@@ -606,7 +719,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.2,
     shadowRadius: 4,
     elevation: 3,
-    maxHeight: height * 0.3,
+    maxHeight: height * 0.4,
   },
   searchResultItem: {
     flexDirection: 'row',
@@ -631,6 +744,29 @@ const styles = StyleSheet.create({
     color: '#666',
     marginTop: 2,
   },
+  resultDistance: {
+    fontSize: 12,
+    color: '#007bff',
+    marginTop: 2,
+  },
+  historyHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
+    backgroundColor: '#f8f9fa',
+  },
+  historyTitle: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#333',
+  },
+  clearHistoryText: {
+    fontSize: 13,
+    color: '#007bff',
+  },
   searchLoadingContainer: {
     flexDirection: 'row',
     justifyContent: 'center',
@@ -654,37 +790,6 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.25,
     shadowRadius: 3.84,
     zIndex: 10,
-  },
-  searchButton: {
-    position: 'absolute',
-    bottom: 30,
-    right: 90,
-    backgroundColor: '#4CAF50',
-    borderRadius: 30,
-    padding: 16,
-    elevation: 5,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    zIndex: 10,
-  },
-  voiceButton: {
-    position: 'absolute',
-    bottom: 30,
-    right: 160,
-    backgroundColor: '#007bff',
-    borderRadius: 30,
-    padding: 16,
-    elevation: 5,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    zIndex: 10,
-  },
-  voiceButtonDisabled: {
-    backgroundColor: '#ccc',
   },
   navigationPanel: {
     position: 'absolute',
@@ -717,15 +822,6 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#333',
   },
-  voiceToggleContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  voiceToggleLabel: {
-    fontSize: 15,
-    color: '#333',
-    marginRight: 10,
-  },
   stepContainer: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -745,14 +841,39 @@ const styles = StyleSheet.create({
     color: '#333',
     lineHeight: 20,
   },
+  navigationButtonsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 10,
+  },
+  startButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#4CAF50',
+    borderRadius: 8,
+    padding: 8,
+    flex: 1,
+    marginRight: 8,
+    justifyContent: 'center',
+  },
+  stopButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FF9800',
+    borderRadius: 8,
+    padding: 8,
+    flex: 1,
+    marginRight: 8,
+    justifyContent: 'center',
+  },
   cancelButton: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#ff4444',
     borderRadius: 8,
     padding: 8,
-    alignSelf: 'flex-end',
-    marginTop: 8,
+    flex: 1,
+    justifyContent: 'center',
   },
   tipPanel: {
     position: 'absolute',
