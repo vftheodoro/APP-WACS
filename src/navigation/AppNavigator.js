@@ -5,7 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 
 import { LoginScreen } from '../screens/LoginScreen';
 import { ControlScreen } from '../screens/ControlScreen';
-import { MapScreen } from '../screens/MapScreen';
+import MapScreen from '../screens/MapScreen';
 import { ProfileScreen } from '../screens/ProfileScreen';
 import { BluetoothConnectionScreen } from '../screens/BluetoothConnectionScreen';
 import { useAuth } from '../contexts/AuthContext';
@@ -41,7 +41,20 @@ const MainTabs = () => {
       })}
     >
       <Tab.Screen name="Controle" component={ControlScreen} />
-      <Tab.Screen name="Mapa" component={MapScreen} />
+      <Tab.Screen 
+        name="Mapa"
+        component={MapScreen}
+        options={{
+          tabBarLabel: 'Mapa',
+          tabBarIcon: ({ focused, color, size }) => (
+            <Ionicons 
+              name={focused ? 'map' : 'map-outline'} 
+              size={size} 
+              color={color} 
+            />
+          ),
+        }}
+      />
       <Tab.Screen name="Perfil" component={ProfileScreen} />
     </Tab.Navigator>
   );
