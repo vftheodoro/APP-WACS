@@ -7,7 +7,7 @@ import MapView, { PROVIDER_GOOGLE, Marker } from 'react-native-maps';
 import * as Location from 'expo-location';
 import { Ionicons } from '@expo/vector-icons';
 import Constants from 'expo-constants';
-import { GooglePlacesAutocomplete } from 'react-native-google-places-autocomplete';
+import SearchBar from '../components/SearchBar';
 
 const VALID_MAP_TYPES = ['standard', 'satellite', 'hybrid', 'terrain'];
 const DEFAULT_MAP_TYPE = 'standard';
@@ -33,8 +33,8 @@ export const MapScreen = () => {
   const [places, setPlaces] = useState([]);
   const [speed, setSpeed] = useState(null);
   const [accuracy, setAccuracy] = useState(null);
+  const [searchQuery, setSearchQuery] = useState('');
   const mapRef = useRef(null);
-  const searchRef = useRef(null);
   const slideAnim = useRef(new Animated.Value(0)).current;
 
   const mapStyles = {
@@ -92,6 +92,27 @@ export const MapScreen = () => {
       setLocation(location);
       await loadSearchHistory();
     })();
+  }, []);
+
+  useEffect(() => {
+    let watchId;
+    
+    (async () => {
+      watchId = await Location.watchPositionAsync({
+        accuracy: Location.Accuracy.High,
+        distanceInterval: 5,
+        timeInterval: 1000
+      }, (loc) => {
+        setSpeed(loc.coords.speed ? (loc.coords.speed * 3.6).toFixed(1) : null);
+        setAccuracy(loc.coords.accuracy?.toFixed(0));
+      });
+    })();
+
+    return () => {
+      if (watchId && watchId.remove) {
+        watchId.remove();
+      }
+    };
   }, []);
 
   useEffect(() => {
@@ -344,60 +365,12 @@ export const MapScreen = () => {
           </View>
 
           <View style={[premiumStyles.searchContainer, isDark ? premiumStyles.searchContainerDark : null]}>
-            <GooglePlacesAutocomplete
-              ref={searchRef}
-              placeholder="Pesquisar local..."
-              onPress={handlePlaceSelected}
-              query={{
-                key: Constants.expoConfig.extra.GOOGLE_MAPS_API_KEY,
-                language: 'pt-BR',
-                components: 'country:br',
-              }}
-              styles={{
-                container: {
-                  flex: 0,
-                  position: 'absolute',
-                  width: '100%',
-                  zIndex: 1,
-                },
-                textInput: {
-                  height: 50,
-                  color: isDark ? '#ffffff' : '#333333',
-                  fontSize: 16,
-                  backgroundColor: isDark ? '#333333' : '#ffffff',
-                  borderRadius: 8,
-                  paddingHorizontal: 15,
-                  borderWidth: 1,
-                  borderColor: isDark ? '#444' : '#ddd',
-                },
-                listView: {
-                  backgroundColor: isDark ? '#333333' : '#ffffff',
-                  borderRadius: 8,
-                  marginTop: 5,
-                  borderWidth: 1,
-                  borderColor: isDark ? '#444' : '#ddd',
-                },
-                row: {
-                  padding: 13,
-                  height: 44,
-                  borderBottomWidth: 1,
-                  borderBottomColor: isDark ? '#444' : '#eee',
-                },
-                description: {
-                  color: isDark ? '#ffffff' : '#333333',
-                },
-                separator: {
-                  height: 1,
-                  backgroundColor: isDark ? '#444' : '#eee',
-                },
-              }}
-              enablePoweredByContainer={false}
-              fetchDetails={true}
-              minLength={2}
-              debounce={300}
-              textInputProps={{
-                placeholderTextColor: isDark ? '#999999' : '#666666',
-                onFocus: () => setShowHistory(true),
+            <SearchBar 
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              customStyles={{
+                container: styles.searchBarContainer,
+                input: styles.searchInput
               }}
             />
           </View>
