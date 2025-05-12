@@ -63,6 +63,10 @@
   },
   "private": true,
   "overrides": {
-    "semver": "^7.5.4"
+    "semver": "^7.5.4",
+    "node-fetch": ">=2.6.7",
+    "undici": ">=6.21.1",
+    "fbjs": ">=3.0.0",
+    "isomorphic-fetch": ">=3.0.0"
   }
 }
