@@ -210,7 +210,7 @@ export default function LocationsListScreen() {
               address,
               latitude: parseFloat(latitude),
               longitude: parseFloat(longitude),
-              accessibilityOptions: accessibility,
+              accessibilityFeatures: accessibility,
               imageUrl,
               createdAt: serverTimestamp(),
             });

@@ -6,7 +6,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { LoginScreen } from '../screens/LoginScreen';
 import { ControlScreen } from '../screens/ControlScreen';
 import { MapScreen } from '../screens/MapScreen';
-import { ProfileScreen } from '../screens/ProfileScreen';
+// Removido import duplicado de tela de perfil
 import ChatScreen from '../screens/ChatScreen';
 
 import LocationsListScreen from '../screens/LocationsListScreen';
@@ -62,7 +62,6 @@ const MainTabs = () => {
       
       <Tab.Screen name="Locais" component={LocationsListScreen} options={{ tabBarLabel: 'Locais' }} />
       <Tab.Screen name="Perfil do Usuário" component={UserProfileScreen} options={{ tabBarLabel: 'Meu Perfil' }} />
-      <Tab.Screen name="Perfil" component={ProfileScreen} />
     </Tab.Navigator>
   );
 };

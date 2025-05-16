@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Modal, View, Text, StyleSheet, TouchableOpacity, TextInput, Alert } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 
@@ -17,6 +17,7 @@ const accessibilityFeatures = [
 
 export default function ReviewModal({ visible, onClose, onSubmit, features = [], locationName = '', locationAddress = '' }) {
   const [comment, setComment] = useState('');
+  const [rating, setRating] = useState(0); // Avaliação geral do local
   const [featureRatings, setFeatureRatings] = useState({});
   const [submitting, setSubmitting] = useState(false);
 
@@ -24,6 +25,7 @@ export default function ReviewModal({ visible, onClose, onSubmit, features = [],
   useEffect(() => {
     if (!visible) {
       setComment('');
+      setRating(0);
       setFeatureRatings({});
     }
   }, [visible]);
@@ -32,15 +34,25 @@ export default function ReviewModal({ visible, onClose, onSubmit, features = [],
     setFeatureRatings({ ...featureRatings, [feature]: value });
   };
 
+  const handleRating = (value) => {
+    setRating(value);
+  };
+
   const handleSubmit = async () => {
+    if (rating === 0) {
+      Alert.alert('Avaliação obrigatória', 'Por favor, dê uma avaliação geral para o local.');
+      return;
+    }
+    
     if (features.length > 0 && !Object.values(featureRatings).some(val => val > 0)) {
       Alert.alert('Avaliação obrigatória', 'Por favor, avalie pelo menos um recurso de acessibilidade.');
       return;
     }
     setSubmitting(true);
-    await onSubmit({ comment, featureRatings });
+    await onSubmit({ rating, comment, featureRatings });
     setSubmitting(false);
     setComment('');
+    setRating(0);
     setFeatureRatings({});
     onClose();
   };
@@ -52,6 +64,25 @@ export default function ReviewModal({ visible, onClose, onSubmit, features = [],
           <Text style={styles.title}>Avaliar Local</Text>
           <Text style={styles.locName}>{locationName}</Text>
           <Text style={styles.locAddress}>{locationAddress}</Text>
+          
+          <Text style={styles.label}>Avaliação Geral:</Text>
+          <View style={styles.generalRatingContainer}>
+            <View style={styles.starsRow}>
+              {[1,2,3,4,5].map(i => (
+                <TouchableOpacity key={i} onPress={() => handleRating(i)}>
+                  <Ionicons 
+                    name={i <= rating ? 'star' : 'star-outline'} 
+                    size={32} 
+                    color="#FFD700" 
+                    style={styles.generalStar}
+                  />
+                </TouchableOpacity>
+              ))}
+            </View>
+            <Text style={styles.ratingValue}>
+              {rating > 0 ? rating.toFixed(1) : '-'}
+            </Text>
+          </View>
           <Text style={styles.label}>Avalie os recursos de acessibilidade presentes:</Text>
           {features.length === 0 ? (
             <Text style={styles.noFeatures}>Nenhum recurso de acessibilidade informado para este local.</Text>
@@ -148,6 +179,24 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 6,
+  },
+  generalRatingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 16,
+    backgroundColor: '#f8f8f8',
+    padding: 12,
+    borderRadius: 8,
+  },
+  generalStar: {
+    marginHorizontal: 2,
+  },
+  ratingValue: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#333',
+    marginLeft: 10,
   },
   featureRow: {
     flexDirection: 'row',

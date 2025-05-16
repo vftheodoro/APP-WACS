@@ -4,7 +4,10 @@ import {
   createUserWithEmailAndPassword, 
   signOut, 
   onAuthStateChanged, 
-  updateProfile 
+  updateProfile,
+  updatePassword,
+  EmailAuthProvider,
+  reauthenticateWithCredential
 } from 'firebase/auth';
 import { auth } from '../config/firebase';
 import { saveLastUser } from '../utils/storage';
@@ -203,6 +206,41 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  // Alterar senha do usuário
+  const changePassword = async (currentPassword, newPassword) => {
+    try {
+      setError(null);
+      
+      if (!auth.currentUser) {
+        throw new Error('Usuário não autenticado');
+      }
+      
+      // Reautenticar o usuário antes de alterar a senha
+      const credential = EmailAuthProvider.credential(
+        auth.currentUser.email,
+        currentPassword
+      );
+      
+      await reauthenticateWithCredential(auth.currentUser, credential);
+      
+      // Alterar a senha
+      await updatePassword(auth.currentUser, newPassword);
+      
+      return true;
+    } catch (err) {
+      console.error('Erro ao alterar senha:', err.message);
+      
+      // Tratamento específico para erro de senha atual incorreta
+      if (err.code === 'auth/wrong-password') {
+        setError('Senha atual incorreta');
+      } else {
+        setError(getErrorMessage(err.code));
+      }
+      
+      throw err;
+    }
+  };
+
   // Função auxiliar para tratamento de erros
   const getErrorMessage = (code) => {
     switch (code) {
@@ -233,7 +271,8 @@ export const AuthProvider = ({ children }) => {
       logout,
       updateUser,
       updateProfilePicture,
-      removeProfilePicture
+      removeProfilePicture,
+      changePassword
     }}>
       {children}
     </AuthContext.Provider>

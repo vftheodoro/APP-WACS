@@ -3,12 +3,17 @@ import { Modal, View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView,
 import { Ionicons, FontAwesome5, MaterialCommunityIcons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 
+// Opções de acessibilidade alinhadas com AccessibilityIcons.js
 const ACCESSIBILITY_OPTIONS = [
-  { key: 'wheelchair', label: 'Cadeira de Rodas', icon: <FontAwesome5 name="wheelchair" size={20} color="#007AFF" /> },
-  { key: 'blind', label: 'Piso Tátil', icon: <FontAwesome5 name="walking" size={20} color="#007AFF" /> },
-  { key: 'deaf', label: 'Rampa', icon: <MaterialCommunityIcons name="stairs" size={20} color="#007AFF" /> },
-  { key: 'elevator', label: 'Elevador', icon: <MaterialCommunityIcons name="elevator" size={20} color="#007AFF" /> },
-  { key: 'parking', label: 'Banheiro Adaptado', icon: <FontAwesome5 name="restroom" size={20} color="#007AFF" /> },
+  { key: 'Acessível para cadeirantes', label: 'Cadeirantes', icon: <MaterialCommunityIcons name="wheelchair-accessibility" size={20} color="#007AFF" /> },
+  { key: 'Piso tátil', label: 'Piso Tátil', icon: <MaterialCommunityIcons name="dots-horizontal" size={20} color="#007AFF" /> },
+  { key: 'Rampa de acesso', label: 'Rampa', icon: <MaterialCommunityIcons name="stairs-up" size={20} color="#007AFF" /> },
+  { key: 'Elevador', label: 'Elevador', icon: <MaterialCommunityIcons name="elevator" size={20} color="#007AFF" /> },
+  { key: 'Banheiro acessível', label: 'Banheiro', icon: <MaterialCommunityIcons name="toilet" size={20} color="#007AFF" /> },
+  { key: 'Vaga PCD', label: 'Vaga PCD', icon: <MaterialCommunityIcons name="parking" size={20} color="#007AFF" /> },
+  { key: 'Atendimento prioritário', label: 'Atendimento', icon: <Ionicons name="accessibility" size={20} color="#007AFF" /> },
+  { key: 'Cão-guia permitido', label: 'Cão-guia', icon: <FontAwesome5 name="dog" size={20} color="#007AFF" /> },
+  { key: 'Sinalização em braile', label: 'Braile', icon: <MaterialCommunityIcons name="braille" size={20} color="#007AFF" /> },
 ];
 
 export default function AddLocationModal({ visible, onClose, onSubmit, navigation, selectedLocation }) {
@@ -91,16 +96,23 @@ export default function AddLocationModal({ visible, onClose, onSubmit, navigatio
               </Text>
             </TouchableOpacity>
             <Text style={styles.label}>Recursos de Acessibilidade</Text>
-            <View style={styles.optionsRow}>
+            <Text style={styles.sublabel}>Selecione todas as opções disponíveis no local</Text>
+            <View style={styles.optionsGrid}>
               {ACCESSIBILITY_OPTIONS.map(opt => (
                 <TouchableOpacity
                   key={opt.key}
                   style={[styles.option, accessibility.includes(opt.key) && styles.optionSelected]}
                   onPress={() => handleSelectOption(opt.key)}
                 >
-                  {opt.icon}
+                  <View style={styles.optionIconContainer}>
+                    {opt.icon}
+                    {accessibility.includes(opt.key) && 
+                      <View style={styles.checkmarkBadge}>
+                        <Ionicons name="checkmark" size={12} color="#fff" />
+                      </View>
+                    }
+                  </View>
                   <Text style={styles.optionLabel}>{opt.label}</Text>
-                  {accessibility.includes(opt.key) && <Ionicons name="checkmark-circle" size={18} color="#34C759" style={{ marginLeft: 4 }} />}
                 </TouchableOpacity>
               ))}
             </View>
@@ -168,31 +180,63 @@ const styles = StyleSheet.create({
     marginBottom: 6,
     fontWeight: '500',
   },
-  optionsRow: {
+  sublabel: {
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 12,
+  },
+  optionsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    marginBottom: 14,
-    gap: 8,
+    justifyContent: 'space-between',
+    marginBottom: 20,
   },
   option: {
-    flexDirection: 'row',
+    width: '30%',
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 8,
-    padding: 8,
-    marginRight: 8,
-    marginBottom: 8,
-    backgroundColor: '#f6faff',
+    backgroundColor: '#f1f5f9',
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 12,
   },
   optionSelected: {
+    backgroundColor: '#e1f5fe',
     borderColor: '#007AFF',
-    backgroundColor: '#e6f0ff',
+    borderWidth: 1,
+  },
+  optionIconContainer: {
+    position: 'relative',
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#fff',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 6,
+    shadowColor: '#000',
+    shadowOpacity: 0.1,
+    shadowOffset: { width: 0, height: 1 },
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  checkmarkBadge: {
+    position: 'absolute',
+    top: -4,
+    right: -4,
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: '#34C759',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#fff',
   },
   optionLabel: {
-    marginLeft: 6,
-    fontSize: 13,
-    color: '#222',
+    fontSize: 12,
+    textAlign: 'center',
+    color: '#444',
+    marginTop: 4,
   },
   imagePicker: {
     alignItems: 'center',
