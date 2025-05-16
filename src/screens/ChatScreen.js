@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, FlatList, StyleSheet, KeyboardAvoidingView, Platform, ActivityIndicator } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, FlatList, StyleSheet, KeyboardAvoidingView, Platform, ActivityIndicator, Image, Alert } from 'react-native';
 import { useChat } from '../contexts/ChatContext';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -22,6 +22,7 @@ export default function ChatScreen() {
   const { user } = useAuth();
   const [text, setText] = useState('');
   const flatListRef = useRef();
+  const [showScrollButton, setShowScrollButton] = useState(false);
 
   // Scroll para a última mensagem ao receber novas mensagens
   useEffect(() => {
@@ -30,47 +31,130 @@ export default function ChatScreen() {
     }
   }, [messages]);
 
+  // Detecta se o usuário está longe do final
+  const handleScroll = (event) => {
+    const { layoutMeasurement, contentOffset, contentSize } = event.nativeEvent;
+    const isAtBottom = layoutMeasurement.height + contentOffset.y >= contentSize.height - 40;
+    setShowScrollButton(!isAtBottom);
+  };
+
+  const scrollToEnd = () => {
+    if (flatListRef.current) {
+      flatListRef.current.scrollToEnd({ animated: true });
+    }
+  };
+
   const handleSend = async () => {
     if (text.trim().length === 0) return;
     await sendMessage(text);
     setText('');
   };
 
+  const renderAvatar = (item, isMe) => {
+    if (item.photoURL) {
+      return (
+        <Image
+          source={{ uri: item.photoURL }}
+          style={styles.avatar}
+        />
+      );
+    } else {
+      // Avatar padrão: círculo com inicial do nome
+      const initial = (item.userName || 'U').charAt(0).toUpperCase();
+      return (
+        <View style={[styles.avatar, styles.avatarDefault]}>
+          <Text style={styles.avatarInitial}>{initial}</Text>
+        </View>
+      );
+    }
+  };
+
+  const { deleteMessage } = useChat();
+
+  const handleDelete = (item) => {
+    Alert.alert(
+      'Apagar mensagem',
+      'Deseja apagar esta mensagem?',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        { text: 'Apagar', style: 'destructive', onPress: () => deleteMessage(item.id) }
+      ]
+    );
+  };
+
   const renderItem = ({ item }) => {
-    const isMe = item.userId === user?.uid;
+    const isMe = item.userId === user?.id;
+    if (item.deleted) {
+      return (
+        <View style={[
+          styles.messageContainer,
+          isMe ? styles.myMessage : styles.otherMessage,
+          { alignSelf: isMe ? 'flex-end' : 'flex-start', flexDirection: isMe ? 'row-reverse' : 'row', alignItems: 'flex-end', position: 'relative' }
+        ]}>
+          {renderAvatar(item, isMe)}
+          <View style={{ flex: 1 }}>
+            <Text style={styles.userName}>{item.userName || 'Usuário'}</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <Text style={styles.deletedIcon}>🚫</Text>
+              <Text style={styles.deletedText}> Esta mensagem foi apagada</Text>
+              <Text style={styles.timeText}>  {formatTime(item.timestamp)}</Text>
+            </View>
+          </View>
+        </View>
+      );
+    }
     return (
       <View style={[
         styles.messageContainer,
         isMe ? styles.myMessage : styles.otherMessage,
-        { alignSelf: isMe ? 'flex-end' : 'flex-start',
-          marginLeft: isMe ? 60 : 0,
-          marginRight: isMe ? 0 : 60,
-        }
+        { alignSelf: isMe ? 'flex-end' : 'flex-start', flexDirection: isMe ? 'row-reverse' : 'row', alignItems: 'flex-end', position: 'relative' }
       ]}>
-        <Text style={styles.userName}>{item.userName || 'Usuário'}</Text>
-        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-          <Text style={styles.messageText}>{item.text}</Text>
-          <Text style={styles.timeText}>  {formatTime(item.timestamp)}</Text>
+        {renderAvatar(item, isMe)}
+        <View style={{ flex: 1 }}>
+          <Text style={styles.userName}>{item.userName || 'Usuário'}</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <Text style={[styles.messageText, isMe && styles.myMessageText]}>{item.text}</Text>
+            <Text style={styles.timeText}>  {formatTime(item.timestamp)}</Text>
+          </View>
         </View>
+        {isMe && (
+          <TouchableOpacity
+            style={styles.deleteButton}
+            onPress={() => handleDelete(item)}
+            hitSlop={{ top: 10, right: 10, bottom: 10, left: 10 }}
+          >
+            <Text style={styles.deleteIcon}>🗑️</Text>
+          </TouchableOpacity>
+        )}
       </View>
     );
   };
 
+
+
   return (
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <View style={styles.container}>
-        <Text style={styles.title}>Chat em tempo real</Text>
         {loading ? (
           <ActivityIndicator size="large" color="#007AFF" style={{ marginTop: 20 }} />
         ) : (
-          <FlatList
-            ref={flatListRef}
-            data={messages}
-            keyExtractor={item => item.id}
-            renderItem={renderItem}
-            contentContainerStyle={styles.messagesList}
-            showsVerticalScrollIndicator={false}
-          />
+          <>
+            <FlatList
+              ref={flatListRef}
+              data={messages}
+              keyExtractor={item => item.id}
+              renderItem={renderItem}
+              contentContainerStyle={styles.messagesList}
+              showsVerticalScrollIndicator={false}
+              onScroll={handleScroll}
+              scrollEventThrottle={16}
+            />
+            {showScrollButton && (
+              <TouchableOpacity style={styles.scrollToEndButton} onPress={scrollToEnd} activeOpacity={0.8}>
+                <Text style={styles.scrollToEndIcon}>▼</Text>
+              </TouchableOpacity>
+            )}
+          </>
         )}
         <View style={styles.inputContainer}>
           <TextInput
@@ -107,23 +191,59 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     paddingBottom: 10,
   },
+  avatar: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    marginHorizontal: 8,
+    backgroundColor: '#eee',
+  },
+  avatarDefault: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#bdbdbd',
+  },
+  avatarInitial: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 18,
+  },
+  deleteButton: {
+    position: 'absolute',
+    top: 4,
+    right: 4,
+    zIndex: 10,
+    padding: 2,
+  },
+  deleteIcon: {
+    fontSize: 18,
+    color: '#fff',
+    opacity: 0.9,
+  },
   messageContainer: {
     marginVertical: 4,
-    maxWidth: '80%',
     borderRadius: 12,
-    padding: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
     shadowRadius: 2,
     elevation: 2,
+    alignSelf: 'flex-start',
+    maxWidth: '80%',
+    minWidth: 48,
   },
   myMessage: {
-    backgroundColor: '#DCF8C6', 
+    backgroundColor: '#007AFF', 
+    marginLeft: 40,
+    alignSelf: 'flex-end',
     borderTopRightRadius: 0,
   },
   otherMessage: {
     backgroundColor: '#FFF',
+    marginRight: 40,
+    alignSelf: 'flex-start',
     borderTopLeftRadius: 0,
     borderWidth: 1,
     borderColor: '#e0e0e0',
@@ -137,6 +257,20 @@ const styles = StyleSheet.create({
   messageText: {
     fontSize: 16,
     color: '#333',
+  },
+  myMessageText: {
+    color: '#fff',
+  },
+  deletedText: {
+    color: '#e0e0e0',
+    fontStyle: 'italic',
+    fontSize: 16,
+    marginLeft: 4,
+  },
+  deletedIcon: {
+    color: '#e0e0e0',
+    fontSize: 18,
+    marginRight: 2,
   },
   timeText: {
     fontSize: 12,
