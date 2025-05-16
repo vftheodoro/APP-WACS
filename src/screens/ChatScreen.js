@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, FlatList, StyleSheet, KeyboardAvoidingView, Platform, ActivityIndicator, Image, Alert } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, FlatList, StyleSheet, KeyboardAvoidingView, Platform, ActivityIndicator, Image, Alert, Modal, Pressable } from 'react-native';
 import { useChat } from '../contexts/ChatContext';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -17,12 +17,15 @@ function formatTime(timestamp) {
 }
 
 
+
 export default function ChatScreen() {
   const { messages, loading, sendMessage } = useChat();
   const { user } = useAuth();
   const [text, setText] = useState('');
   const flatListRef = useRef();
   const [showScrollButton, setShowScrollButton] = useState(false);
+  const [profileModalVisible, setProfileModalVisible] = useState(false);
+  const [selectedUser, setSelectedUser] = useState(null);
 
   // Scroll para a última mensagem ao receber novas mensagens
   useEffect(() => {
@@ -50,21 +53,35 @@ export default function ChatScreen() {
     setText('');
   };
 
+  const handleProfilePress = (item) => {
+    setSelectedUser({
+      userName: item.userName,
+      userEmail: item.userEmail,
+      photoURL: item.photoURL,
+      userId: item.userId,
+    });
+    setProfileModalVisible(true);
+  };
+
   const renderAvatar = (item, isMe) => {
     if (item.photoURL) {
       return (
-        <Image
-          source={{ uri: item.photoURL }}
-          style={styles.avatar}
-        />
+        <Pressable onPress={() => handleProfilePress(item)}>
+          <Image
+            source={{ uri: item.photoURL }}
+            style={styles.avatar}
+          />
+        </Pressable>
       );
     } else {
       // Avatar padrão: círculo com inicial do nome
       const initial = (item.userName || 'U').charAt(0).toUpperCase();
       return (
-        <View style={[styles.avatar, styles.avatarDefault]}>
-          <Text style={styles.avatarInitial}>{initial}</Text>
-        </View>
+        <Pressable onPress={() => handleProfilePress(item)}>
+          <View style={[styles.avatar, styles.avatarDefault]}>
+            <Text style={styles.avatarInitial}>{initial}</Text>
+          </View>
+        </Pressable>
       );
     }
   };
@@ -93,7 +110,9 @@ export default function ChatScreen() {
         ]}>
           {renderAvatar(item, isMe)}
           <View style={{ flex: 1 }}>
-            <Text style={styles.userName}>{item.userName || 'Usuário'}</Text>
+            <Pressable onPress={() => handleProfilePress(item)}>
+              <Text style={styles.userName}>{item.userName || 'Usuário'}</Text>
+            </Pressable>
             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
               <Text style={styles.deletedIcon}>🚫</Text>
               <Text style={styles.deletedText}> Esta mensagem foi apagada</Text>
@@ -133,48 +152,121 @@ export default function ChatScreen() {
 
 
   return (
-    <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-      <View style={styles.container}>
-        {loading ? (
-          <ActivityIndicator size="large" color="#007AFF" style={{ marginTop: 20 }} />
-        ) : (
-          <>
-            <FlatList
-              ref={flatListRef}
-              data={messages}
-              keyExtractor={item => item.id}
-              renderItem={renderItem}
-              contentContainerStyle={styles.messagesList}
-              showsVerticalScrollIndicator={false}
-              onScroll={handleScroll}
-              scrollEventThrottle={16}
-            />
-            {showScrollButton && (
-              <TouchableOpacity style={styles.scrollToEndButton} onPress={scrollToEnd} activeOpacity={0.8}>
-                <Text style={styles.scrollToEndIcon}>▼</Text>
-              </TouchableOpacity>
+    <>
+      <Modal
+        visible={profileModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setProfileModalVisible(false)}
+      >
+        <Pressable style={styles.modalOverlay} onPress={() => setProfileModalVisible(false)}>
+          <View style={styles.profileModalBox}>
+            {selectedUser?.photoURL ? (
+              <Image source={{ uri: selectedUser.photoURL }} style={styles.profileModalAvatar} />
+            ) : (
+              <View style={[styles.profileModalAvatar, styles.avatarDefault]}>
+                <Text style={styles.avatarInitial}>{selectedUser?.userName?.[0]?.toUpperCase() || 'U'}</Text>
+              </View>
             )}
-          </>
-        )}
-        <View style={styles.inputContainer}>
-          <TextInput
-            style={styles.input}
-            value={text}
-            onChangeText={setText}
-            placeholder="Digite sua mensagem..."
-            onSubmitEditing={handleSend}
-            returnKeyType="send"
-          />
-          <TouchableOpacity style={styles.sendButton} onPress={handleSend}>
-            <Text style={styles.sendButtonText}>Enviar</Text>
-          </TouchableOpacity>
+            <Text style={styles.profileModalName}>{selectedUser?.userName || 'Usuário'}</Text>
+            <Text style={styles.profileModalEmail}>{selectedUser?.userEmail || ''}</Text>
+            <Text style={styles.profileModalId}>ID: {selectedUser?.userId || ''}</Text>
+            {/* Adicione aqui opções como "Ver perfil completo", "Bloquear", etc. */}
+            <TouchableOpacity style={styles.modalCloseButton} onPress={() => setProfileModalVisible(false)}>
+              <Text style={{ color: '#007AFF', fontWeight: 'bold' }}>Fechar</Text>
+            </TouchableOpacity>
+          </View>
+        </Pressable>
+      </Modal>
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <View style={styles.container}>
+          {loading ? (
+            <ActivityIndicator size="large" color="#007AFF" style={{ marginTop: 20 }} />
+          ) : (
+            <>
+              <FlatList
+                ref={flatListRef}
+                data={messages}
+                keyExtractor={item => item.id}
+                renderItem={renderItem}
+                contentContainerStyle={styles.messagesList}
+                showsVerticalScrollIndicator={false}
+                onScroll={handleScroll}
+                scrollEventThrottle={16}
+              />
+              {showScrollButton && (
+                <TouchableOpacity style={styles.scrollToEndButton} onPress={scrollToEnd} activeOpacity={0.8}>
+                  <Text style={styles.scrollToEndIcon}>▼</Text>
+                </TouchableOpacity>
+              )}
+            </>
+          )}
+          <View style={styles.inputContainer}>
+            <TextInput
+              style={styles.input}
+              value={text}
+              onChangeText={setText}
+              placeholder="Digite sua mensagem..."
+              onSubmitEditing={handleSend}
+              returnKeyType="send"
+            />
+            <TouchableOpacity style={styles.sendButton} onPress={handleSend}>
+              <Text style={styles.sendButtonText}>Enviar</Text>
+            </TouchableOpacity>
+          </View>
         </View>
-      </View>
-    </KeyboardAvoidingView>
+      </KeyboardAvoidingView>
+    </>
   );
 }
 
 const styles = StyleSheet.create({
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  profileModalBox: {
+    backgroundColor: '#23243a',
+    borderRadius: 16,
+    padding: 24,
+    alignItems: 'center',
+    minWidth: 260,
+    elevation: 5,
+  },
+  profileModalAvatar: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    marginBottom: 12,
+    backgroundColor: '#bdbdbd',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  profileModalName: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    marginBottom: 4,
+    color: '#fff',
+  },
+  profileModalEmail: {
+    fontSize: 14,
+    color: '#b0b0b0',
+    marginBottom: 4,
+  },
+  profileModalId: {
+    fontSize: 12,
+    color: '#888',
+    marginBottom: 16,
+  },
+  modalCloseButton: {
+    marginTop: 10,
+    paddingVertical: 8,
+    paddingHorizontal: 18,
+    borderRadius: 8,
+    backgroundColor: '#fff',
+  },
   container: {
     flex: 1,
     backgroundColor: '#f9f9f9',

@@ -8,9 +8,10 @@ import { ControlScreen } from '../screens/ControlScreen';
 import { MapScreen } from '../screens/MapScreen';
 import { ProfileScreen } from '../screens/ProfileScreen';
 import ChatScreen from '../screens/ChatScreen';
-import AddLocationScreen from '../screens/AddLocationScreen';
+
 import LocationsListScreen from '../screens/LocationsListScreen';
 import LocationDetailScreen from '../screens/LocationDetailScreen';
+import SelectLocationMapScreen from '../screens/SelectLocationMapScreen';
 import UserProfileScreen from '../screens/UserProfileScreen';
 import { BluetoothConnectionScreen } from '../screens/BluetoothConnectionScreen';
 import { useAuth } from '../contexts/AuthContext';
@@ -58,7 +59,7 @@ const MainTabs = () => {
       <Tab.Screen name="Controle" component={ControlScreen} />
       <Tab.Screen name="Mapa" component={MapScreen} options={{ headerShown: false, tabBarLabel: 'Mapa' }} />
       <Tab.Screen name="Chat" component={ChatScreen} options={{ tabBarLabel: 'Chat' }} />
-      <Tab.Screen name="Adicionar Local" component={AddLocationScreen} options={{ tabBarLabel: 'Adicionar' }} />
+      
       <Tab.Screen name="Locais" component={LocationsListScreen} options={{ tabBarLabel: 'Locais' }} />
       <Tab.Screen name="Perfil do Usuário" component={UserProfileScreen} options={{ tabBarLabel: 'Meu Perfil' }} />
       <Tab.Screen name="Perfil" component={ProfileScreen} />
@@ -89,11 +90,7 @@ export const AppNavigator = () => {
             component={ChatScreen}
             options={{ title: 'Chat' }}
           />
-          <Stack.Screen
-            name="AddLocation"
-            component={AddLocationScreen}
-            options={{ title: 'Adicionar Local' }}
-          />
+          
           <Stack.Screen
             name="LocationsList"
             component={LocationsListScreen}
@@ -103,6 +100,11 @@ export const AppNavigator = () => {
             name="LocationDetail"
             component={LocationDetailScreen}
             options={{ title: 'Detalhes do Local' }}
+          />
+          <Stack.Screen
+            name="SelectLocationMap"
+            component={SelectLocationMapScreen}
+            options={{ title: 'Selecionar Local' }}
           />
           <Stack.Screen
             name="UserProfile"

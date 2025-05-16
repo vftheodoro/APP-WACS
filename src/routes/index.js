@@ -32,6 +32,8 @@ const AuthStack = () => {
   );
 };
 
+import SelectLocationMapScreen from '../screens/SelectLocationMapScreen';
+
 const AppRoutes = () => {
   const { user, loading } = useAuth();
   const { isDark } = useTheme();
@@ -45,39 +47,46 @@ const AppRoutes = () => {
       {!user ? (
         <AuthStack />
       ) : (
-        <Tab.Navigator
-          screenOptions={{
-            headerShown: false,
-            tabBarStyle: {
-              backgroundColor: isDark ? '#1E1E1E' : '#fff',
-              borderTopColor: isDark ? '#333' : '#ddd',
-            },
-            tabBarActiveTintColor: '#007AFF',
-            tabBarInactiveTintColor: isDark ? '#666' : '#999',
-          }}
-        >
-          <Tab.Screen
-            name="Mapa"
-            component={MapScreen}
-            options={{
-              tabBarIcon: ({ color, size }) => (
-                <Ionicons name="map" size={size} color={color} />
-              ),
-            }}
-          />
-          <Tab.Screen
-            name="Perfil"
-            component={ProfileScreen}
-            options={{
-              tabBarIcon: ({ color, size }) => (
-                <Ionicons name="person" size={size} color={color} />
-              ),
-            }}
-          />
-        </Tab.Navigator>
+        <Stack.Navigator screenOptions={{ headerShown: false }}>
+          <Stack.Screen name="MainTabs" options={{ headerShown: false }}>
+            {() => (
+              <Tab.Navigator
+                screenOptions={{
+                  headerShown: false,
+                  tabBarStyle: {
+                    backgroundColor: isDark ? '#1E1E1E' : '#fff',
+                    borderTopColor: isDark ? '#333' : '#ddd',
+                  },
+                  tabBarActiveTintColor: '#007AFF',
+                  tabBarInactiveTintColor: isDark ? '#666' : '#999',
+                }}
+              >
+                <Tab.Screen
+                  name="Mapa"
+                  component={MapScreen}
+                  options={{
+                    tabBarIcon: ({ color, size }) => (
+                      <Ionicons name="map" size={size} color={color} />
+                    ),
+                  }}
+                />
+                <Tab.Screen
+                  name="Perfil"
+                  component={ProfileScreen}
+                  options={{
+                    tabBarIcon: ({ color, size }) => (
+                      <Ionicons name="person" size={size} color={color} />
+                    ),
+                  }}
+                />
+              </Tab.Navigator>
+            )}
+          </Stack.Screen>
+          <Stack.Screen name="SelectLocationMap" component={Select} />
+        </Stack.Navigator>
       )}
     </NavigationContainer>
   );
 };
 
-export default AppRoutes; 
+export default AppRoutes;
