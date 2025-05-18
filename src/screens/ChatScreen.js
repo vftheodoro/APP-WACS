@@ -1,5 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { View, Text, TextInput, TouchableOpacity, FlatList, StyleSheet, KeyboardAvoidingView, Platform, ActivityIndicator, Image, Alert, Modal, Pressable } from 'react-native';
+import { Ionicons } from '@expo/vector-icons'; // Ícone de envio profissional
+import * as ImagePicker from 'expo-image-picker';
 import { useChat } from '../contexts/ChatContext';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -19,9 +21,10 @@ function formatTime(timestamp) {
 
 
 export default function ChatScreen() {
-  const { messages, loading, sendMessage } = useChat();
+  const { messages, loading, sendMessage, sendImageMessage } = useChat();
   const { user } = useAuth();
   const [text, setText] = useState('');
+  const [inputHeight, setInputHeight] = useState(40); // Altura inicial do input
   const flatListRef = useRef();
   const [showScrollButton, setShowScrollButton] = useState(false);
   const [profileModalVisible, setProfileModalVisible] = useState(false);
@@ -51,6 +54,19 @@ export default function ChatScreen() {
     if (text.trim().length === 0) return;
     await sendMessage(text);
     setText('');
+  };
+
+  // Função para selecionar imagem
+  const handlePickImage = async () => {
+    let result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      quality: 0.7,
+    });
+    if (!result.canceled && result.assets && result.assets.length > 0) {
+      const uri = result.assets[0].uri;
+      await sendImageMessage(uri);
+    }
   };
 
   const handleProfilePress = (item) => {
@@ -122,6 +138,42 @@ export default function ChatScreen() {
         </View>
       );
     }
+
+    // Renderizar mensagem de imagem
+    if (item.type === 'image' && item.imageUrl) {
+      return (
+        <View style={[
+          styles.messageContainer,
+          isMe ? styles.myMessage : styles.otherMessage,
+          { alignSelf: isMe ? 'flex-end' : 'flex-start', flexDirection: isMe ? 'row-reverse' : 'row', alignItems: 'flex-end', position: 'relative' }
+        ]}>
+          {renderAvatar(item, isMe)}
+          <View style={{ flex: 1 }}>
+            {!isMe && (
+              <Text style={styles.userName}>{item.userName || 'Usuário'}</Text>
+            )}
+            <View style={{ flexDirection: 'column', alignItems: isMe ? 'flex-end' : 'flex-start' }}>
+              <Image
+                source={{ uri: item.imageUrl }}
+                style={{ width: 200, height: 200, borderRadius: 10, marginBottom: 4, backgroundColor: '#eee' }}
+                resizeMode="cover"
+              />
+              <Text style={styles.timeText}>{formatTime(item.timestamp)}</Text>
+            </View>
+          </View>
+          {isMe && (
+            <TouchableOpacity
+              style={styles.deleteButton}
+              onPress={() => handleDelete(item)}
+              hitSlop={{ top: 10, right: 10, bottom: 10, left: 10 }}
+            >
+              <Text style={styles.deleteIcon}>🗑️</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+      );
+    }
+    // Renderizar mensagem de texto (default)
     return (
       <View style={[
         styles.messageContainer,
@@ -130,7 +182,9 @@ export default function ChatScreen() {
       ]}>
         {renderAvatar(item, isMe)}
         <View style={{ flex: 1 }}>
-          <Text style={styles.userName}>{item.userName || 'Usuário'}</Text>
+          {!isMe && (
+            <Text style={styles.userName}>{item.userName || 'Usuário'}</Text>
+          )}
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
             <Text style={[styles.messageText, isMe && styles.myMessageText]}>{item.text}</Text>
             <Text style={styles.timeText}>  {formatTime(item.timestamp)}</Text>
@@ -202,16 +256,23 @@ export default function ChatScreen() {
             </>
           )}
           <View style={styles.inputContainer}>
+            <TouchableOpacity style={styles.attachButton} onPress={handlePickImage} activeOpacity={0.7} accessibilityLabel="Enviar imagem">
+              <Ionicons name="image-outline" size={26} color="#007AFF" />
+            </TouchableOpacity>
             <TextInput
-              style={styles.input}
+              style={[styles.input, { height: Math.max(40, Math.min(inputHeight, 120)) }]}
               value={text}
               onChangeText={setText}
               placeholder="Digite sua mensagem..."
+              placeholderTextColor="#999"
               onSubmitEditing={handleSend}
               returnKeyType="send"
+              multiline
+              onContentSizeChange={e => setInputHeight(e.nativeEvent.contentSize.height)}
+              blurOnSubmit={false}
             />
-            <TouchableOpacity style={styles.sendButton} onPress={handleSend}>
-              <Text style={styles.sendButtonText}>Enviar</Text>
+            <TouchableOpacity style={styles.sendButton} onPress={handleSend} activeOpacity={0.7} accessibilityLabel="Enviar mensagem">
+              <Ionicons name="send" size={24} color="#fff" />
             </TouchableOpacity>
           </View>
         </View>
@@ -284,11 +345,17 @@ const styles = StyleSheet.create({
     paddingBottom: 10,
   },
   avatar: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    marginHorizontal: 8,
-    backgroundColor: '#eee',
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    marginHorizontal: 10,
+    backgroundColor: '#e2e2e2',
+    borderWidth: 2,
+    borderColor: '#fff',
+    shadowColor: '#000',
+    shadowOpacity: 0.06,
+    shadowRadius: 2,
+    elevation: 1,
   },
   avatarDefault: {
     justifyContent: 'center',
@@ -313,42 +380,54 @@ const styles = StyleSheet.create({
     opacity: 0.9,
   },
   messageContainer: {
-    marginVertical: 4,
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
+    marginVertical: 8,
+    borderRadius: 18,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.12,
+    shadowRadius: 6,
+    elevation: 3,
     alignSelf: 'flex-start',
     maxWidth: '80%',
     minWidth: 48,
+    flexDirection: 'row',
+    alignItems: 'flex-end',
   },
   myMessage: {
-    backgroundColor: '#007AFF', 
-    marginLeft: 40,
+    backgroundColor: 'linear-gradient(90deg, #007AFF 60%, #0051a8 100%)', // Sutil gradiente (pode precisar de lib extra, se não, mantenha azul sólido)
+    backgroundColor: '#007AFF',
+    marginLeft: 48,
     alignSelf: 'flex-end',
-    borderTopRightRadius: 0,
+    borderTopRightRadius: 6,
+    borderBottomRightRadius: 18,
+    borderTopLeftRadius: 18,
+    borderBottomLeftRadius: 18,
   },
   otherMessage: {
-    backgroundColor: '#FFF',
-    marginRight: 40,
+    backgroundColor: '#fff',
+    marginRight: 48,
     alignSelf: 'flex-start',
-    borderTopLeftRadius: 0,
+    borderTopLeftRadius: 6,
+    borderBottomRightRadius: 18,
+    borderTopRightRadius: 18,
+    borderBottomLeftRadius: 18,
     borderWidth: 1,
-    borderColor: '#e0e0e0',
+    borderColor: '#ececec',
   },
   userName: {
-    fontSize: 12,
-    fontWeight: 'bold',
-    color: '#007AFF',
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#7a7a7a',
     marginBottom: 2,
+    marginLeft: 2,
   },
   messageText: {
     fontSize: 16,
-    color: '#333',
+    color: '#23243a',
+    lineHeight: 22,
+    flexShrink: 1,
   },
   myMessageText: {
     color: '#fff',
@@ -365,36 +444,62 @@ const styles = StyleSheet.create({
     marginRight: 2,
   },
   timeText: {
-    fontSize: 12,
-    color: '#888',
+    fontSize: 11,
+    color: '#b0b0b0',
     marginLeft: 8,
-    marginTop: 2,
+    alignSelf: 'flex-end',
+    marginBottom: 2,
   },
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 8,
     borderTopWidth: 1,
-    borderColor: '#eee',
+    borderColor: '#ececec',
     backgroundColor: '#fff',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 4,
+    elevation: 5,
   },
   input: {
     flex: 1,
     fontSize: 16,
-    padding: 10,
-    borderRadius: 20,
-    backgroundColor: '#f0f0f0',
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 24,
+    backgroundColor: '#f5f5f7',
     marginRight: 8,
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+    color: '#23243a',
+  },
+  attachButton: {
+    backgroundColor: 'transparent',
+    borderRadius: 24,
+    padding: 6,
+    marginRight: 4,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  chatImage: {
+    width: 180,
+    height: 180,
+    borderRadius: 12,
+    marginVertical: 4,
+    backgroundColor: '#ececec',
   },
   sendButton: {
     backgroundColor: '#007AFF',
-    borderRadius: 20,
-    paddingHorizontal: 18,
-    paddingVertical: 10,
-  },
-  sendButtonText: {
-    color: '#fff',
-    fontWeight: 'bold',
-    fontSize: 16,
+    borderRadius: 24,
+    padding: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#007AFF',
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 2,
   },
 });
