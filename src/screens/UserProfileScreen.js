@@ -15,9 +15,11 @@ import {
 import { Ionicons, MaterialIcons, FontAwesome5 } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { useAuth } from '../contexts/AuthContext';
+import { useTheme } from '../contexts/ThemeContext';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function UserProfileScreen() {
+  const { isDark, toggleTheme } = useTheme();
   const { user, updateUser, updateProfilePicture, logout, isUploading, changePassword } = useAuth();
   const [editMode, setEditMode] = useState(false);
   const [name, setName] = useState('');
@@ -334,6 +336,14 @@ export default function UserProfileScreen() {
           >
             <Ionicons name="key" size={22} color="#007AFF" />
             <Text style={styles.actionText}>Alterar Senha</Text>
+          </TouchableOpacity>
+          
+          <TouchableOpacity 
+            style={styles.actionButton} 
+            onPress={toggleTheme}
+          >
+            <Ionicons name={isDark ? 'sunny' : 'moon'} size={22} color="#007AFF" />
+            <Text style={styles.actionText}>{isDark ? 'Tema Claro' : 'Tema Escuro'}</Text>
           </TouchableOpacity>
           
           <TouchableOpacity 

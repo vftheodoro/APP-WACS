@@ -1,10 +1,12 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Platform, Alert, Dimensions, TextInput, FlatList, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Platform, Alert, Dimensions, TextInput, FlatList, ScrollView, Image } from 'react-native';
 import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
 import * as Location from 'expo-location';
 import { Ionicons, MaterialIcons, FontAwesome5 } from '@expo/vector-icons';
 import Constants from 'expo-constants';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { fetchLocations } from '../services/firebase/locations';
+import { useNavigation } from '@react-navigation/native';
 
 const GOOGLE_MAPS_APIKEY = Constants.expoConfig.extra.GOOGLE_MAPS_API_KEY;
 const { width, height } = Dimensions.get('window');
@@ -26,11 +28,28 @@ const MapScreen = () => {
   const [navigationSteps, setNavigationSteps] = useState([]);
   const [currentStepIndex, setCurrentStepIndex] = useState(0);
   const [isNavigating, setIsNavigating] = useState(false);
+  const [accessibleLocations, setAccessibleLocations] = useState([]);
+  const [loadingAccessible, setLoadingAccessible] = useState(true);
   const mapRef = useRef(null);
   const locationWatcher = useRef(null);
   const navigationInterval = useRef(null);
   const searchInputRef = useRef(null);
-  
+
+  // Buscar locais acessíveis do Firestore ao montar
+  useEffect(() => {
+    async function loadAccessibleLocations() {
+      setLoadingAccessible(true);
+      try {
+        const data = await fetchLocations();
+        setAccessibleLocations(data);
+      } catch (e) {
+        setAccessibleLocations([]);
+      }
+      setLoadingAccessible(false);
+    }
+    loadAccessibleLocations();
+  }, []);
+
   // Carregar histórico de pesquisa
   useEffect(() => {
     loadSearchHistory();
@@ -124,10 +143,10 @@ const MapScreen = () => {
         setErrorMsg('Permissão para acessar a localização foi negada');
         return;
       }
-      const loc = await Location.getCurrentPositionAsync({});
+      const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.BestForNavigation });
       setLocation(loc.coords);
       locationWatcher.current = await Location.watchPositionAsync(
-        { accuracy: Location.Accuracy.High, distanceInterval: 2, timeInterval: 1000 },
+        { accuracy: Location.Accuracy.BestForNavigation, distanceInterval: 1, timeInterval: 1000 },
         (loc) => setLocation(loc.coords)
       );
     })();
@@ -432,12 +451,15 @@ const MapScreen = () => {
     }
   };
 
+  const navigation = useNavigation();
+
   return (
     <View style={{ flex: 1 }}>
       {location ? (
           <MapView
           ref={mapRef}
-          style={{ flex: 1 }}
+          style={styles.map}
+          customMapStyle={mapCustomStyle}
             provider={PROVIDER_GOOGLE}
           initialRegion={{
             latitude: location.latitude,
@@ -461,6 +483,51 @@ const MapScreen = () => {
               pinColor="#FF0000"
             />
           )}
+
+          {/* Marcadores dos pontos acessíveis do Firestore */}
+          {accessibleLocations && accessibleLocations
+            .map((loc) => {
+              let latitude = loc.latitude;
+              let longitude = loc.longitude;
+              // Se vier como objeto location
+              if (loc.location && typeof loc.location === 'object') {
+                if (typeof loc.location.latitude === 'number' && typeof loc.location.longitude === 'number') {
+                  latitude = loc.location.latitude;
+                  longitude = loc.location.longitude;
+                }
+              }
+              // Se vier como string '[24.499485° S, 47.848334° W]'
+              if (!latitude || !longitude) {
+                if (typeof loc.location === 'string') {
+                  const match = loc.location.match(/([\d.]+)[^\d-]*([S|N]),\s*([\d.]+)[^\d-]*([W|E])/i);
+                  if (match) {
+                    let lat = parseFloat(match[1]);
+                    let lng = parseFloat(match[3]);
+                    if (match[2].toUpperCase() === 'S') lat = -lat;
+                    if (match[4].toUpperCase() === 'W') lng = -lng;
+                    latitude = lat;
+                    longitude = lng;
+                  }
+                }
+              }
+              if (typeof latitude === 'number' && typeof longitude === 'number' && !isNaN(latitude) && !isNaN(longitude)) {
+                return (
+                  <Marker
+                    key={loc.id}
+                    coordinate={{ latitude, longitude }}
+                    title={loc.name}
+                    description={loc.address}
+                    pinColor="#2ecc40"
+                  >
+                    <View style={{ backgroundColor: '#2ecc40', borderRadius: 20, padding: 4, borderWidth: 2, borderColor: '#fff' }}>
+                      <FontAwesome5 name="universal-access" size={20} color="#fff" />
+                    </View>
+                  </Marker>
+                );
+              }
+              return null;
+            })}
+
           {routeCoords.length > 0 && (
             <Polyline
               coordinates={routeCoords}
@@ -672,11 +739,64 @@ const MapScreen = () => {
           <Text style={styles.tipText}>Toque longo no mapa para definir o destino</Text>
         </View>
       )}
+
+      {/* Botão flutuante para adicionar local */}
+      <TouchableOpacity
+        style={styles.addFab}
+        onPress={() => navigation && navigation.navigate('Locais', { addModalVisible: true })}
+        activeOpacity={0.7}
+      >
+        <View style={styles.fabInnerAdd}>
+          <Ionicons name="add" style={styles.fabIcon} />
+        </View>
+      </TouchableOpacity>
+
+      {/* Botão de centralizar usuário */}
+      <TouchableOpacity
+        style={styles.centerButton}
+        onPress={centerOnUser}
+        activeOpacity={0.7}
+      >
+        <View style={styles.fabInnerCenter}>
+          <Ionicons name="locate" style={styles.fabIcon} />
+        </View>
+      </TouchableOpacity>
     </View>
   );
 };
 
+const mapCustomStyle = [
+  { elementType: 'geometry', stylers: [{ color: '#f5f5f5' }] },
+  { elementType: 'labels.icon', stylers: [{ visibility: 'off' }] },
+  { elementType: 'labels.text.fill', stylers: [{ color: '#616161' }] },
+  { elementType: 'labels.text.stroke', stylers: [{ color: '#f5f5f5' }] },
+  { featureType: 'administrative.land_parcel', elementType: 'labels.text.fill', stylers: [{ color: '#bdbdbd' }] },
+  { featureType: 'poi', elementType: 'geometry', stylers: [{ color: '#e0f7fa' }] },
+  { featureType: 'poi', elementType: 'labels.text.fill', stylers: [{ color: '#00796b' }] },
+  { featureType: 'poi.park', elementType: 'geometry', stylers: [{ color: '#b9f6ca' }] },
+  { featureType: 'poi.park', elementType: 'labels.text.fill', stylers: [{ color: '#388e3c' }] },
+  { featureType: 'road', elementType: 'geometry', stylers: [{ color: '#ffffff' }] },
+  { featureType: 'road.arterial', elementType: 'geometry', stylers: [{ color: '#cfd8dc' }] },
+  { featureType: 'road.highway', elementType: 'geometry', stylers: [{ color: '#b0bec5' }] },
+  { featureType: 'road.highway.controlled_access', elementType: 'geometry', stylers: [{ color: '#90a4ae' }] },
+  { featureType: 'road', elementType: 'labels.text.fill', stylers: [{ color: '#757575' }] },
+  { featureType: 'transit.line', elementType: 'geometry', stylers: [{ color: '#bdbdbd' }] },
+  { featureType: 'water', elementType: 'geometry', stylers: [{ color: '#b3e5fc' }] },
+  { featureType: 'water', elementType: 'labels.text.fill', stylers: [{ color: '#0288d1' }] }
+];
+
 const styles = StyleSheet.create({
+  map: {
+    flex: 1,
+    borderRadius: 24,
+    overflow: 'hidden',
+    margin: 8,
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOpacity: 0.10,
+    shadowOffset: { width: 0, height: 2 },
+    shadowRadius: 8,
+  },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
@@ -688,6 +808,14 @@ const styles = StyleSheet.create({
     width: '90%',
     alignSelf: 'center',
     zIndex: 99,
+    borderRadius: 18,
+    backgroundColor: 'rgba(255,255,255,0.85)',
+    shadowColor: '#000',
+    shadowOpacity: 0.13,
+    shadowOffset: { width: 0, height: 2 },
+    shadowRadius: 6,
+    elevation: 4,
+    paddingVertical: 6,
   },
   searchInputContainer: {
     flexDirection: 'row',
@@ -780,16 +908,57 @@ const styles = StyleSheet.create({
   centerButton: {
     position: 'absolute',
     bottom: 30,
-    right: 20,
-    backgroundColor: '#007bff',
-    borderRadius: 30,
-    padding: 16,
-    elevation: 5,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
+    right: 24,
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'transparent',
     zIndex: 10,
+  },
+  addFab: {
+    position: 'absolute',
+    right: 24,
+    bottom: 110, // Deixa acima do botão de centralizar
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#43e97b',
+    borderWidth: 3,
+    borderColor: '#fff',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.35,
+    shadowRadius: 12,
+    elevation: 16,
+    zIndex: 99,
+    overflow: 'visible',
+  },
+  fabInnerAdd: {
+    width: 68,
+    height: 68,
+    borderRadius: 34,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#43e97b',
+  },
+  fabInnerCenter: {
+    width: 68,
+    height: 68,
+    borderRadius: 34,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#00b0ff',
+  },
+  fabIcon: {
+    fontSize: 40,
+    color: '#fff',
+    textShadowColor: 'rgba(0,0,0,0.25)',
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 4,
   },
   navigationPanel: {
     position: 'absolute',
@@ -884,12 +1053,18 @@ const styles = StyleSheet.create({
     zIndex: 10,
   },
   tipText: {
-    backgroundColor: '#fff',
+    backgroundColor: 'rgba(255,255,255,0.92)',
     color: '#007bff',
-    padding: 10,
-    borderRadius: 8,
-    fontSize: 15,
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 16,
+    fontSize: 16,
+    fontWeight: '500',
     elevation: 2,
+    shadowColor: '#000',
+    shadowOpacity: 0.08,
+    shadowOffset: { width: 0, height: 1 },
+    shadowRadius: 4,
   },
 });
 
