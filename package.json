@@ -57,8 +57,6 @@
     "@babel/plugin-transform-private-methods": "^7.23.3",
     "@babel/plugin-transform-private-property-in-object": "^7.23.4",
     "babel-plugin-module-resolver": "^5.0.0",
-    "metro": "^0.80.1",
-    "metro-react-native-babel-transformer": "^0.77.0",
     "react-native-svg-transformer": "^1.1.0"
   },
   "private": true,

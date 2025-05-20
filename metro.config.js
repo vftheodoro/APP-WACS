@@ -11,6 +11,10 @@ config.transformer.babelTransformerPath = require.resolve('react-native-svg-tran
 config.resolver.assetExts = config.resolver.assetExts.filter(ext => ext !== 'svg');
 config.resolver.sourceExts.push('svg');
 
+// Adicionar a extensão '.cjs' e desabilitar packageExports para compatibilidade com Firebase/Hermes
+config.resolver.sourceExts.push('cjs');
+config.resolver.unstable_enablePackageExports = false;
+
 // Adicionar padrões para excluir módulos problemáticos
 config.resolver.blockList = [
   /.*\/node_modules\/@react-native-firebase\/app\/lib\/internal\/index\.js/,
