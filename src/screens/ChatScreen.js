@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, FlatList, StyleSheet, KeyboardAvoidingView, Platform, ActivityIndicator, Image, Alert, Modal, Pressable } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, FlatList, StyleSheet, KeyboardAvoidingView, Platform, ActivityIndicator, Image, Alert, Modal, Pressable, Vibration } from 'react-native';
 import { Ionicons } from '@expo/vector-icons'; // Ícone de envio profissional
 import * as ImagePicker from 'expo-image-picker';
 import { useChat } from '../contexts/ChatContext';
@@ -29,18 +29,26 @@ export default function ChatScreen() {
   const [showScrollButton, setShowScrollButton] = useState(false);
   const [profileModalVisible, setProfileModalVisible] = useState(false);
   const [selectedUser, setSelectedUser] = useState(null);
+  const [initialScrollDone, setInitialScrollDone] = useState(false); // Estado para controlar a rolagem inicial
+  const [messageModalVisible, setMessageModalVisible] = useState(false); // Estado para controlar a visibilidade do modal de mensagem
+  const [selectedMessage, setSelectedMessage] = useState(null); // Estado para armazenar a mensagem selecionada
 
   // Scroll para a última mensagem ao receber novas mensagens
   useEffect(() => {
     if (flatListRef.current && messages.length > 0) {
-      flatListRef.current.scrollToEnd({ animated: true });
+      // Apenas rola automaticamente para o final se a rolagem inicial já foi feita
+      // ou se é a primeira vez que mensagens são carregadas e não está carregando mais
+      if (initialScrollDone || !loading) {
+         flatListRef.current.scrollToEnd({ animated: true });
+         setInitialScrollDone(true); // Marca que a rolagem inicial foi feita
+      }
     }
-  }, [messages]);
+  }, [messages, loading]); // Depende de messages e loading
 
   // Detecta se o usuário está longe do final
   const handleScroll = (event) => {
     const { layoutMeasurement, contentOffset, contentSize } = event.nativeEvent;
-    const isAtBottom = layoutMeasurement.height + contentOffset.y >= contentSize.height - 40;
+    const isAtBottom = layoutMeasurement.height + contentOffset.y >= contentSize.height - 40; // Ajuste para a margem inferior
     setShowScrollButton(!isAtBottom);
   };
 
@@ -77,6 +85,16 @@ export default function ChatScreen() {
       userId: item.userId,
     });
     setProfileModalVisible(true);
+  };
+
+  const handleMessagePress = (message) => {
+    setSelectedMessage(message);
+    setMessageModalVisible(true);
+  };
+
+  const closeMessageModal = () => {
+    setMessageModalVisible(false);
+    setSelectedMessage(null);
   };
 
   const renderAvatar = (item, isMe) => {
@@ -142,13 +160,18 @@ export default function ChatScreen() {
     // Renderizar mensagem de imagem
     if (item.type === 'image' && item.imageUrl) {
       return (
-        <View style={[
-          styles.messageContainer,
-          isMe ? styles.myMessage : styles.otherMessage,
-          { alignSelf: isMe ? 'flex-end' : 'flex-start', flexDirection: isMe ? 'row-reverse' : 'row', alignItems: 'flex-end', position: 'relative' }
-        ]}>
+        <Pressable
+          onLongPress={isMe ? () => { Vibration.vibrate(50); handleDelete(item.id); } : undefined}
+          onPress={() => handleMessagePress(item)}
+          style={({ pressed }) => [
+            styles.messageContainer,
+            isMe ? styles.myMessage : styles.otherMessage,
+            { alignSelf: isMe ? 'flex-end' : 'flex-start', flexDirection: isMe ? 'row-reverse' : 'row', alignItems: 'flex-end', position: 'relative', paddingRight: isMe ? 10 : undefined, paddingLeft: !isMe ? 10 : undefined },
+            pressed && { opacity: 0.8 }
+          ]}
+        >
           {renderAvatar(item, isMe)}
-          <View style={{ flex: 1 }}>
+          <View style={{/* Removido flex: 1 */}}>{/* Conteúdo da mensagem */}
             {!isMe && (
               <Text style={styles.userName}>{item.userName || 'Usuário'}</Text>
             )}
@@ -158,28 +181,24 @@ export default function ChatScreen() {
                 style={{ width: 200, height: 200, borderRadius: 10, marginBottom: 4, backgroundColor: '#eee' }}
                 resizeMode="cover"
               />
-              <Text style={[styles.timeText, isMe && { color: '#fff' }]}>{formatTime(item.timestamp)}</Text>
+              <Text style={[styles.timeText, isMe && { color: '#FFFFFF' }]}>{formatTime(item.timestamp)}</Text>
             </View>
           </View>
-          {isMe && (
-            <TouchableOpacity
-              style={styles.deleteButton}
-              onPress={() => handleDelete(item)}
-              hitSlop={{ top: 10, right: 10, bottom: 10, left: 10 }}
-            >
-              <Text style={styles.deleteIcon}>🗑️</Text>
-            </TouchableOpacity>
-          )}
-        </View>
+        </Pressable>
       );
     }
     // Renderizar mensagem de texto (default)
     return (
-      <View style={[
-        styles.messageContainer,
-        isMe ? styles.myMessage : styles.otherMessage,
-        { alignSelf: isMe ? 'flex-end' : 'flex-start', flexDirection: isMe ? 'row-reverse' : 'row', alignItems: 'flex-end', position: 'relative' }
-      ]}>
+      <Pressable
+        onLongPress={isMe ? () => { Vibration.vibrate(50); handleDelete(item.id); } : undefined}
+        onPress={() => handleMessagePress(item)}
+        style={({ pressed }) => [
+          styles.messageContainer,
+          isMe ? styles.myMessage : styles.otherMessage,
+          { alignSelf: isMe ? 'flex-end' : 'flex-start', flexDirection: isMe ? 'row-reverse' : 'row', alignItems: 'flex-end', position: 'relative', paddingRight: isMe ? 10 : undefined, paddingLeft: !isMe ? 10 : undefined },
+          pressed && { opacity: 0.8 }
+        ]}
+      >
         {/* Cauda do balão */}
         {isMe ? (
           <View style={styles.myMessageTail}>
@@ -204,7 +223,7 @@ export default function ChatScreen() {
               borderBottomLeftRadius: 0,
               borderRightWidth: 0,
               borderRightColor: 'transparent',
-              borderTopColor: '#4A90E2',
+              borderTopColor: isMe ? '#007AFF' : '#FFFFFF',
             }} />
           </View>
         ) : (
@@ -230,30 +249,21 @@ export default function ChatScreen() {
               borderBottomRightRadius: 0,
               borderLeftWidth: 0,
               borderLeftColor: 'transparent',
-              borderTopColor: '#fff',
+              borderTopColor: isMe ? '#007AFF' : '#FFFFFF',
             }} />
           </View>
         )}
         {renderAvatar(item, isMe)}
-        <View style={{ flex: 1 }}>
+        <View style={{/* Removido flex: 1 */}}>{/* Conteúdo da mensagem */}
           {!isMe && (
             <Text style={styles.userName}>{item.userName || 'Usuário'}</Text>
           )}
-          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+          <View style={{ flexDirection: 'row', alignItems: 'flex-end' }}>{/* Ajustado alignItems */}
             <Text style={[styles.messageText, isMe && styles.myMessageText]}>{item.text}</Text>
-            <Text style={[styles.timeText, isMe && { color: '#fff' }]}>  {formatTime(item.timestamp)}</Text>
+            <Text style={[styles.timeText, isMe && { color: '#FFFFFF' }, !isMe && { color: '#666666' }]}>  {formatTime(item.timestamp)}</Text>
           </View>
         </View>
-        {isMe && (
-          <TouchableOpacity
-            style={styles.deleteButton}
-            onPress={() => handleDelete(item)}
-            hitSlop={{ top: 10, right: 10, bottom: 10, left: 10 }}
-          >
-            <Text style={styles.deleteIcon}>🗑️</Text>
-          </TouchableOpacity>
-        )}
-      </View>
+      </Pressable>
     );
   };
 
@@ -281,11 +291,35 @@ export default function ChatScreen() {
             <Text style={styles.profileModalId}>ID: {selectedUser?.userId || ''}</Text>
             {/* Adicione aqui opções como "Ver perfil completo", "Bloquear", etc. */}
             <TouchableOpacity style={styles.modalCloseButton} onPress={() => setProfileModalVisible(false)}>
-              <Text style={{ color: '#007AFF', fontWeight: 'bold' }}>Fechar</Text>
+              <Text style={styles.modalCloseButtonText}>Fechar</Text>
             </TouchableOpacity>
           </View>
         </Pressable>
       </Modal>
+
+      <Modal
+        visible={messageModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={closeMessageModal}
+      >
+        <Pressable style={styles.fullScreenModalOverlay} onPress={closeMessageModal}>
+          <View style={styles.fullScreenMessageContainer}>
+            {selectedMessage?.type === 'image' && selectedMessage?.imageUrl ? (
+              <Image
+                source={{ uri: selectedMessage.imageUrl }}
+                style={styles.fullScreenModalImage}
+                resizeMode="contain"
+              />
+            ) : (
+              <Text style={[styles.fullScreenModalText, selectedMessage?.userId === user?.id && { color: '#FFFFFF' }]}>
+                {selectedMessage?.text}
+              </Text>
+            )}
+          </View>
+        </Pressable>
+      </Modal>
+
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <View style={styles.container}>
           {loading ? (
@@ -343,51 +377,65 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   profileModalBox: {
-    backgroundColor: '#23243a',
-    borderRadius: 16,
+    backgroundColor: '#FFFFFF', // Fundo branco para o modal
+    borderRadius: 12, // Raio de borda ligeiramente menor
     padding: 24,
     alignItems: 'center',
-    minWidth: 260,
-    elevation: 5,
+    minWidth: 280, // Aumentar largura mínima
+    elevation: 8, // Sombra mais proeminente para modal
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
   },
   profileModalAvatar: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    marginBottom: 12,
-    backgroundColor: '#bdbdbd',
+    width: 80, // Aumentar tamanho do avatar no modal
+    height: 80,
+    borderRadius: 40, // Metade da largura/altura para círculo perfeito
+    marginBottom: 16,
+    backgroundColor: '#E0E0E0', // Cinza claro padrão
     justifyContent: 'center',
     alignItems: 'center',
+    borderWidth: 3, // Borda um pouco mais grossa
+    borderColor: '#007AFF', // Cor primária
   },
   profileModalName: {
-    fontSize: 20,
-    fontWeight: 'bold',
+    fontSize: 22, // Aumentar tamanho da fonte
+    fontWeight: '600', // Peso da fonte semi-bold
     marginBottom: 4,
-    color: '#fff',
+    color: '#333333', // Cor de texto mais escura
   },
   profileModalEmail: {
-    fontSize: 14,
-    color: '#b0b0b0',
-    marginBottom: 4,
+    fontSize: 15,
+    color: '#666666', // Cinza médio para email
+    marginBottom: 8,
   },
   profileModalId: {
-    fontSize: 12,
-    color: '#888',
-    marginBottom: 16,
+    fontSize: 13,
+    color: '#888888', // Cinza mais claro para ID
+    marginBottom: 20,
   },
   modalCloseButton: {
-    marginTop: 10,
-    paddingVertical: 8,
-    paddingHorizontal: 18,
+    marginTop: 15,
+    paddingVertical: 10,
+    paddingHorizontal: 20,
     borderRadius: 8,
-    backgroundColor: '#fff',
+    backgroundColor: '#007AFF', // Fundo com cor primária
+    alignSelf: 'stretch', // Ocupar largura total
+    alignItems: 'center',
+  },
+  modalCloseButtonText: { // Adicionar estilo para o texto do botão
+    color: '#FFFFFF',
+    fontWeight: 'bold',
+    fontSize: 16,
   },
   container: {
     flex: 1,
-    backgroundColor: '#F4F7FB', // tom mais suave
-    padding: 8,
+    backgroundColor: '#E0EAF5', // Um azul bem clarinho
+    padding: 0, // Remover padding do container principal
   },
   title: {
+    // Manter ou remover se não for necessário na tela de chat
     fontSize: 22,
     fontWeight: 'bold',
     textAlign: 'center',
@@ -396,236 +444,265 @@ const styles = StyleSheet.create({
   },
   messagesList: {
     flexGrow: 1,
+    paddingVertical: 10, // Adicionar padding vertical
+    paddingHorizontal: 8, // Adicionar padding horizontal
     paddingBottom: 90, // espaço extra para input flutuante
-    paddingHorizontal: 2,
   },
   avatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    marginHorizontal: 7,
-    backgroundColor: '#e2e2e2',
-    borderWidth: 2.5,
-    borderColor: '#007AFF', // Borda azul premium
-    shadowColor: '#007AFF',
-    shadowOpacity: 0.12,
-    shadowRadius: 4,
-    elevation: 3,
+    width: 36, // Tamanho um pouco menor para o avatar na lista
+    height: 36,
+    borderRadius: 18,
+    marginHorizontal: 4, // Espaçamento horizontal menor
+    backgroundColor: '#E0E0E0',
+    borderWidth: 2, // Borda ligeiramente mais fina
+    borderColor: '#007AFF', // Cor primária
+    // Remover sombras excessivas aqui, a sombra será na bolha da mensagem
+    shadowColor: 'transparent',
+    shadowOpacity: 0,
+    shadowRadius: 0,
+    elevation: 0,
     overflow: 'hidden',
   },
   avatarDefault: {
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#bdbdbd',
+    backgroundColor: '#BDBDBD', // Cinza um pouco mais escuro para default
     borderColor: '#007AFF',
-    borderWidth: 2.5,
+    borderWidth: 2,
   },
   avatarInitial: {
-    color: '#fff',
+    color: '#FFFFFF',
     fontWeight: 'bold',
-    fontSize: 19,
-    fontFamily: Platform.OS === 'ios' ? 'Avenir Next' : 'Roboto',
-    letterSpacing: 1,
+    fontSize: 17,
+    // Manter fontes do sistema, mas garantir fallback
+    fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto',
   },
   deleteButton: {
     position: 'absolute',
-    top: 4,
-    right: 4,
+    top: 6, // Ajustar posição
+    right: 6,
     zIndex: 10,
-    padding: 2,
+    padding: 4, // Aumentar área clicável
   },
   deleteIcon: {
-    fontSize: 18,
-    color: '#fff',
-    opacity: 0.9,
+    fontSize: 16, // Tamanho um pouco menor
+    color: '#FFFFFF', // Ícone branco para contraste
+    opacity: 1, // Remover opacidade
+    textShadowColor: 'rgba(0, 0, 0, 0.2)', // Sombra leve para destaque
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 2,
   },
   messageContainer: {
-    marginVertical: 5,
-    borderRadius: 20,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    shadowColor: '#007AFF',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.10,
-    shadowRadius: 7,
-    elevation: 4,
+    marginVertical: 2, // Reduzir ainda mais a margem vertical
+    borderRadius: 18, // Aumentar ligeiramente o raio de borda geral
+    paddingHorizontal: 10, // Ajustar padding horizontal
+    paddingVertical: 7, // Ajustar padding vertical
+    shadowColor: '#000', // Sombra geral para bolhas
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.07, // Sombra mais sutil
+    shadowRadius: 2, // Raio da sombra menor
+    elevation: 1, // Elevação menor
     alignSelf: 'flex-start',
-    maxWidth: '86%',
-    minWidth: 48,
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    marginBottom: 2,
-    opacity: 0.97,
+    maxWidth: '85%',
+    minWidth: 50, // Manter um minWidth razoável
+    flexDirection: 'row', // Manter flexDirection row
+    alignItems: 'flex-end', // Alinhar itens ao final (para timestamp)
+    marginBottom: 4, // Ajustar margem inferior
+    opacity: 1,
   },
   myMessage: {
-    // degrade premium (preparado para LinearGradient)
-    backgroundColor: '#4A90E2', // fallback
-    marginLeft: 46,
+    backgroundColor: '#007AFF', // Azul principal
+    marginLeft: 55, // Ajustar margem para a direita
     alignSelf: 'flex-end',
-    borderTopRightRadius: 22,
-    borderBottomRightRadius: 28,
-    borderTopLeftRadius: 22,
-    borderBottomLeftRadius: 22,
-    shadowColor: '#4A90E2',
-    shadowOpacity: 0.14,
-    shadowRadius: 8,
-    elevation: 5,
-    borderWidth: 1.5,
-    borderColor: '#4A90E2',
-    minHeight: 42,
-    minWidth: 60,
-    paddingBottom: 14,
+    borderRadius: 18,
+    borderTopRightRadius: 5, // Canto superior direito menos arredondado
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.07,
+    shadowRadius: 2,
+    elevation: 1,
+    borderWidth: 0,
+    minHeight: 30, // Altura mínima menor
+    paddingVertical: 6, // Ajustar padding vertical
+    paddingHorizontal: 10, // Ajustar padding horizontal
+    paddingRight: 18, // Espaço para a cauda
+    flexShrink: 1,
   },
   myMessageTail: {
     position: 'absolute',
-    right: -8,
+    right: -5, // Ajustar posição
     bottom: 0,
-    width: 16,
-    height: 18,
-    zIndex: 0,
-    // balão com cauda
+    width: 0,
+    height: 0,
     backgroundColor: 'transparent',
+    borderStyle: 'solid',
+    borderLeftWidth: 10, // Ajustar tamanho da cauda
+    borderRightWidth: 0,
+    borderBottomWidth: 10,
+    borderLeftColor: 'transparent',
+    borderRightColor: 'transparent',
+    borderBottomColor: '#007AFF', // Cor da cauda
+    transform: [{ rotate: '90deg' }],
+    zIndex: -1,
   },
   otherMessage: {
-    backgroundColor: '#fff',
-    marginRight: 46,
+    backgroundColor: '#FFFFFF', // Mantido branco
+    marginRight: 55, // Ajustar margem para a esquerda
     alignSelf: 'flex-start',
-    borderTopLeftRadius: 22,
-    borderBottomRightRadius: 28,
-    borderTopRightRadius: 22,
-    borderBottomLeftRadius: 22,
-    borderWidth: 1.5,
-    borderColor: '#e3e7ee',
-    shadowColor: '#4A90E2',
-    shadowOpacity: 0.06,
-    shadowRadius: 4,
-    elevation: 2,
-    minHeight: 42,
-    minWidth: 60,
-    paddingBottom: 14,
+    borderRadius: 18,
+    borderTopLeftRadius: 5, // Canto superior esquerdo menos arredondado
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.07,
+    shadowRadius: 2,
+    elevation: 1,
+    borderWidth: 0,
+    minHeight: 30, // Altura mínima menor
+    paddingVertical: 6, // Ajustar padding vertical
+    paddingHorizontal: 10, // Ajustar padding horizontal
+    paddingLeft: 18, // Espaço para a cauda
+    flexShrink: 1,
   },
   otherMessageTail: {
     position: 'absolute',
-    left: -8,
+    left: -5, // Ajustar posição
     bottom: 0,
-    width: 16,
-    height: 18,
-    zIndex: 0,
+    width: 0,
+    height: 0,
     backgroundColor: 'transparent',
-  },
-  userName: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#4A90E2',
-    marginBottom: 2,
-    marginLeft: 4,
-    letterSpacing: 0.1,
-    fontFamily: Platform.OS === 'ios' ? 'Avenir Next' : 'Roboto',
+    borderStyle: 'solid',
+    borderLeftWidth: 0,
+    borderRightWidth: 10, // Ajustar tamanho da cauda
+    borderBottomWidth: 10,
+    borderLeftColor: 'transparent',
+    borderRightColor: 'transparent',
+    borderBottomColor: '#FFFFFF', // Cor da cauda
+    transform: [{ rotate: '-90deg' }],
+    zIndex: -1,
   },
   messageText: {
-    fontSize: 16,
-    color: '#23243a',
-    lineHeight: 22,
+    fontSize: 15, // Tamanho da fonte ligeiramente menor
+    color: '#000000',
     flexShrink: 1,
-    fontFamily: Platform.OS === 'ios' ? 'Avenir Next' : 'Roboto',
-    letterSpacing: 0.05,
+    paddingHorizontal: 0, // Remover padding horizontal aqui
+    // Adicionar lineHeight para melhor leitura
+    lineHeight: 20,
   },
   myMessageText: {
-    color: '#fff',
-    fontWeight: '600',
-    fontFamily: Platform.OS === 'ios' ? 'Avenir Next' : 'Roboto',
+    color: '#FFFFFF',
+    fontWeight: 'normal',
+  },
+  timeText: {
+    fontSize: 9, // Tamanho menor para timestamp
+    color: '#FFFFFF',
+    marginTop: 0, // Remover margem superior
+    marginLeft: 8, // Espaço à esquerda
+    alignSelf: 'flex-end', // Alinhar à direita dentro da bolha
+    // Adicionar um pequeno padding para não colar no texto/imagem
+    paddingLeft: 4,
   },
   deletedText: {
-    color: '#e0e0e0',
+    fontSize: 14, // Tamanho da fonte ajustado
+    color: '#888888',
     fontStyle: 'italic',
-    fontSize: 16,
     marginLeft: 4,
   },
   deletedIcon: {
-    color: '#e0e0e0',
-    fontSize: 18,
-    marginRight: 2,
+    fontSize: 16, // Tamanho ajustado
+    color: '#888888',
   },
-  timeText: {
-    fontSize: 11,
-    color: '#8AA1C2',
-    marginLeft: 8,
-    alignSelf: 'flex-end',
-    marginBottom: 0,
-    fontFamily: Platform.OS === 'ios' ? 'Avenir Next' : 'Roboto',
+  userName: {
+    fontSize: 12, // Tamanho menor para nome de usuário
+    fontWeight: '700',
+    color: '#4A90E2',
+    marginBottom: 1, // Reduzir margem inferior
+    marginLeft: 0, // Remover margem esquerda (avatar já tem)
+    letterSpacing: 0,
+    // Manter fontes do sistema
+    fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto',
   },
   inputContainer: {
     flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 10,
-    paddingHorizontal: 8,
-    borderTopWidth: 0,
-    backgroundColor: 'rgba(255,255,255,0.98)',
-    shadowColor: '#007AFF',
-    shadowOffset: { width: 0, height: -2 },
-    shadowOpacity: 0.09,
-    shadowRadius: 8,
-    elevation: 7,
-    borderRadius: 20,
-    marginHorizontal: 6,
-    marginBottom: 8,
+    alignItems: 'flex-end', // Alinhar itens na parte inferior
+    paddingVertical: 6, // Ajustar padding vertical
+    paddingHorizontal: 8, // Ajustar padding horizontal
+    backgroundColor: '#F8F8F8', // Fundo cinza mais claro para input area
+    borderTopWidth: 1,
+    borderColor: '#EEEEEE', // Borda superior mais clara
     position: 'absolute',
+    bottom: 0,
     left: 0,
     right: 0,
-    bottom: 0,
+    paddingBottom: Platform.OS === 'ios' ? 20 : 6, // Ajustar padding inferior para iOS
+  },
+  attachButton: {
+    padding: 8, // Ajustar padding
+    marginRight: 6, // Ajustar espaço
+    marginBottom: Platform.OS === 'ios' ? 0 : 6, // Alinhar com input no Android
   },
   input: {
     flex: 1,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    paddingHorizontal: 15,
+    paddingTop: 10, // Ajustar padding top
+    paddingBottom: 10, // Ajustar padding bottom
     fontSize: 16,
-    paddingVertical: 11,
-    paddingHorizontal: 17,
-    borderRadius: 18,
-    backgroundColor: '#F4F7FB',
-    marginRight: 7,
-    borderWidth: 1.3,
-    borderColor: '#BFD7F6',
-    color: '#23243a',
-    fontFamily: Platform.OS === 'ios' ? 'Avenir Next' : 'Roboto',
-    shadowColor: '#007AFF',
-    shadowOpacity: 0.07,
-    shadowRadius: 6,
-    elevation: 2,
-  },
-  attachButton: {
-    backgroundColor: '#F4F7FB',
-    borderRadius: 18,
-    padding: 7,
-    marginRight: 2,
-    justifyContent: 'center',
-    alignItems: 'center',
+    maxHeight: 120,
+    marginRight: 6, // Ajustar espaço
+    borderColor: '#E0E0E0',
     borderWidth: 1,
-    borderColor: '#BFD7F6',
-    shadowColor: '#007AFF',
-    shadowOpacity: 0.08,
-    shadowRadius: 3,
-    elevation: 2,
-  },
-  chatImage: {
-    width: 180,
-    height: 180,
-    borderRadius: 12,
-    marginVertical: 4,
-    backgroundColor: '#ececec',
+    // Adicionar minHeight para garantir altura mínima mesmo vazio
+    minHeight: 40,
+    // Alinhar texto ao topo para multilinha
+    textAlignVertical: 'top',
   },
   sendButton: {
     backgroundColor: '#007AFF',
     borderRadius: 20,
-    padding: 11,
+    width: 40,
+    height: 40,
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#007AFF',
-    shadowOpacity: 0.22,
-    shadowRadius: 5,
-    elevation: 4,
-    marginLeft: 2,
-    marginRight: 1,
-    borderWidth: 1.5,
-    borderColor: '#fff',
-    // Efeito de toque: pode ser adicionado com TouchableOpacity activeOpacity
+    marginLeft: 6, // Ajustar espaço
+    marginBottom: Platform.OS === 'ios' ? 0 : 6, // Alinhar com input no Android
+  },
+  scrollToEndButton: {
+    position: 'absolute',
+    bottom: 100, // Ajustar posição acima do input area
+    right: 20,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)', // Fundo semi-transparente
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 1,
+  },
+  scrollToEndIcon: {
+    color: '#FFFFFF',
+    fontSize: 20,
+  },
+  fullScreenModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  fullScreenMessageContainer: {
+    maxWidth: '90%',
+    maxHeight: '90%',
+    borderRadius: 10,
+  },
+  fullScreenModalText: {
+    fontSize: 18,
+    color: '#FFFFFF',
+    textAlign: 'center',
+  },
+  fullScreenModalImage: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 10,
   },
 });
+
