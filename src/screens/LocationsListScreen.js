@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { View, Text, StyleSheet, FlatList, Image, TouchableOpacity, ActivityIndicator, RefreshControl, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, FlatList, Image, TouchableOpacity, ActivityIndicator, RefreshControl } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { fetchLocations } from '../services/firebase/locations';
 import { Ionicons } from '@expo/vector-icons';
@@ -7,20 +7,18 @@ import AddLocationModal from '../components/AddLocationModal';
 import { db, storage, auth } from '../services/firebase/config';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { THEME } from '../config/constants';
 
 
 export default function LocationsListScreen() {
   const [addModalVisible, setAddModalVisible] = useState(false);
 
   const [locations, setLocations] = useState([]);
-  const [sortedLocations, setSortedLocations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
   const [selectedLocation, setSelectedLocation] = useState(null);
   const navigation = useNavigation();
-  const [selectedFilter, setSelectedFilter] = useState('recent');
-  const [showFilters, setShowFilters] = useState(false);
 
   const loadLocations = useCallback(async () => {
     setLoading(true);
@@ -34,73 +32,35 @@ export default function LocationsListScreen() {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [selectedFilter]);
+  }, []);
 
   useEffect(() => {
     loadLocations();
   }, [loadLocations]);
 
-  useEffect(() => {
-    let currentLocations = [...locations];
-    
-    switch (selectedFilter) {
-      case 'oldest':
-        currentLocations.sort((a, b) => (a.createdAt?.toDate?.() || 0) - (b.createdAt?.toDate?.() || 0));
-        break;
-      case 'best_rated':
-        currentLocations.sort((a, b) => {
-          const ratingA = a.rating || 0;
-          const ratingB = b.rating || 0;
-          if (ratingB !== ratingA) {
-            return ratingB - ratingA;
-          } else {
-            return (b.createdAt?.toDate?.() || 0) - (a.createdAt?.toDate?.() || 0);
-          }
-        });
-        break;
-      case 'worst_rated':
-        currentLocations.sort((a, b) => {
-          const ratingA = a.rating || 0;
-          const ratingB = b.rating || 0;
-          if (ratingA !== ratingB) {
-            return ratingA - ratingB;
-          } else {
-            return (b.createdAt?.toDate?.() || 0) - (a.createdAt?.toDate?.() || 0);
-          }
-        });
-        break;
-      case 'recent':
-      default:
-        currentLocations.sort((a, b) => (b.createdAt?.toDate?.() || 0) - (a.createdAt?.toDate?.() || 0));
-        break;
-    }
-    
-    setSortedLocations(currentLocations);
-  }, [locations, selectedFilter]);
-
-  const clearFilters = () => {
-    setSelectedFilter('recent');
-    setShowFilters(false);
-  };
-
+  // Detectar quando a tela recebe parâmetros de localização selecionada
   useEffect(() => {
     const unsubscribe = navigation.addListener('focus', () => {
+      // Verificar se há dados de localização nos parâmetros
       const route = navigation.getState().routes.find(r => r.name === 'LocationsList');
       if (route?.params?.selectedLat && route?.params?.selectedLng) {
         console.log('Recebeu localização selecionada:', route.params);
         
+        // Armazenar os dados de localização no estado
         setSelectedLocation({
           latitude: route.params.selectedLat,
           longitude: route.params.selectedLng,
           address: route.params.selectedAddress || ''
         });
         
+        // Limpar os parâmetros da rota
         navigation.setParams({
           selectedLat: undefined,
           selectedLng: undefined,
           selectedAddress: undefined
         });
         
+        // Abrir o modal automaticamente
         setAddModalVisible(true);
       }
     });
@@ -115,28 +75,47 @@ export default function LocationsListScreen() {
   const renderStars = (rating = 0) => {
     const stars = [];
     for (let i = 1; i <= 5; i++) {
-      const isFilled = rating >= i;
-      const isHalf = rating >= i - 0.5 && rating < i;
-      const starName = isFilled ? "star" : isHalf ? "star-half" : "star-outline";
-      
-      const starStyle = { marginRight: i < 5 ? 2 : 0 };
-
-      stars.push(
-        <Ionicons
-          key={i}
-          name={starName}
-          size={18}
-          color="#FFD700"
-          style={starStyle}
-        />
-      );
+      if (rating >= i) {
+        stars.push(<Ionicons key={i} name="star" size={16} color={THEME.colors.warning} />);
+      } else if (rating >= i - 0.5) {
+        stars.push(<Ionicons key={i} name="star-half" size={16} color={THEME.colors.warning} />);
+      } else {
+        stars.push(<Ionicons key={i} name="star-outline" size={16} color={THEME.colors.warning} />);
+      }
     }
     return stars;
   };
 
+  const getLocationCardStyle = (rating) => {
+    let backgroundColor = THEME.colors.background; // Cor padrão (branco para locais sem avaliações)
+    if (rating >= 4) {
+      backgroundColor = '#f0fff0'; // Verde bem claro
+    } else if (rating >= 2) {
+      backgroundColor = '#ffffe0'; // Amarelo bem claro
+    } else if (rating > 0) {
+      backgroundColor = '#ffe0e0'; // Vermelho bem claro
+    } else if (rating === 0 || rating === null || rating === undefined) {
+      backgroundColor = '#f0f0f0'; // Cinza claro para locais sem avaliações
+    }
+    return [styles.card, { backgroundColor }];
+  };
+
+  const getRatingEmoji = (rating) => {
+    if (rating >= 4) {
+      return '😊';
+    } else if (rating >= 2) {
+      return '😐';
+    } else if (rating > 0) {
+      return '😞';
+    } else if (rating === 0 || rating === null || rating === undefined) {
+      return '➖'; // Emoji neutro para locais sem avaliações
+    }
+    return '';
+  };
+
   const renderLocation = ({ item }) => (
     <TouchableOpacity
-      style={styles.card}
+      style={getLocationCardStyle(item.rating)}
       activeOpacity={0.85}
       onPress={() => navigation.navigate('LocationDetail', { locationId: item.id })}
     >
@@ -145,7 +124,7 @@ export default function LocationsListScreen() {
           <Image source={{ uri: item.imageUrl }} style={styles.image} resizeMode="cover" />
         ) : (
           <View style={styles.placeholderImage}>
-            <Ionicons name="image" size={36} color="#aaa" />
+            <Ionicons name="image" size={36} color={THEME.colors.text} />
             <Text style={styles.placeholderText}>Sem imagem</Text>
           </View>
         )}
@@ -154,63 +133,38 @@ export default function LocationsListScreen() {
         <Text style={styles.name}>{item.name}</Text>
         <Text style={styles.address}>{item.address}</Text>
         {item.description ? <Text style={styles.description}>{item.description}</Text> : null}
-        {(() => {
-          let backgroundColor = 'transparent';
-          let emoji = '';
-          const rating = item.rating || 0;
-
-          if (rating === 0) {
-            backgroundColor = '#e0e0e0';
-            emoji = ' ❔';
-          } else if (rating < 2.5) {
-            backgroundColor = '#ffebeb';
-            emoji = ' 😠';
-          } else if (rating < 4.0) {
-            backgroundColor = '#fff8e1';
-            emoji = ' 😐';
-          } else {
-            backgroundColor = '#ebf7eb';
-            emoji = ' 😊';
-          }
-
-          return (
-            <View style={[styles.detailsContent, { backgroundColor }]}>
-              <View style={styles.ratingRow}>
-                {renderStars(item.rating)}
-                <Text style={styles.ratingText}>
-                  {typeof item.rating === 'number' && item.rating > 0 ? item.rating.toFixed(1) : '-'}
-                  {item.reviewCount ? ` (${item.reviewCount} avaliações)` : ''}
-                </Text>
-                <Text style={styles.ratingIndicator}>
-                  {emoji}
-                </Text>
-              </View>
-              <View style={styles.accessibilityFeaturesContainer}>
-                {(item.accessibilityFeatures || []).map((feature, index) => {
-                  const featureData = {
-                    'wheelchair': { icon: 'walk', name: 'Cadeira de Rodas' },
-                    'blind': { icon: 'eye-off', name: 'Piso Tátil' },
-                    'deaf': { icon: 'ear', name: 'Surdez' },
-                    'elevator': { icon: 'swap-vertical', name: 'Elevador' },
-                    'parking': { icon: 'car', name: 'Estacionamento' },
-                    'restroom': { icon: 'body', name: 'Banheiro Adaptado' },
-                    'ramp': { icon: 'enter', name: 'Rampa' }
-                  };
-                  const data = featureData[feature];
-                  if (data) {
-                    return (
-                      <View key={index} style={styles.accessibilityFeatureItem}>
-                        <Ionicons name={data.icon} size={16} color="#0055b3" style={styles.accessibilityFeatureIcon} />
-                        <Text style={styles.accessibilityFeatureText}>{data.name}</Text>
-                      </View>
-                    );
-                  }
-                  return null;
-                })}
-              </View>
-            </View>
-          );
-        })()}
+        <View style={styles.ratingRow}>
+          {renderStars(item.rating)}
+          <Text style={styles.ratingText}>
+            {typeof item.rating === 'number' ? item.rating.toFixed(1) : '-'}
+            {item.reviewCount ? ` (${item.reviewCount} avaliações)` : ''}
+          </Text>
+          <Text style={styles.ratingEmoji}>{getRatingEmoji(item.rating)}</Text>
+        </View>
+        {/* Adicionar exibição de ícones e nomes de acessibilidade combinados */}
+        <View style={styles.accessibilityFeaturesContainer}>
+          {(item.accessibilityFeatures || []).map((feature, index) => {
+            const featureData = {
+              'wheelchair': { icon: 'walk', name: 'Cadeira de Rodas' },
+              'blind': { icon: 'eye-off', name: 'Piso Tátil' },
+              'deaf': { icon: 'ear', name: 'Surdez' },
+              'elevator': { icon: 'swap-vertical', name: 'Elevador' },
+              'parking': { icon: 'car', name: 'Estacionamento' },
+              'restroom': { icon: 'body', name: 'Banheiro Adaptado' },
+              'ramp': { icon: 'enter', name: 'Rampa' }
+            };
+            const data = featureData[feature];
+            if (data) {
+              return (
+                <View key={index} style={styles.accessibilityFeatureItem}>
+                  <Ionicons name={data.icon} size={16} color={THEME.colors.background} style={styles.accessibilityFeatureIcon} />
+                  <Text style={styles.accessibilityFeatureText}>{data.name}</Text>
+                </View>
+              );
+            }
+            return null;
+          })}
+        </View>
       </View>
     </TouchableOpacity>
   );
@@ -218,7 +172,7 @@ export default function LocationsListScreen() {
   if (loading && !refreshing) {
     return (
       <View style={styles.centered}>
-        <ActivityIndicator size="large" color="#007AFF" />
+        <ActivityIndicator size="large" color={THEME.colors.primary} />
         <Text style={styles.text}>Carregando locais...</Text>
       </View>
     );
@@ -227,7 +181,7 @@ export default function LocationsListScreen() {
   if (error) {
     return (
       <View style={styles.centered}>
-        <Ionicons name="alert-circle" size={40} color="#FF3B30" />
+        <Ionicons name="alert-circle" size={40} color={THEME.colors.error} />
         <Text style={styles.text}>{error}</Text>
         <TouchableOpacity style={styles.retryBtn} onPress={loadLocations}>
           <Text style={styles.retryText}>Tentar novamente</Text>
@@ -247,53 +201,8 @@ export default function LocationsListScreen() {
 
   return (
     <View style={styles.listContainer}>
-      <TouchableOpacity
-        style={styles.toggleFiltersButton}
-        onPress={() => setShowFilters(!showFilters)}
-      >
-        <Ionicons name={showFilters ? "filter-circle" : "filter-circle-outline"} size={24} color="#007AFF" />
-        <Text style={styles.toggleFiltersButtonText}>{showFilters ? "Esconder Filtros" : "Mostrar Filtros"}</Text>
-      </TouchableOpacity>
-
-      {showFilters && (
-        <ScrollView horizontal={true} showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterScrollContainer}>
-          <View style={styles.filterContainerContent}>
-            <TouchableOpacity
-              style={[styles.filterButton, selectedFilter === 'recent' && styles.activeFilterButton]}
-              onPress={() => setSelectedFilter('recent')}
-            >
-              <Text style={[styles.filterButtonText, selectedFilter === 'recent' && styles.activeFilterButtonText]}>Mais Recentes</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.filterButton, selectedFilter === 'oldest' && styles.activeFilterButton]}
-              onPress={() => setSelectedFilter('oldest')}
-            >
-              <Text style={[styles.filterButtonText, selectedFilter === 'oldest' && styles.activeFilterButtonText]}>Mais Antigos</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.filterButton, selectedFilter === 'best_rated' && styles.activeFilterButton]}
-              onPress={() => setSelectedFilter('best_rated')}
-            >
-              <Text style={[styles.filterButtonText, selectedFilter === 'best_rated' && styles.activeFilterButtonText]}>Melhor Avaliados</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.filterButton, selectedFilter === 'worst_rated' && styles.activeFilterButton]}
-              onPress={() => setSelectedFilter('worst_rated')}
-            >
-              <Text style={[styles.filterButtonText, selectedFilter === 'worst_rated' && styles.activeFilterButtonText]}>Pior Avaliados</Text>
-            </TouchableOpacity>
-            {selectedFilter !== 'recent' && (
-              <TouchableOpacity style={styles.clearFiltersButton} onPress={clearFilters}>
-                <Ionicons name="close-circle" size={16} color="#fff" style={{ marginRight: 4 }} />
-                <Text style={styles.clearFiltersButtonText}>Limpar</Text>
-              </TouchableOpacity>
-            )}
-          </View>
-        </ScrollView>
-      )}
-
       <FlatList
-        data={sortedLocations}
+        data={locations}
         keyExtractor={item => item.id}
         renderItem={renderLocation}
         contentContainerStyle={{ padding: 16, paddingBottom: 80 }}
@@ -305,36 +214,41 @@ export default function LocationsListScreen() {
         onPress={() => setAddModalVisible(true)}
         activeOpacity={0.8}
       >
-        <Ionicons name="add" size={32} color="#fff" />
+        <Ionicons name="add" size={32} color={THEME.colors.background} />
       </TouchableOpacity>
       <AddLocationModal
         visible={addModalVisible}
         onClose={() => {
           setAddModalVisible(false);
-          setSelectedLocation(null);
+          setSelectedLocation(null); // Limpar dados de localização ao fechar
         }}
         navigation={navigation}
-        selectedLocation={selectedLocation}
+        selectedLocation={selectedLocation} // Passar dados diretamente para o modal
         onSubmit={async ({ name, address, latitude, longitude, accessibility, image }) => {
           try {
             let imageUrl = '';
             if (image && image.uri) {
               try {
+                // Obter usuário atual
                 const currentUser = auth.currentUser;
                 if (!currentUser) {
                   throw new Error('Usuário não autenticado');
                 }
                 
+                // Processar nome para arquivo
                 const timestamp = new Date().getTime();
                 const safeFileName = `${currentUser.uid}_${timestamp}_${name.replace(/[^a-zA-Z0-9]/g, '_').toLowerCase()}.jpg`;
                 
+                // Usar o mesmo caminho que funciona para fotos de perfil
                 const storageRef = ref(storage, `profile_pictures/${safeFileName}`);
                 
                 console.log('Tentando fazer upload para:', `profile_pictures/${safeFileName}`);
                 
+                // Converter a imagem para blob
                 const response = await fetch(image.uri);
                 const blob = await response.blob();
                 
+                // Fazer upload
                 await uploadBytes(storageRef, blob);
                 imageUrl = await getDownloadURL(storageRef);
                 console.log('Upload concluído com sucesso. URL:', imageUrl);
@@ -369,7 +283,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     right: 24,
     bottom: 32,
-    backgroundColor: '#007AFF',
+    backgroundColor: THEME.colors.primary,
     width: 60,
     height: 60,
     borderRadius: 30,
@@ -385,7 +299,7 @@ const styles = StyleSheet.create({
 
   listContainer: {
     flex: 1,
-    backgroundColor: '#f7faff',
+    backgroundColor: THEME.colors.background,
   },
   card: {
     flexDirection: 'row',
@@ -416,77 +330,71 @@ const styles = StyleSheet.create({
   },
   placeholderImage: {
     flex: 1,
+    backgroundColor: THEME.colors.background,
     justifyContent: 'center',
     alignItems: 'center',
   },
   placeholderText: {
-    fontSize: 12,
-    color: '#aaa',
-    marginTop: 4,
+    marginTop: 8,
+    fontSize: 14,
+    color: THEME.colors.text,
   },
   details: {
     flex: 1,
-  },
-  detailsContent: {
-    flex: 1,
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 10,
-    overflow: 'hidden',
+    justifyContent: 'center',
   },
   name: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#222',
+    marginBottom: 4,
+    color: THEME.colors.text,
   },
   address: {
     fontSize: 14,
-    color: '#444',
-    marginTop: 2,
+    color: THEME.colors.text,
+    marginBottom: 4,
   },
   description: {
-    fontSize: 13,
-    color: '#666',
-    marginTop: 2,
+    fontSize: 14,
+    color: THEME.colors.text,
+    marginBottom: 8,
   },
   ratingRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 6,
+    marginBottom: 8,
   },
   ratingText: {
-    fontSize: 13,
-    color: '#333',
-    marginLeft: 6,
-  },
-  ratingIndicator: {
-    fontSize: 16,
+    fontSize: 14,
+    color: THEME.colors.text,
     marginLeft: 4,
   },
+  ratingEmoji: {
+    fontSize: 18,
+    marginLeft: 8,
+  },
   accessibilityFeaturesContainer: {
-    marginTop: 8,
     flexDirection: 'row',
     flexWrap: 'wrap',
-    alignItems: 'center',
+    marginTop: 8,
   },
   accessibilityFeatureItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#e0eaff',
+    backgroundColor: THEME.colors.primary,
     borderRadius: 12,
-    paddingVertical: 4,
     paddingHorizontal: 8,
-    marginRight: 8,
+    paddingVertical: 4,
+    marginRight: 6,
     marginBottom: 6,
   },
   accessibilityFeatureIcon: {
     marginRight: 4,
-    color: '#0055b3',
   },
   accessibilityFeatureText: {
     fontSize: 12,
-    color: '#0055b3',
-    fontWeight: '500',
+    color: THEME.colors.background,
+    fontWeight: 'bold',
   },
   centered: {
     flex: 1,
@@ -515,69 +423,27 @@ const styles = StyleSheet.create({
   },
   filterContainer: {
     flexDirection: 'row',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    backgroundColor: '#fff',
+    justifyContent: 'space-around',
+    paddingVertical: 8,
+    backgroundColor: THEME.colors.background,
     borderBottomWidth: 1,
     borderBottomColor: '#eee',
-  },
-  filterContainerContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    columnGap: 10,
+    paddingHorizontal: 16
   },
   filterButton: {
+    paddingHorizontal: 12,
     paddingVertical: 6,
-    paddingHorizontal: 10,
-    borderRadius: 15,
-    borderWidth: 1,
-    borderColor: '#ccc',
+    borderRadius: 20,
+    backgroundColor: '#f0f0f0', // Cor neutra para botões não selecionados
   },
   filterButtonText: {
     fontSize: 12,
-    color: '#555',
+    color: '#333', // Cor neutra para texto de botão não selecionado
   },
-  activeFilterButton: {
-    backgroundColor: '#007AFF',
-    borderColor: '#007AFF',
+  selectedFilterButton: {
+    backgroundColor: THEME.colors.primary, // Cor primária para botão selecionado
   },
-  activeFilterButtonText: {
-    color: '#fff',
-    fontWeight: 'bold',
-  },
-  toggleFiltersButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    backgroundColor: '#fff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#eee',
-  },
-  toggleFiltersButtonText: {
-    fontSize: 15,
-    color: '#007AFF',
-    marginLeft: 8,
-  },
-  clearFiltersButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#FF3B30',
-    borderRadius: 15,
-    paddingVertical: 6,
-    paddingHorizontal: 10,
-  },
-  clearFiltersButtonText: {
-    fontSize: 12,
-    color: '#fff',
-    fontWeight: 'bold',
-  },
-  filterScrollContainer: {
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    backgroundColor: '#fff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#eee',
+  selectedFilterButtonText: {
+    color: THEME.colors.background, // Cor de fundo para texto de botão selecionado
   },
 });
