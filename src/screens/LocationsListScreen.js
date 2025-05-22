@@ -112,6 +112,30 @@ export default function LocationsListScreen() {
             {item.reviewCount ? ` (${item.reviewCount} avaliações)` : ''}
           </Text>
         </View>
+        {/* Adicionar exibição de ícones e nomes de acessibilidade combinados */}
+        <View style={styles.accessibilityFeaturesContainer}>
+          {(item.accessibilityFeatures || []).map((feature, index) => {
+            const featureData = {
+              'wheelchair': { icon: 'wheelchair', name: 'Cadeira de Rodas' },
+              'blind': { icon: 'eye-off', name: 'Cegueira' },
+              'deaf': { icon: 'ear', name: 'Surdez' },
+              'elevator': { icon: 'elevator', name: 'Elevador' },
+              'parking': { icon: 'car', name: 'Estacionamento' },
+              'restroom': { icon: 'restroom', name: 'Banheiro' },
+              'ramp': { icon: 'ramp', name: 'Rampa' }
+            };
+            const data = featureData[feature];
+            if (data) {
+              return (
+                <View key={index} style={styles.accessibilityFeatureItem}>
+                  <Ionicons name={data.icon} size={16} color="#0055b3" style={styles.accessibilityFeatureIcon} />
+                  <Text style={styles.accessibilityFeatureText}>{data.name}</Text>
+                </View>
+              );
+            }
+            return null;
+          })}
+        </View>
       </View>
     </TouchableOpacity>
   );
@@ -313,6 +337,30 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#333',
     marginLeft: 6,
+  },
+  accessibilityFeaturesContainer: {
+    marginTop: 8,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+  },
+  accessibilityFeatureItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#e0eaff', // Fundo leve para destacar
+    borderRadius: 12,
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    marginRight: 8,
+    marginBottom: 6, // Espaço entre os itens
+  },
+  accessibilityFeatureIcon: {
+    marginRight: 4,
+    color: '#0055b3', // Cor primária
+  },
+  accessibilityFeatureText: {
+    fontSize: 12,
+    color: '#0055b3', // Cor primária
+    fontWeight: '500',
   },
   centered: {
     flex: 1,

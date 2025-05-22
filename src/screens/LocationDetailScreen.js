@@ -61,7 +61,11 @@ export default function LocationDetailScreen() {
   const renderReview = ({ item }) => (
     <View style={styles.reviewCard}>
       <View style={styles.reviewHeader}>
-        <Ionicons name="person-circle" size={28} color="#007AFF" />
+        {item.photoURL ? (
+          <Image source={{ uri: item.photoURL }} style={styles.reviewerPhoto} />
+        ) : (
+          <Ionicons name="person-circle" size={28} color="#007AFF" />
+        )}
         <View style={{ marginLeft: 10, flex: 1 }}>
           <Text style={styles.reviewUser}>{item.userName || 'Usuário'}</Text>
           <Text style={styles.reviewDate}>{item.createdAt?.toDate?.().toLocaleDateString?.() || ''}</Text>
@@ -75,10 +79,9 @@ export default function LocationDetailScreen() {
             return (
               <View key={feature} style={styles.featureRatingItem}>
                 <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                  {iconEntry?.icon || <Ionicons name="help-circle" size={18} color="#aaa" />}
-                  <Text style={styles.featureRatingName}>{iconEntry?.label || feature}</Text>
+                  <Ionicons name={iconEntry?.icon || 'help-circle'} size={16} color="#007AFF" style={styles.reviewFeatureIcon} />
                 </View>
-                <View style={{ flexDirection: 'row', marginLeft: 4 }}>
+                <View style={styles.reviewFeatureStars}>
                   {[1,2,3,4,5].map(i => (
                     <Ionicons
                       key={i}
@@ -138,11 +141,30 @@ export default function LocationDetailScreen() {
         <Text style={styles.name}>{location.name}</Text>
         <Text style={styles.address}>{location.address}</Text>
         {location.description ? <Text style={styles.description}>{location.description}</Text> : null}
-        {Array.isArray(location.accessibilityOptions) && location.accessibilityOptions.length > 0 && (
-          <View style={styles.featuresRow}>
-            {renderAccessibilityIcons(location.accessibilityOptions)}
-          </View>
-        )}
+        {/* Adicionar exibição de ícones e nomes de acessibilidade combinados (badges) */}
+        <View style={styles.accessibilityFeaturesContainer}>
+          {(location.accessibilityFeatures || []).map((feature, index) => {
+            const featureData = {
+              'wheelchair': { icon: 'wheelchair', name: 'Cadeira de Rodas' },
+              'blind': { icon: 'eye-off', name: 'Cegueira' },
+              'deaf': { icon: 'ear', name: 'Surdez' },
+              'elevator': { icon: 'elevator', name: 'Elevador' },
+              'parking': { icon: 'car', name: 'Estacionamento' },
+              'restroom': { icon: 'restroom', name: 'Banheiro' },
+              'ramp': { icon: 'ramp', name: 'Rampa' }
+            };
+            const data = featureData[feature];
+            if (data) {
+              return (
+                <View key={index} style={styles.accessibilityFeatureItem}>
+                  <Ionicons name={data.icon} size={16} color="#0055b3" style={styles.accessibilityFeatureIcon} />
+                  <Text style={styles.accessibilityFeatureText}>{data.name}</Text>
+                </View>
+              );
+            }
+            return null;
+          })}
+        </View>
         <View style={styles.ratingRow}>
           {renderStars(location.rating)}
           <Text style={styles.ratingText}>
@@ -253,24 +275,29 @@ const styles = StyleSheet.create({
     color: '#666',
     marginBottom: 10,
   },
-  featuresRow: {
+  accessibilityFeaturesContainer: {
+    marginTop: 8,
     flexDirection: 'row',
     flexWrap: 'wrap',
-    marginBottom: 12,
   },
-  featureTag: {
+  accessibilityFeatureItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#e6f7ef',
-    borderRadius: 8,
-    paddingHorizontal: 8,
+    backgroundColor: '#e0eaff',
+    borderRadius: 12,
     paddingVertical: 4,
+    paddingHorizontal: 8,
     marginRight: 8,
     marginBottom: 6,
   },
-  featureText: {
-    color: '#1c7f4c',
-    fontSize: 13,
+  accessibilityFeatureIcon: {
+    marginRight: 4,
+    color: '#0055b3',
+  },
+  accessibilityFeatureText: {
+    fontSize: 12,
+    color: '#0055b3',
+    fontWeight: '500',
   },
   ratingRow: {
     flexDirection: 'row',
@@ -389,5 +416,24 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontWeight: 'bold',
     fontSize: 15,
+  },
+  reviewFeatureIcon: {
+    marginRight: 4,
+    color: '#007AFF',
+  },
+  reviewFeatureName: {
+    fontSize: 12,
+    color: '#007AFF',
+    fontWeight: '500',
+  },
+  reviewFeatureStars: {
+    flexDirection: 'row',
+    marginLeft: 6,
+  },
+  reviewerPhoto: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    marginRight: 10,
   },
 });

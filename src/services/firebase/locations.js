@@ -24,7 +24,25 @@ export async function fetchReviewsForLocation(locationId) {
   const reviewsRef = collection(db, 'reviews');
   const q = query(reviewsRef, orderBy('createdAt', 'desc'));
   const querySnapshot = await getDocs(q);
-  return querySnapshot.docs
-    .map(doc => ({ id: doc.id, ...doc.data() }))
-    .filter(review => review.locationId === locationId);
+  
+  const reviewsWithUsers = [];
+  for (const docSnapshot of querySnapshot.docs) {
+    const review = { id: docSnapshot.id, ...docSnapshot.data() };
+    
+    // Apenas processe avaliações para o local correto
+    if (review.locationId === locationId) {
+      // Buscar dados do usuário que fez a avaliação
+      if (review.userId) {
+        const userDocRef = doc(db, 'users', review.userId);
+        const userDocSnap = await getDoc(userDocRef);
+        if (userDocSnap.exists()) {
+          const userData = userDocSnap.data();
+          review.photoURL = userData.photoURL || null; // Adicionar photoURL à avaliação
+        }
+      }
+      reviewsWithUsers.push(review);
+    }
+  }
+  
+  return reviewsWithUsers;
 }
