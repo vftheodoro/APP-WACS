@@ -1,13 +1,26 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, Image, ScrollView, ActivityIndicator, TouchableOpacity, FlatList } from 'react-native';
+import { View, Text, StyleSheet, Image, ScrollView, ActivityIndicator, TouchableOpacity, FlatList, TextInput } from 'react-native';
 import { useRoute, useNavigation } from '@react-navigation/native';
 import { fetchLocationById, fetchReviewsForLocation } from '../services/firebase/locations';
 import { Ionicons } from '@expo/vector-icons';
 import AccessibilityIcons from '../components/AccessibilityIcons';
 import ReviewModal from '../components/ReviewModal';
 import { db } from '../services/firebase/config';
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp, doc, getDoc } from 'firebase/firestore';
 import { THEME } from '../config/constants';
+
+// Função para obter a cor do ícone da acessibilidade com base na pontuação
+const getFeatureIconColor = (score) => {
+  if (score >= 4) {
+    return THEME.colors.success; // Verde para pontuação alta
+  } else if (score >= 2) {
+    return THEME.colors.warning; // Amarelo para pontuação média
+  } else if (score > 0) {
+    return THEME.colors.error; // Vermelho para pontuação baixa
+  } else {
+    return THEME.colors.text; // Cor padrão (cinza/preto) para sem avaliação ou 0
+  }
+};
 
 export default function LocationDetailScreen() {
   const route = useRoute();
@@ -18,6 +31,60 @@ export default function LocationDetailScreen() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [reviewModalVisible, setReviewModalVisible] = useState(false);
+  const [authorPhotoUrl, setAuthorPhotoUrl] = useState(null);
+  const [showRatingInputs, setShowRatingInputs] = useState(false);
+  const [featureRatings, setFeatureRatings] = useState({});
+  const [comment, setComment] = useState('');
+
+  // Função para lidar com a alteração da avaliação de um recurso específico
+  const handleFeatureRatingChange = (feature, score) => {
+    setFeatureRatings(prevRatings => ({
+      ...prevRatings,
+      [feature]: score,
+    }));
+  };
+
+  // Função para submeter a avaliação detalhada
+  const submitDetailedReview = async () => {
+    if (!location || !location.accessibilityFeatures) return;
+
+    // Validar se todas as acessibilidades foram avaliadas
+    const allFeaturesRated = location.accessibilityFeatures.every(feature => featureRatings.hasOwnProperty(feature) && featureRatings[feature] > 0);
+    if (!allFeaturesRated) {
+      alert('Por favor, avalie todos os recursos de acessibilidade disponíveis.');
+      return;
+    }
+
+    // Calcular a média das avaliações de acessibilidade
+    const ratings = Object.values(featureRatings);
+    const averageRating = ratings.reduce((sum, rating) => sum + rating, 0) / ratings.length;
+
+    try {
+      // Adicionar a nova avaliação ao Firestore
+      await addDoc(collection(db, 'reviews'), {
+        locationId: locationId,
+        userId: user.uid, // Substituir 'user' pela forma correta de obter o usuário autenticado
+        userName: user.displayName || user.email.split('@')[0], // Substituir 'user' pela forma correta de obter o usuário autenticado
+        rating: parseFloat(averageRating.toFixed(1)),
+        featureRatings: featureRatings,
+        comment: comment,
+        createdAt: serverTimestamp(),
+      });
+
+      // Recarregar avaliações e detalhes do local para atualizar a UI
+      loadData(); // Chamar a função que carrega os dados do local e reviews
+
+      // Resetar estados e fechar a interface de avaliação
+      setFeatureRatings({});
+      setComment('');
+      setShowRatingInputs(false);
+
+      alert('Avaliação enviada com sucesso!');
+    } catch (error) {
+      console.error('Erro ao adicionar avaliação detalhada:', error);
+      alert('Ocorreu um erro ao enviar sua avaliação. Por favor, tente novamente.');
+    }
+  };
 
   useEffect(() => {
     let isMounted = true;
@@ -28,9 +95,20 @@ export default function LocationDetailScreen() {
         const loc = await fetchLocationById(locationId);
         if (!loc) throw new Error('Local não encontrado');
         const revs = await fetchReviewsForLocation(locationId);
+
+        let photoUrl = null;
+        if (loc.userId) {
+          const userDocRef = doc(db, 'users', loc.userId);
+          const userDocSnap = await getDoc(userDocRef);
+          if (userDocSnap.exists()) {
+            photoUrl = userDocSnap.data().photoURL || null;
+          }
+        }
+
         if (isMounted) {
           setLocation(loc);
           setReviews(revs);
+          setAuthorPhotoUrl(photoUrl);
         }
       } catch (err) {
         if (isMounted) setError(err.message || 'Erro ao carregar detalhes');
@@ -78,21 +156,27 @@ export default function LocationDetailScreen() {
           {Object.entries(item.featureRatings).map(([feature, score]) => {
             // Usar o mesmo mapeamento de ícones para consistência
             const featureData = {
-              'wheelchair': { icon: 'walk' },
-              'blind': { icon: 'eye-off' },
-              'deaf': { icon: 'ear' },
-              'elevator': { icon: 'swap-vertical' },
-              'parking': { icon: 'car' },
-              'restroom': { icon: 'body' },
-              'ramp': { icon: 'enter' }
+              'wheelchair': { icon: 'walk', name: 'Cadeira de Rodas' },
+              'blind': { icon: 'eye-off', name: 'Piso Tátil' },
+              'deaf': { icon: 'ear', name: 'Surdez' },
+              'elevator': { icon: 'swap-vertical', name: 'Elevador' },
+              'parking': { icon: 'car', name: 'Estacionamento' },
+              'restroom': { icon: 'body', name: 'Banheiro Adaptado' },
+              'ramp': { icon: 'enter', name: 'Rampa' }
             };
             const data = featureData[feature];
             
+            // Verificar se o recurso existe no mapeamento, caso contrário, usar o nome original e ícone genérico
+            const featureName = data ? data.name : feature; // Use o nome em português ou o nome original
+            const featureIcon = data ? data.icon : 'help-circle-outline'; // Use o ícone mapeado ou um genérico
+
             return (
               <View key={feature} style={styles.featureRatingItem}>
                 <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                   {/* Usar o ícone definido no mapeamento local */}
-                  <Ionicons name={data.icon || 'help-circle-outline'} size={16} color={THEME.colors.background} style={styles.reviewFeatureIcon} />
+                  <Ionicons name={featureIcon} size={16} color={getFeatureIconColor(score)} style={styles.reviewFeatureIcon} />
+                  {/* Exibir o nome em português */}
+                  <Text style={styles.reviewFeatureName}>{featureName}</Text>
                 </View>
                 <View style={styles.reviewFeatureStars}>
                   {[1,2,3,4,5].map(i => (
@@ -181,6 +265,19 @@ export default function LocationDetailScreen() {
         <Text style={styles.name}>{location.name}</Text>
         <Text style={styles.address}>{location.address}</Text>
         {location.description ? <Text style={styles.description}>{location.description}</Text> : null}
+
+        {/* Informações do autor */}
+        <View style={styles.authorContainer}>
+          {authorPhotoUrl ? (
+            <Image source={{ uri: authorPhotoUrl }} style={styles.authorPhoto} />
+          ) : (
+            <View style={styles.authorPhotoPlaceholder}>
+               <Ionicons name="person-circle-outline" size={24} color={THEME.colors.primary} />
+            </View>
+          )}
+          <Text style={styles.authorText}>Adicionado por: {location.userName || 'Usuário'}</Text>
+        </View>
+
         {/* Adicionar exibição de ícones e nomes de acessibilidade combinados (badges) */}
         <View style={styles.accessibilityFeaturesContainer}>
           {(location.accessibilityFeatures || []).map((feature, index) => {
@@ -215,14 +312,72 @@ export default function LocationDetailScreen() {
         </View>
         <View style={{flexDirection:'row',alignItems:'center',justifyContent:'space-between'}}>
           <Text style={styles.sectionTitle}>Avaliações</Text>
-          <TouchableOpacity style={styles.addReviewBtn} onPress={() => setReviewModalVisible(true)}>
+          <TouchableOpacity style={styles.addReviewBtn} onPress={() => setShowRatingInputs(true)}>
             <Ionicons name="star-outline" size={20} color={THEME.colors.background} />
-            <Text style={styles.addReviewText}>Avaliar</Text>
+            <Text style={styles.addReviewBtnText}>Avaliar</Text>
           </TouchableOpacity>
         </View>
-        {reviews.length === 0 ? (
-          <Text style={styles.noReviews}>Nenhuma avaliação ainda. Seja o primeiro a avaliar!</Text>
-        ) : (
+
+        {/* Interface de avaliação individual de acessibilidades */}
+        {showRatingInputs && location && location.accessibilityFeatures && (
+          <View style={styles.ratingInputsContainer}>
+            <Text style={styles.sectionTitle}>Avaliar Acessibilidades</Text>
+            {(location.accessibilityFeatures || []).map((feature) => {
+              const featureData = {
+                'wheelchair': { icon: 'walk', name: 'Cadeira de Rodas' },
+                'blind': { icon: 'eye-off', name: 'Piso Tátil' },
+                'deaf': { icon: 'ear', name: 'Surdez' },
+                'elevator': { icon: 'swap-vertical', name: 'Elevador' },
+                'parking': { icon: 'car', name: 'Estacionamento' },
+                'restroom': { icon: 'body', name: 'Banheiro Adaptado' },
+                'ramp': { icon: 'enter', name: 'Rampa' }
+              };
+              const data = featureData[feature];
+              if (data) {
+                return (
+                  <View key={feature} style={styles.featureRatingInputItem}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                      <Ionicons name={data.icon} size={18} color={THEME.colors.text} style={styles.featureRatingInputIcon} />
+                      <Text style={styles.featureRatingInputName}>{data.name}</Text>
+                    </View>
+                    <View style={styles.featureRatingInputStars}>
+                      {[1, 2, 3, 4, 5].map(score => (
+                        <TouchableOpacity
+                          key={score}
+                          onPress={() => handleFeatureRatingChange(feature, score)}
+                        >
+                          <Ionicons
+                            name={score <= (featureRatings[feature] || 0) ? 'star' : 'star-outline'}
+                            size={24}
+                            color={THEME.colors.warning}
+                          />
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  </View>
+                );
+              }
+              return null;
+            })}
+            <Text style={styles.commentTitle}>Comentário (Opcional)</Text>
+            <TextInput
+              style={styles.commentInput}
+              multiline
+              placeholder="Escreva seu comentário aqui..."
+              value={comment}
+              onChangeText={setComment}
+            />
+            <TouchableOpacity style={styles.submitReviewBtn} onPress={submitDetailedReview}>
+              <Text style={styles.submitReviewBtnText}>Enviar Avaliação</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.cancelReviewBtn} onPress={() => setShowRatingInputs(false)}>
+              <Text style={styles.cancelReviewBtnText}>Cancelar</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {/* Lista de avaliações existentes */}
+        {!showRatingInputs && (
           <FlatList
             data={reviews}
             keyExtractor={item => item.id}
@@ -364,7 +519,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 6,
   },
-  addReviewText: {
+  addReviewBtnText: {
     color: THEME.colors.background,
     fontSize: 16,
     fontWeight: 'bold',
@@ -454,5 +609,89 @@ const styles = StyleSheet.create({
   reviewFeatureStars: {
     flexDirection: 'row',
     marginLeft: 6,
+  },
+  authorContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 10,
+    marginBottom: 15,
+  },
+  authorPhoto: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    marginRight: 10,
+  },
+   authorPhotoPlaceholder: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    marginRight: 10,
+    backgroundColor: THEME.colors.accent,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  authorText: {
+    fontSize: 14,
+    color: THEME.colors.textLight,
+  },
+  ratingInputsContainer: {
+    padding: 20,
+    backgroundColor: THEME.colors.background,
+    borderTopWidth: 1,
+    borderTopColor: '#e0e0e0',
+  },
+  featureRatingInputItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  featureRatingInputIcon: {
+    marginRight: 10,
+  },
+  featureRatingInputName: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: THEME.colors.text,
+  },
+  featureRatingInputStars: {
+    flexDirection: 'row',
+  },
+  commentTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: THEME.colors.text,
+    marginBottom: 10,
+  },
+  commentInput: {
+    height: 100,
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+    borderRadius: 5,
+    padding: 10,
+    marginBottom: 20,
+  },
+  submitReviewBtn: {
+    backgroundColor: THEME.colors.primary,
+    borderRadius: 20,
+    padding: 12,
+    alignItems: 'center',
+  },
+  submitReviewBtnText: {
+    color: THEME.colors.background,
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  cancelReviewBtn: {
+    backgroundColor: THEME.colors.error,
+    borderRadius: 20,
+    padding: 12,
+    alignItems: 'center',
+    marginTop: 10,
+  },
+  cancelReviewBtnText: {
+    color: THEME.colors.background,
+    fontSize: 16,
+    fontWeight: 'bold',
   },
 });

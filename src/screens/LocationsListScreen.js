@@ -14,6 +14,7 @@ export default function LocationsListScreen() {
   const [addModalVisible, setAddModalVisible] = useState(false);
 
   const [locations, setLocations] = useState([]);
+  const [displayedLocations, setDisplayedLocations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
@@ -26,6 +27,7 @@ export default function LocationsListScreen() {
     try {
       const data = await fetchLocations();
       setLocations(data);
+      applyDefaultSorting(data);
     } catch (err) {
       setError('Erro ao carregar locais.');
     } finally {
@@ -34,33 +36,46 @@ export default function LocationsListScreen() {
     }
   }, []);
 
+  const applyDefaultSorting = useCallback((locationsData) => {
+    if (locationsData.length === 0) {
+      setDisplayedLocations([]);
+      return;
+    }
+
+    const newestLocation = locationsData[0];
+    const restOfLocations = locationsData.slice(1);
+
+    const sortedRest = [...restOfLocations].sort((a, b) => {
+      const ratingA = a.rating || 0;
+      const ratingB = b.rating || 0;
+      return ratingB - ratingA;
+    });
+
+    setDisplayedLocations([newestLocation, ...sortedRest]);
+  }, []);
+
   useEffect(() => {
     loadLocations();
   }, [loadLocations]);
 
-  // Detectar quando a tela recebe parâmetros de localização selecionada
   useEffect(() => {
     const unsubscribe = navigation.addListener('focus', () => {
-      // Verificar se há dados de localização nos parâmetros
       const route = navigation.getState().routes.find(r => r.name === 'LocationsList');
       if (route?.params?.selectedLat && route?.params?.selectedLng) {
         console.log('Recebeu localização selecionada:', route.params);
         
-        // Armazenar os dados de localização no estado
         setSelectedLocation({
           latitude: route.params.selectedLat,
           longitude: route.params.selectedLng,
           address: route.params.selectedAddress || ''
         });
         
-        // Limpar os parâmetros da rota
         navigation.setParams({
           selectedLat: undefined,
           selectedLng: undefined,
           selectedAddress: undefined
         });
         
-        // Abrir o modal automaticamente
         setAddModalVisible(true);
       }
     });
@@ -87,15 +102,15 @@ export default function LocationsListScreen() {
   };
 
   const getLocationCardStyle = (rating) => {
-    let backgroundColor = THEME.colors.background; // Cor padrão (branco para locais sem avaliações)
+    let backgroundColor = THEME.colors.background;
     if (rating >= 4) {
-      backgroundColor = '#f0fff0'; // Verde bem claro
+      backgroundColor = '#f0fff0';
     } else if (rating >= 2) {
-      backgroundColor = '#ffffe0'; // Amarelo bem claro
+      backgroundColor = '#ffffe0';
     } else if (rating > 0) {
-      backgroundColor = '#ffe0e0'; // Vermelho bem claro
+      backgroundColor = '#ffe0e0';
     } else if (rating === 0 || rating === null || rating === undefined) {
-      backgroundColor = '#f0f0f0'; // Cinza claro para locais sem avaliações
+      backgroundColor = '#f0f0f0';
     }
     return [styles.card, { backgroundColor }];
   };
@@ -108,66 +123,76 @@ export default function LocationsListScreen() {
     } else if (rating > 0) {
       return '😞';
     } else if (rating === 0 || rating === null || rating === undefined) {
-      return '➖'; // Emoji neutro para locais sem avaliações
+      return '➖';
     }
     return '';
   };
 
-  const renderLocation = ({ item }) => (
-    <TouchableOpacity
-      style={getLocationCardStyle(item.rating)}
-      activeOpacity={0.85}
-      onPress={() => navigation.navigate('LocationDetail', { locationId: item.id })}
-    >
-      <View style={styles.imageContainer}>
-        {item.imageUrl ? (
-          <Image source={{ uri: item.imageUrl }} style={styles.image} resizeMode="cover" />
-        ) : (
-          <View style={styles.placeholderImage}>
-            <Ionicons name="image" size={36} color={THEME.colors.text} />
-            <Text style={styles.placeholderText}>Sem imagem</Text>
+  const renderLocation = ({ item, index }) => {
+    const isNewest = index === 0;
+    return (
+      <TouchableOpacity
+        style={getLocationCardStyle(item.rating)}
+        activeOpacity={0.85}
+        onPress={() => navigation.navigate('LocationDetail', { locationId: item.id })}
+      >
+        <View style={styles.imageContainer}>
+          {item.imageUrl ? (
+            <Image source={{ uri: item.imageUrl }} style={styles.image} resizeMode="cover" />
+          ) : (
+            <View style={styles.placeholderImage}>
+              <Ionicons name="image" size={36} color={THEME.colors.text} />
+              <Text style={styles.placeholderText}>Sem imagem</Text>
+            </View>
+          )}
+        </View>
+        <View style={styles.details}>
+          <View style={styles.nameRow}>
+            <Text style={styles.name}>{item.name}</Text>
+            {isNewest && (
+              <View style={styles.newBadge}>
+                <Ionicons name="time-outline" size={14} color={THEME.colors.background} />
+                <Text style={styles.newBadgeText}>NOVO</Text>
+              </View>
+            )}
           </View>
-        )}
-      </View>
-      <View style={styles.details}>
-        <Text style={styles.name}>{item.name}</Text>
-        <Text style={styles.address}>{item.address}</Text>
-        {item.description ? <Text style={styles.description}>{item.description}</Text> : null}
-        <View style={styles.ratingRow}>
-          {renderStars(item.rating)}
-          <Text style={styles.ratingText}>
-            {typeof item.rating === 'number' ? item.rating.toFixed(1) : '-'}
-            {item.reviewCount ? ` (${item.reviewCount} avaliações)` : ''}
-          </Text>
-          <Text style={styles.ratingEmoji}>{getRatingEmoji(item.rating)}</Text>
+          <Text style={styles.address}>{item.address}</Text>
+          {item.description ? <Text style={styles.description}>{item.description}</Text> : null}
+          <View style={styles.ratingRow}>
+            {renderStars(item.rating)}
+            <Text style={styles.ratingText}>
+              {typeof item.rating === 'number' ? item.rating.toFixed(1) : '-'}
+              {item.reviewCount ? ` (${item.reviewCount} avaliações)` : ''}
+            </Text>
+            <Text style={styles.ratingEmoji}>{getRatingEmoji(item.rating)}</Text>
+          </View>
+          <View style={styles.accessibilityFeaturesContainer}>
+            {(item.accessibilityFeatures || []).map((feature, index) => {
+              const featureData = {
+                'wheelchair': { icon: 'walk', name: 'Cadeira de Rodas' },
+                'blind': { icon: 'eye-off', name: 'Piso Tátil' },
+                'deaf': { icon: 'ear', name: 'Surdez' },
+                'elevator': { icon: 'swap-vertical', name: 'Elevador' },
+                'parking': { icon: 'car', name: 'Estacionamento' },
+                'restroom': { icon: 'body', name: 'Banheiro Adaptado' },
+                'ramp': { icon: 'enter', name: 'Rampa' }
+              };
+              const data = featureData[feature];
+              if (data) {
+                return (
+                  <View key={index} style={styles.accessibilityFeatureItem}>
+                    <Ionicons name={data.icon} size={16} color={THEME.colors.background} style={styles.accessibilityFeatureIcon} />
+                    <Text style={styles.accessibilityFeatureText}>{data.name}</Text>
+                  </View>
+                );
+              }
+              return null;
+            })}
+          </View>
         </View>
-        {/* Adicionar exibição de ícones e nomes de acessibilidade combinados */}
-        <View style={styles.accessibilityFeaturesContainer}>
-          {(item.accessibilityFeatures || []).map((feature, index) => {
-            const featureData = {
-              'wheelchair': { icon: 'walk', name: 'Cadeira de Rodas' },
-              'blind': { icon: 'eye-off', name: 'Piso Tátil' },
-              'deaf': { icon: 'ear', name: 'Surdez' },
-              'elevator': { icon: 'swap-vertical', name: 'Elevador' },
-              'parking': { icon: 'car', name: 'Estacionamento' },
-              'restroom': { icon: 'body', name: 'Banheiro Adaptado' },
-              'ramp': { icon: 'enter', name: 'Rampa' }
-            };
-            const data = featureData[feature];
-            if (data) {
-              return (
-                <View key={index} style={styles.accessibilityFeatureItem}>
-                  <Ionicons name={data.icon} size={16} color={THEME.colors.background} style={styles.accessibilityFeatureIcon} />
-                  <Text style={styles.accessibilityFeatureText}>{data.name}</Text>
-                </View>
-              );
-            }
-            return null;
-          })}
-        </View>
-      </View>
-    </TouchableOpacity>
-  );
+      </TouchableOpacity>
+    );
+  };
 
   if (loading && !refreshing) {
     return (
@@ -202,7 +227,7 @@ export default function LocationsListScreen() {
   return (
     <View style={styles.listContainer}>
       <FlatList
-        data={locations}
+        data={displayedLocations}
         keyExtractor={item => item.id}
         renderItem={renderLocation}
         contentContainerStyle={{ padding: 16, paddingBottom: 80 }}
@@ -220,35 +245,30 @@ export default function LocationsListScreen() {
         visible={addModalVisible}
         onClose={() => {
           setAddModalVisible(false);
-          setSelectedLocation(null); // Limpar dados de localização ao fechar
+          setSelectedLocation(null);
         }}
         navigation={navigation}
-        selectedLocation={selectedLocation} // Passar dados diretamente para o modal
+        selectedLocation={selectedLocation}
         onSubmit={async ({ name, address, latitude, longitude, accessibility, image }) => {
           try {
             let imageUrl = '';
             if (image && image.uri) {
               try {
-                // Obter usuário atual
                 const currentUser = auth.currentUser;
                 if (!currentUser) {
                   throw new Error('Usuário não autenticado');
                 }
                 
-                // Processar nome para arquivo
                 const timestamp = new Date().getTime();
                 const safeFileName = `${currentUser.uid}_${timestamp}_${name.replace(/[^a-zA-Z0-9]/g, '_').toLowerCase()}.jpg`;
                 
-                // Usar o mesmo caminho que funciona para fotos de perfil
                 const storageRef = ref(storage, `profile_pictures/${safeFileName}`);
                 
                 console.log('Tentando fazer upload para:', `profile_pictures/${safeFileName}`);
                 
-                // Converter a imagem para blob
                 const response = await fetch(image.uri);
                 const blob = await response.blob();
                 
-                // Fazer upload
                 await uploadBytes(storageRef, blob);
                 imageUrl = await getDownloadURL(storageRef);
                 console.log('Upload concluído com sucesso. URL:', imageUrl);
@@ -434,16 +454,36 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 20,
-    backgroundColor: '#f0f0f0', // Cor neutra para botões não selecionados
+    backgroundColor: '#f0f0f0',
   },
   filterButtonText: {
     fontSize: 12,
-    color: '#333', // Cor neutra para texto de botão não selecionado
+    color: '#333',
   },
   selectedFilterButton: {
-    backgroundColor: THEME.colors.primary, // Cor primária para botão selecionado
+    backgroundColor: THEME.colors.primary,
   },
   selectedFilterButtonText: {
-    color: THEME.colors.background, // Cor de fundo para texto de botão selecionado
+    color: THEME.colors.background,
+  },
+  nameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  newBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: THEME.colors.success,
+    borderRadius: 10,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    marginLeft: 8,
+  },
+  newBadgeText: {
+    fontSize: 10,
+    color: THEME.colors.background,
+    fontWeight: 'bold',
+    marginLeft: 2,
   },
 });
