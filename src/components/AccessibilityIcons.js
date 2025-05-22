@@ -4,34 +4,34 @@ import { Ionicons, MaterialCommunityIcons, FontAwesome5 } from '@expo/vector-ico
 
 // Map accessibility feature names to icons and labels
 const featureIconMap = {
-  'Banheiro acessível': {
+  'restroom': {
     icon: <MaterialCommunityIcons name="toilet" size={22} color="#1c7f4c" />, label: 'Banheiro acessível',
   },
-  'Rampa de acesso': {
+  'ramp': {
     icon: <MaterialCommunityIcons name="stairs-up" size={22} color="#1c7f4c" />, label: 'Rampa de acesso',
   },
   'Elevador': {
     icon: <MaterialCommunityIcons name="elevator" size={22} color="#1c7f4c" />, label: 'Elevador',
   },
-  'Vaga PCD': {
+  'parking': {
     icon: <MaterialCommunityIcons name="parking" size={22} color="#1c7f4c" />, label: 'Vaga PCD',
   },
-  'Piso tátil': {
+  'blind': {
     icon: <MaterialCommunityIcons name="dots-horizontal" size={22} color="#1c7f4c" />, label: 'Piso tátil',
   },
-  'Atendimento prioritário': {
+  'atendimento-prioritario': {
     icon: <Ionicons name="accessibility" size={22} color="#1c7f4c" />, label: 'Atendimento prioritário',
   },
-  'Acessível para cadeirantes': {
+  'wheelchair': {
     icon: <MaterialCommunityIcons name="wheelchair-accessibility" size={22} color="#1c7f4c" />, label: 'Cadeirante',
   },
-  'Cão-guia permitido': {
+  'cao-guia': {
     icon: <FontAwesome5 name="dog" size={22} color="#1c7f4c" />, label: 'Cão-guia',
   },
-  'Sinalização em braile': {
+  'braile': {
     icon: <MaterialCommunityIcons name="braille" size={22} color="#1c7f4c" />, label: 'Braile',
   },
-  'Audiodescrição': {
+  'audiodescricao': {
     icon: <MaterialCommunityIcons name="ear-hearing" size={22} color="#1c7f4c" />, label: 'Audiodescrição',
   },
   // Add more mappings as needed

@@ -75,11 +75,23 @@ export default function LocationDetailScreen() {
       {item.featureRatings ? (
         <View style={styles.featureRatingsRow}>
           {Object.entries(item.featureRatings).map(([feature, score]) => {
-            const iconEntry = AccessibilityIcons.featureIconMap?.[feature];
+            // Usar o mesmo mapeamento de ícones para consistência
+            const featureData = {
+              'wheelchair': { icon: 'walk' },
+              'blind': { icon: 'eye-off' },
+              'deaf': { icon: 'ear' },
+              'elevator': { icon: 'swap-vertical' },
+              'parking': { icon: 'car' },
+              'restroom': { icon: 'body' },
+              'ramp': { icon: 'enter' }
+            };
+            const data = featureData[feature];
+            
             return (
               <View key={feature} style={styles.featureRatingItem}>
                 <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                  <Ionicons name={iconEntry?.icon || 'help-circle'} size={16} color="#007AFF" style={styles.reviewFeatureIcon} />
+                  {/* Usar o ícone definido no mapeamento local */}
+                  <Ionicons name={data.icon || 'help-circle-outline'} size={16} color="#007AFF" style={styles.reviewFeatureIcon} />
                 </View>
                 <View style={styles.reviewFeatureStars}>
                   {[1,2,3,4,5].map(i => (
@@ -145,13 +157,13 @@ export default function LocationDetailScreen() {
         <View style={styles.accessibilityFeaturesContainer}>
           {(location.accessibilityFeatures || []).map((feature, index) => {
             const featureData = {
-              'wheelchair': { icon: 'wheelchair', name: 'Cadeira de Rodas' },
-              'blind': { icon: 'eye-off', name: 'Cegueira' },
+              'wheelchair': { icon: 'walk', name: 'Cadeira de Rodas' },
+              'blind': { icon: 'eye-off', name: 'Piso Tátil' },
               'deaf': { icon: 'ear', name: 'Surdez' },
-              'elevator': { icon: 'elevator', name: 'Elevador' },
+              'elevator': { icon: 'swap-vertical', name: 'Elevador' },
               'parking': { icon: 'car', name: 'Estacionamento' },
-              'restroom': { icon: 'restroom', name: 'Banheiro' },
-              'ramp': { icon: 'ramp', name: 'Rampa' }
+              'restroom': { icon: 'body', name: 'Banheiro Adaptado' },
+              'ramp': { icon: 'enter', name: 'Rampa' }
             };
             const data = featureData[feature];
             if (data) {

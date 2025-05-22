@@ -2,9 +2,13 @@ import { db } from './config';
 import { collection, getDocs, doc, getDoc, query, orderBy } from 'firebase/firestore';
 
 // Fetch all accessible locations, ordered by most recent (if timestamp exists)
-export async function fetchLocations() {
+export async function fetchLocations(filter = 'recent') {
   const locationsRef = collection(db, 'accessibleLocations');
-  const q = query(locationsRef, orderBy('createdAt', 'desc'));
+  // Sempre ordenar por data no fetch para garantir a busca básica
+  let q = query(locationsRef, orderBy('createdAt', 'desc'));
+
+  // A ordenação por rating será feita no cliente
+
   const querySnapshot = await getDocs(q);
   return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 }
