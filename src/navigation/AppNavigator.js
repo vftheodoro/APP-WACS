@@ -13,7 +13,6 @@ import LocationsListScreen from '../screens/LocationsListScreen';
 import LocationDetailScreen from '../screens/LocationDetailScreen';
 import SelectLocationMapScreen from '../screens/SelectLocationMapScreen';
 import UserProfileScreen from '../screens/UserProfileScreen';
-import { BluetoothConnectionScreen } from '../screens/BluetoothConnectionScreen';
 import { useAuth } from '../contexts/AuthContext';
 
 const Stack = createNativeStackNavigator();
@@ -109,11 +108,6 @@ export const AppNavigator = () => {
             name="UserProfile"
             component={UserProfileScreen}
             options={{ title: 'Perfil do Usuário' }}
-          />
-          <Stack.Screen
-            name="BluetoothConnection"
-            component={BluetoothConnectionScreen}
-            options={{ title: 'Conexão Bluetooth' }}
           />
         </>
       )}

@@ -1,137 +1,168 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
   StyleSheet,
-  TouchableOpacity,
+  Dimensions,
+  Pressable,
+  Vibration,
 } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
-import { Ionicons } from '@expo/vector-icons';
-import Slider from '@react-native-community/slider';
-import { useBluetooth } from '../contexts/BluetoothContext';
+import { PanGestureHandler, GestureHandlerRootView } from 'react-native-gesture-handler';
+import Animated, { useAnimatedGestureHandler, useAnimatedStyle, useSharedValue, } from 'react-native-reanimated';
+import ControlHeader from '../components/common/ControlHeader';
+
+const JOSTICK_SIZE = 300;
+const STICK_SIZE = 120;
+const VIBRATION_DURATION = 50;
 
 export const ControlScreen = () => {
-  const navigation = useNavigation();
-  const { connectionStatus, sendCommand } = useBluetooth();
-  const [speed, setSpeed] = React.useState(50);
-  const [currentMovement, setCurrentMovement] = React.useState(null);
+  const translateX = useSharedValue(0);
+  const translateY = useSharedValue(0);
+  const [speedMode, setSpeedMode] = useState('manual');
+  const [isLocked, setIsLocked] = useState(false);
+  const [isPressingLock, setIsPressingLock] = useState(false);
 
-  const handleMovement = async (direction) => {
-    if (connectionStatus !== 'connected') {
+  const [batteryPercentage, setBatteryPercentage] = useState(0);
+  const [estimatedAutonomy, setEstimatedAutonomy] = useState('--');
+  const [connectionQuality, setConnectionQuality] = useState('Desconectado');
+
+  const handleGestureEvent = useAnimatedGestureHandler({
+    onStart: (_, ctx) => {
+      ctx.offsetX = translateX.value;
+      ctx.offsetY = translateY.value;
+    },
+    onActive: (event, ctx) => {
+      const newTranslateX = event.translationX + ctx.offsetX;
+      const newTranslateY = event.translationY + ctx.offsetY;
+
+      const distance = Math.sqrt(newTranslateX * newTranslateX + newTranslateY * newTranslateY);
+
+      if (distance <= (JOSTICK_SIZE - STICK_SIZE) / 2) {
+        translateX.value = newTranslateX;
+        translateY.value = newTranslateY;
+      } else {
+        const angle = Math.atan2(newTranslateY, newTranslateX);
+        translateX.value = Math.cos(angle) * ((JOSTICK_SIZE - STICK_SIZE) / 2);
+        translateY.value = Math.sin(angle) * ((JOSTICK_SIZE - STICK_SIZE) / 2);
+      }
+
+      const normalizedX = translateX.value / ((JOSTICK_SIZE - STICK_SIZE) / 2);
+      const normalizedY = translateY.value / ((JOSTICK_SIZE - STICK_SIZE) / 2);
+
+      const command = {
+        type: 'move',
+        mode: speedMode,
+        x: normalizedX,
+        y: normalizedY,
+      };
+      console.log('Enviando comando:', command);
+
+    },
+    onEnd: () => {
+      translateX.value = 0;
+      translateY.value = 0;
+
+      const stopCommand = {
+        type: 'stop',
+        mode: speedMode,
+      };
+      console.log('Enviando comando:', stopCommand);
+
+    },
+  });
+
+  const stickAnimatedStyle = useAnimatedStyle(() => {
+    return {
+      transform: [
+        { translateX: translateX.value },
+        { translateY: translateY.value },
+      ],
+      backgroundColor: isLocked ? '#e57373' : '#2196f3',
+    };
+  });
+
+  const handleSpeedSelect = (mode) => {
+    if (isLocked) {
+      console.log('Controles travados. Não é possível mudar o modo de velocidade.');
+      Vibration.vibrate(VIBRATION_DURATION);
       return;
     }
+    setSpeedMode(mode);
+    const speedModeCommand = {
+      type: 'set_speed_mode',
+      mode: mode,
+    };
+    console.log('Enviando comando:', speedModeCommand);
 
-    const command = `${direction}:${speed}`;
-    setCurrentMovement(direction);
-    await sendCommand(command);
   };
 
-  const handleStop = async () => {
-    if (connectionStatus !== 'connected') {
-      return;
-    }
+  const handleLockToggle = () => {
+    const newState = !isLocked;
+    setIsLocked(newState);
 
-    await sendCommand('STOP');
-    setCurrentMovement(null);
+    Vibration.vibrate(VIBRATION_DURATION);
+
+    console.log('Estado de bloqueio alterado para:', newState ? 'Travado' : 'Destravado');
+
   };
-
-  if (connectionStatus !== 'connected') {
-    return (
-      <View style={styles.container}>
-        <Text style={styles.title}>Controle de Movimento</Text>
-        <View style={styles.connectContainer}>
-          <Text style={styles.connectText}>
-            Conecte-se a um dispositivo Bluetooth para controlar o robô
-          </Text>
-          <TouchableOpacity
-            style={styles.connectButton}
-            onPress={() => navigation.navigate('BluetoothConnection')}
-          >
-            <Ionicons name="bluetooth" size={24} color="#fff" />
-            <Text style={styles.connectButtonText}>Conectar Dispositivo</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-    );
-  }
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Controle de Movimento</Text>
+      <ControlHeader
+        batteryPercentage={batteryPercentage}
+        estimatedAutonomy={estimatedAutonomy}
+        connectionQuality={connectionQuality}
+      />
 
-      <View style={styles.speedContainer}>
-        <Text style={styles.speedText}>Velocidade: {Math.round(speed)}%</Text>
-        <Slider
-          style={styles.slider}
-          minimumValue={0}
-          maximumValue={100}
-          value={speed}
-          onValueChange={setSpeed}
-          minimumTrackTintColor="#007AFF"
-          maximumTrackTintColor="#000000"
-        />
+      <View style={styles.joystickBase}>
+        <Pressable
+          onLongPress={handleLockToggle}
+          delayLongPress={500}
+          style={styles.pressableStickArea}
+          onPressIn={() => setIsPressingLock(true)}
+          onPressOut={() => setIsPressingLock(false)}
+        >
+          <PanGestureHandler onGestureEvent={handleGestureEvent} enabled={!isLocked}>
+            <Animated.View style={[styles.joystickStick, stickAnimatedStyle]}>
+              {isPressingLock && (
+                <Text style={styles.lockStatusText}>{isLocked ? '🔒' : '🔓'}</Text>
+              )}
+            </Animated.View>
+          </PanGestureHandler>
+        </Pressable>
       </View>
 
-      <View style={styles.controlsContainer}>
-        <View style={styles.row}>
-          <TouchableOpacity
-            style={[
-              styles.controlButton,
-              currentMovement === 'FORWARD' && styles.activeButton,
-            ]}
-            onPress={() => handleMovement('FORWARD')}
-          >
-            <Ionicons name="arrow-up" size={30} color="#fff" />
-          </TouchableOpacity>
-        </View>
-
-        <View style={styles.row}>
-          <TouchableOpacity
-            style={[
-              styles.controlButton,
-              currentMovement === 'LEFT' && styles.activeButton,
-            ]}
-            onPress={() => handleMovement('LEFT')}
-          >
-            <Ionicons name="arrow-back" size={30} color="#fff" />
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.stopButton]}
-            onPress={handleStop}
-          >
-            <Ionicons name="stop" size={30} color="#fff" />
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[
-              styles.controlButton,
-              currentMovement === 'RIGHT' && styles.activeButton,
-            ]}
-            onPress={() => handleMovement('RIGHT')}
-          >
-            <Ionicons name="arrow-forward" size={30} color="#fff" />
-          </TouchableOpacity>
-        </View>
-
-        <View style={styles.row}>
-          <TouchableOpacity
-            style={[
-              styles.controlButton,
-              currentMovement === 'BACKWARD' && styles.activeButton,
-            ]}
-            onPress={() => handleMovement('BACKWARD')}
-          >
-            <Ionicons name="arrow-down" size={30} color="#fff" />
-          </TouchableOpacity>
-        </View>
+      <View style={styles.speedControls}>
+        <Pressable
+          onPress={() => handleSpeedSelect('lento')}
+          style={[styles.speedButton, speedMode === 'lento' && styles.selectedButton]}
+          disabled={isLocked}
+        >
+          <Text style={[styles.buttonText, isLocked && styles.disabledText]}>Lento</Text>
+        </Pressable>
+        <Pressable
+          onPress={() => handleSpeedSelect('medio')}
+          style={[styles.speedButton, speedMode === 'medio' && styles.selectedButton]}
+          disabled={isLocked}
+        >
+          <Text style={[styles.buttonText, isLocked && styles.disabledText]}>Médio</Text>
+        </Pressable>
+        <Pressable
+          onPress={() => handleSpeedSelect('rapido')}
+          style={[styles.speedButton, speedMode === 'rapido' && styles.selectedButton]}
+          disabled={isLocked}
+        >
+          <Text style={[styles.buttonText, isLocked && styles.disabledText]}>Rápido</Text>
+        </Pressable>
+        <Pressable
+          onPress={() => handleSpeedSelect('manual')}
+          style={[styles.speedButton, speedMode === 'manual' && styles.selectedButton]}
+        >
+          <Text style={styles.buttonText}>Manual</Text>
+        </Pressable>
       </View>
 
-      <View style={styles.statusContainer}>
-        <Text style={styles.statusText}>
-          Status: {currentMovement ? `Em movimento: ${currentMovement}` : 'Parado'}
-        </Text>
-      </View>
+      <Text style={styles.currentSpeedModeText}>Modo Atual: {speedMode.toUpperCase()}</Text>
     </View>
   );
 };
@@ -139,92 +170,72 @@ export const ControlScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
     backgroundColor: '#fff',
   },
-  title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    marginBottom: 20,
-    textAlign: 'center',
-  },
-  connectContainer: {
-    flex: 1,
+  joystickBase: {
+    width: JOSTICK_SIZE,
+    height: JOSTICK_SIZE,
+    borderRadius: JOSTICK_SIZE / 2,
+    backgroundColor: '#bdbdbd',
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 20,
+    borderWidth: 2,
+    borderColor: '#616161',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
   },
-  connectText: {
-    fontSize: 16,
-    textAlign: 'center',
-    marginBottom: 20,
-    color: '#666',
+  joystickStick: {
+    width: STICK_SIZE,
+    height: STICK_SIZE,
+    borderRadius: STICK_SIZE / 2,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#0d47a1',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
   },
-  connectButton: {
+  pressableStickArea: {
+    width: STICK_SIZE,
+    height: STICK_SIZE,
+    borderRadius: STICK_SIZE / 2,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  lockStatusText: {
+    fontSize: 30,
+  },
+  speedControls: {
     flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#007AFF',
-    padding: 15,
-    borderRadius: 8,
-  },
-  connectButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: 'bold',
-    marginLeft: 10,
-  },
-  speedContainer: {
-    marginBottom: 30,
-  },
-  speedText: {
-    fontSize: 16,
-    marginBottom: 10,
-    textAlign: 'center',
-  },
-  slider: {
-    width: '100%',
-    height: 40,
-  },
-  controlsContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 30,
-  },
-  row: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginVertical: 10,
-  },
-  controlButton: {
-    width: 80,
-    height: 80,
-    backgroundColor: '#007AFF',
-    borderRadius: 40,
-    justifyContent: 'center',
-    alignItems: 'center',
-    margin: 10,
-  },
-  stopButton: {
-    width: 80,
-    height: 80,
-    backgroundColor: '#FF3B30',
-    borderRadius: 40,
-    justifyContent: 'center',
-    alignItems: 'center',
-    margin: 10,
-  },
-  activeButton: {
-    backgroundColor: '#34C759',
-  },
-  statusContainer: {
-    padding: 15,
-    backgroundColor: '#f0f0f0',
-    borderRadius: 8,
     marginTop: 20,
   },
-  statusText: {
+  speedButton: {
+    padding: 10,
+    marginHorizontal: 5,
+    backgroundColor: '#e0e0e0',
+    borderRadius: 5,
+  },
+  selectedButton: {
+    backgroundColor: '#2196f3',
+  },
+  buttonText: {
+    color: '#333',
+    fontWeight: 'bold',
+  },
+  disabledText: {
+    color: '#9e9e9e',
+  },
+  currentSpeedModeText: {
+    marginTop: 10,
     fontSize: 16,
-    textAlign: 'center',
+    fontWeight: 'bold',
   },
 }); 
