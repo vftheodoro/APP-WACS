@@ -1,0 +1,71 @@
+## Resumo do Aplicativo WACS
+
+Este documento resume as principais funcionalidades e telas do aplicativo WACS, com base na documentação disponível.
+
+---
+
+### Funcionalidades Principais e Telas Correspondentes:
+
+- **Controle e Configuração da Cadeira:**
+  - Permite o ajuste de parâmetros da cadeira de rodas, visualização do status em tempo real e controle total da mobilidade via Bluetooth.
+  - **Possíveis Telas/Seções:** Tela de Controle (com botões de direção, velocidade, etc.), Tela de Status (exibindo nível de bateria, conexão, etc.), Tela de Configurações (para ajustar parâmetros).
+
+- **Mapeamento Colaborativo de Acessibilidade:**
+  - Funcionalidade para marcar e avaliar locais acessíveis (restaurantes, banheiros, calçadas, pontos de ônibus).
+  - Inclui GPS com rotas adaptadas, informações sobre rampas e outras facilidades.
+  - Permite adicionar fotos e comentários da comunidade.
+  - **Possíveis Telas/Seções:** Tela de Mapa (exibindo locais acessíveis, rotas), Tela de Detalhes do Local (informações, avaliações, fotos), Tela de Adição/Edição de Local (para contribuir com informações).
+
+- **Sistema de Perfis:**
+  - Criação, personalização e compartilhamento de perfis de usuário.
+  - Permite interação social e troca de experiências entre usuários.
+  - **Possíveis Telas/Seções:** Tela de Perfil (visualização e edição do próprio perfil), Tela de Visualização de Perfil de Outro Usuário, Tela de Rede Social/Feed (para interação).
+
+- **Tema Claro/Escuro:**
+  - Opção de alternar entre tema claro e escuro para melhor acessibilidade visual.
+  - **Possíveis Telas/Seções:** Geralmente uma opção dentro da Tela de Configurações ou Configurações de Aparência.
+
+- **Notificações Push:**
+  - Recebimento de notificações relevantes sobre atividades no app (novas avaliações em locais marcados, interações sociais, etc.).
+  - **Possíveis Telas/Seções:** Não é uma tela específica, mas as notificações podem levar o usuário a diferentes telas do app ao serem clicadas.
+
+---
+
+### Tecnologias Relevantes (para contexto das funcionalidades):
+
+- **Mobile/App:** React Native (Expo)
+- **Backend/Cloud:** Firebase
+- **Hardware:** Arduino, Bluetooth
+- **Extras:** Google Maps API, IA/ML
+
+---
+
+### Estrutura do Projeto (para entender a organização do código):
+
+- `src/contexts`: Contextos React (Auth, Theme, etc.)
+- `src/screens`: Telas do aplicativo
+- `src/navigation`: Navegação (Stack, Tabs)
+- `src/config`: Configurações (ex: Google Maps)
+- `assets`: Imagens e ícones
+- `scripts`: Scripts auxiliares
+- `.env`: Variáveis de ambiente
+
+---
+
+### Regras de Segurança do Firebase Storage:
+
+Com base na documentação encontrada, as seguintes regras de segurança estão configuradas para o Firebase Storage:
+
+- **Para arquivos na pasta de usuário (`/users/{userId}/{allPaths=**}`):**
+  - Qualquer pessoa pode **ler** os arquivos (ex: fotos de perfil).
+  - Apenas o próprio usuário autenticado pode **escrever** (fazer upload ou modificar) arquivos em sua pasta pessoal.
+
+- **Para outros arquivos (`/{allPaths=**}`):**
+  - Qualquer pessoa pode **ler** os arquivos.
+  - Apenas usuários autenticados podem **escrever** (fazer upload) novos arquivos.
+
+É importante notar que estas regras se aplicam especificamente ao Firebase Storage e não abrangem outras partes do Firebase utilizadas pelo aplicativo, como o Firestore (banco de dados).
+
+---
+
+Este resumo fornece uma visão geral das principais áreas do aplicativo WACS, baseando-se nas informações disponíveis na documentação. 

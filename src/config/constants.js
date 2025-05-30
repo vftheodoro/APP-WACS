@@ -34,13 +34,16 @@ export const SCREEN_NAMES = {
 
 export const THEME = {
   colors: {
-    primary: '#007AFF',
+    primary: '#007BFF',
     secondary: '#5856D6',
     background: '#FFFFFF',
     text: '#000000',
+    card: '#F8F9FA',
+    border: '#CED4DA',
     error: '#FF3B30',
     success: '#34C759',
     warning: '#FF9500',
+    notification: '#FF3B30',
   },
   spacing: {
     xs: 4,

@@ -8,6 +8,7 @@ import { ControlScreen } from '../screens/ControlScreen';
 import { MapScreen } from '../screens/MapScreen';
 // Removido import duplicado de tela de perfil
 import ChatScreen from '../screens/ChatScreen';
+import { ConnectionScreen } from '../screens/ConnectionScreen';
 
 import LocationsListScreen from '../screens/LocationsListScreen';
 import LocationDetailScreen from '../screens/LocationDetailScreen';
@@ -87,6 +88,11 @@ export const AppNavigator = () => {
             name="Chat"
             component={ChatScreen}
             options={{ title: 'Chat' }}
+          />
+          <Stack.Screen
+            name="ConnectionScreen"
+            component={ConnectionScreen}
+            options={{ title: 'Conexão Bluetooth' }}
           />
           
           <Stack.Screen

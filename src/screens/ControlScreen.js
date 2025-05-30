@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -10,9 +10,10 @@ import {
 import { PanGestureHandler, GestureHandlerRootView } from 'react-native-gesture-handler';
 import Animated, { useAnimatedGestureHandler, useAnimatedStyle, useSharedValue, } from 'react-native-reanimated';
 import ControlHeader from '../components/common/ControlHeader';
+import { useNavigation } from '@react-navigation/native';
 
-const JOSTICK_SIZE = 300;
-const STICK_SIZE = 120;
+const JOSTICK_SIZE = 280;
+const STICK_SIZE = 100;
 const VIBRATION_DURATION = 50;
 
 export const ControlScreen = () => {
@@ -25,13 +26,22 @@ export const ControlScreen = () => {
   const [batteryPercentage, setBatteryPercentage] = useState(0);
   const [estimatedAutonomy, setEstimatedAutonomy] = useState('--');
   const [connectionQuality, setConnectionQuality] = useState('Desconectado');
+  const [isConnected, setIsConnected] = useState(false);
+
+  const navigation = useNavigation();
+
+  useEffect(() => {
+    setIsConnected(false);
+  }, []);
 
   const handleGestureEvent = useAnimatedGestureHandler({
     onStart: (_, ctx) => {
+      if (!isConnected) return;
       ctx.offsetX = translateX.value;
       ctx.offsetY = translateY.value;
     },
     onActive: (event, ctx) => {
+      if (!isConnected) return;
       const newTranslateX = event.translationX + ctx.offsetX;
       const newTranslateY = event.translationY + ctx.offsetY;
 
@@ -59,6 +69,7 @@ export const ControlScreen = () => {
 
     },
     onEnd: () => {
+      if (!isConnected) return;
       translateX.value = 0;
       translateY.value = 0;
 
@@ -77,11 +88,16 @@ export const ControlScreen = () => {
         { translateX: translateX.value },
         { translateY: translateY.value },
       ],
-      backgroundColor: isLocked ? '#e57373' : '#2196f3',
+      backgroundColor: isLocked ? '#ef5350' : '#42a5f5',
+      opacity: isConnected ? 1 : 0.5,
     };
   });
 
   const handleSpeedSelect = (mode) => {
+    if (!isConnected) {
+      Vibration.vibrate(VIBRATION_DURATION);
+      return;
+    }
     if (isLocked) {
       console.log('Controles travados. Não é possível mudar o modo de velocidade.');
       Vibration.vibrate(VIBRATION_DURATION);
@@ -97,6 +113,10 @@ export const ControlScreen = () => {
   };
 
   const handleLockToggle = () => {
+    if (!isConnected) {
+      Vibration.vibrate(VIBRATION_DURATION);
+      return;
+    }
     const newState = !isLocked;
     setIsLocked(newState);
 
@@ -106,88 +126,142 @@ export const ControlScreen = () => {
 
   };
 
+  const handleBluetoothPress = () => {
+    navigation.navigate('ConnectionScreen');
+  };
+
   return (
-    <View style={styles.container}>
-      <ControlHeader
-        batteryPercentage={batteryPercentage}
-        estimatedAutonomy={estimatedAutonomy}
-        connectionQuality={connectionQuality}
-      />
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <View style={styles.container}>
+        <ControlHeader
+          batteryPercentage={batteryPercentage}
+          estimatedAutonomy={estimatedAutonomy}
+          connectionQuality={connectionQuality}
+        />
 
-      <View style={styles.joystickBase}>
-        <Pressable
-          onLongPress={handleLockToggle}
-          delayLongPress={500}
-          style={styles.pressableStickArea}
-          onPressIn={() => setIsPressingLock(true)}
-          onPressOut={() => setIsPressingLock(false)}
-        >
-          <PanGestureHandler onGestureEvent={handleGestureEvent} enabled={!isLocked}>
-            <Animated.View style={[styles.joystickStick, stickAnimatedStyle]}>
-              {isPressingLock && (
-                <Text style={styles.lockStatusText}>{isLocked ? '🔒' : '🔓'}</Text>
-              )}
-            </Animated.View>
-          </PanGestureHandler>
-        </Pressable>
+        {!isConnected ? (
+          <View style={styles.disconnectedContainer}>
+            <Text style={styles.disconnectedText}>Cadeira de rodas não conectada.</Text>
+            <Pressable style={styles.connectButton} onPress={handleBluetoothPress}>
+              <Text style={styles.connectButtonText}>Conectar via Bluetooth</Text>
+            </Pressable>
+          </View>
+        ) : (
+          <>
+            <View style={styles.mainContentArea}>
+              <View style={styles.joystickContainer}>
+                <View style={styles.joystickBase}>
+                  <Pressable
+                    onLongPress={handleLockToggle}
+                    delayLongPress={500}
+                    style={styles.pressableStickArea}
+                    onPressIn={() => setIsPressingLock(true)}
+                    onPressOut={() => setIsPressingLock(false)}
+                  >
+                    <PanGestureHandler onGestureEvent={handleGestureEvent} enabled={!isLocked && isConnected}>
+                      <Animated.View style={[styles.joystickStick, stickAnimatedStyle]}>
+                        {isPressingLock && (
+                          <Text style={styles.lockStatusText}>{isLocked ? '🔒' : '🔓'}</Text>
+                        )}
+                      </Animated.View>
+                    </PanGestureHandler>
+                  </Pressable>
+                </View>
+              </View>
+
+              <Text style={styles.currentSpeedModeText}>Modo Atual: {speedMode.toUpperCase()}</Text>
+            </View>
+
+            <View style={styles.speedControls}>
+              <Pressable
+                onPress={() => handleSpeedSelect('lento')}
+                style={[styles.speedButton, speedMode === 'lento' && styles.selectedButton]}
+                disabled={!isConnected || isLocked}
+              >
+                <Text style={[styles.buttonText, (!isConnected || isLocked) && styles.disabledText]}>Lento</Text>
+              </Pressable>
+              <Pressable
+                onPress={() => handleSpeedSelect('medio')}
+                style={[styles.speedButton, speedMode === 'medio' && styles.selectedButton]}
+                disabled={!isConnected || isLocked}
+              >
+                <Text style={[styles.buttonText, (!isConnected || isLocked) && styles.disabledText]}>Médio</Text>
+              </Pressable>
+              <Pressable
+                onPress={() => handleSpeedSelect('rapido')}
+                style={[styles.speedButton, speedMode === 'rapido' && styles.selectedButton]}
+                disabled={!isConnected || isLocked}
+              >
+                <Text style={[styles.buttonText, (!isConnected || isLocked) && styles.disabledText]}>Rápido</Text>
+              </Pressable>
+              <Pressable
+                onPress={() => handleSpeedSelect('manual')}
+                style={[styles.speedButton, speedMode === 'manual' && styles.selectedButton]}
+                disabled={!isConnected}
+              >
+                <Text style={[styles.buttonText, !isConnected && styles.disabledText]}>Manual</Text>
+              </Pressable>
+            </View>
+          </>
+        )}
+
       </View>
-
-      <View style={styles.speedControls}>
-        <Pressable
-          onPress={() => handleSpeedSelect('lento')}
-          style={[styles.speedButton, speedMode === 'lento' && styles.selectedButton]}
-          disabled={isLocked}
-        >
-          <Text style={[styles.buttonText, isLocked && styles.disabledText]}>Lento</Text>
-        </Pressable>
-        <Pressable
-          onPress={() => handleSpeedSelect('medio')}
-          style={[styles.speedButton, speedMode === 'medio' && styles.selectedButton]}
-          disabled={isLocked}
-        >
-          <Text style={[styles.buttonText, isLocked && styles.disabledText]}>Médio</Text>
-        </Pressable>
-        <Pressable
-          onPress={() => handleSpeedSelect('rapido')}
-          style={[styles.speedButton, speedMode === 'rapido' && styles.selectedButton]}
-          disabled={isLocked}
-        >
-          <Text style={[styles.buttonText, isLocked && styles.disabledText]}>Rápido</Text>
-        </Pressable>
-        <Pressable
-          onPress={() => handleSpeedSelect('manual')}
-          style={[styles.speedButton, speedMode === 'manual' && styles.selectedButton]}
-        >
-          <Text style={styles.buttonText}>Manual</Text>
-        </Pressable>
-      </View>
-
-      <Text style={styles.currentSpeedModeText}>Modo Atual: {speedMode.toUpperCase()}</Text>
-    </View>
+    </GestureHandlerRootView>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: '#f0f2f5',
+    paddingTop: 20,
+  },
+  mainContentArea: {
+    flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#fff',
+  },
+  disconnectedContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  disconnectedText: {
+    fontSize: 18,
+    color: '#555',
+    marginBottom: 20,
+    textAlign: 'center',
+    paddingHorizontal: 20,
+  },
+  connectButton: {
+    backgroundColor: '#1e88e5',
+    paddingVertical: 12,
+    paddingHorizontal: 25,
+    borderRadius: 8,
+    elevation: 3,
+  },
+  connectButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  joystickContainer: {
+    marginBottom: 30,
   },
   joystickBase: {
     width: JOSTICK_SIZE,
     height: JOSTICK_SIZE,
     borderRadius: JOSTICK_SIZE / 2,
-    backgroundColor: '#bdbdbd',
+    backgroundColor: '#616161',
     justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 2,
-    borderColor: '#616161',
+    borderWidth: 3,
+    borderColor: '#424242',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8.0,
+    elevation: 15,
   },
   joystickStick: {
     width: STICK_SIZE,
@@ -195,13 +269,13 @@ const styles = StyleSheet.create({
     borderRadius: STICK_SIZE / 2,
     justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#0d47a1',
+    borderWidth: 2,
+    borderColor: '#1565c0',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4.0,
+    elevation: 6,
   },
   pressableStickArea: {
     width: STICK_SIZE,
@@ -211,31 +285,46 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   lockStatusText: {
-    fontSize: 30,
+    fontSize: 36,
   },
   speedControls: {
     flexDirection: 'row',
-    marginTop: 20,
+    justifyContent: 'space-around',
+    width: '100%',
+    paddingHorizontal: 10,
+    marginBottom: 20,
   },
   speedButton: {
-    padding: 10,
-    marginHorizontal: 5,
+    paddingVertical: 10,
+    paddingHorizontal: 15,
+    marginHorizontal: 4,
     backgroundColor: '#e0e0e0',
-    borderRadius: 5,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#d0d0d0',
+    justifyContent: 'center',
+    alignItems: 'center',
+    minWidth: 70,
+    elevation: 2,
   },
   selectedButton: {
-    backgroundColor: '#2196f3',
+    backgroundColor: '#1e88e5',
+    borderColor: '#1e88e5',
+    elevation: 4,
   },
   buttonText: {
-    color: '#333',
-    fontWeight: 'bold',
+    color: '#424242',
+    fontWeight: '600',
+    fontSize: 13,
   },
   disabledText: {
-    color: '#9e9e9e',
+    color: '#b0b0b0',
   },
   currentSpeedModeText: {
     marginTop: 10,
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 20,
   },
 }); 

@@ -1,12 +1,12 @@
 export const DARK_THEME = {
   colors: {
-    primary: '#007AFF',
+    primary: '#007BFF',
     secondary: '#5856D6',
     background: '#121212',
     backgroundSecondary: '#232323',
-    text: '#fff',
+    text: '#FFFFFF',
     textSecondary: '#B0B0B0',
-    border: '#333',
+    border: '#3A3A3A',
     borderLight: '#444',
     error: '#FF3B30',
     success: '#34C759',
@@ -18,6 +18,7 @@ export const DARK_THEME = {
     overlay: 'rgba(0, 0, 0, 0.7)',
     icon: '#B0B0B0',
     iconActive: '#fff',
+    notification: '#FF4500',
   },
   spacing: {
     xs: 4,

@@ -8,10 +8,13 @@ import { db, storage, auth } from '../services/firebase/config';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { THEME } from '../config/constants';
+import { useTheme } from '../contexts/ThemeContext';
 
 
 export default function LocationsListScreen() {
   const [addModalVisible, setAddModalVisible] = useState(false);
+
+  const { theme } = useTheme();
 
   const [locations, setLocations] = useState([]);
   const [displayedLocations, setDisplayedLocations] = useState([]);
@@ -91,18 +94,18 @@ export default function LocationsListScreen() {
     const stars = [];
     for (let i = 1; i <= 5; i++) {
       if (rating >= i) {
-        stars.push(<Ionicons key={i} name="star" size={16} color={THEME.colors.warning} />);
+        stars.push(<Ionicons key={i} name="star" size={16} color={theme.colors.warning} />);
       } else if (rating >= i - 0.5) {
-        stars.push(<Ionicons key={i} name="star-half" size={16} color={THEME.colors.warning} />);
+        stars.push(<Ionicons key={i} name="star-half" size={16} color={theme.colors.warning} />);
       } else {
-        stars.push(<Ionicons key={i} name="star-outline" size={16} color={THEME.colors.warning} />);
+        stars.push(<Ionicons key={i} name="star-outline" size={16} color={theme.colors.warning} />);
       }
     }
     return stars;
   };
 
   const getLocationCardStyle = (rating) => {
-    let backgroundColor = THEME.colors.background;
+    let backgroundColor = theme.colors.background;
     if (rating >= 4) {
       backgroundColor = '#f0fff0';
     } else if (rating >= 2) {
@@ -141,7 +144,7 @@ export default function LocationsListScreen() {
             <Image source={{ uri: item.imageUrl }} style={styles.image} resizeMode="cover" />
           ) : (
             <View style={styles.placeholderImage}>
-              <Ionicons name="image" size={36} color={THEME.colors.text} />
+              <Ionicons name="image" size={36} color={theme.colors.text} />
               <Text style={styles.placeholderText}>Sem imagem</Text>
             </View>
           )}
@@ -151,7 +154,7 @@ export default function LocationsListScreen() {
             <Text style={styles.name}>{item.name}</Text>
             {isNewest && (
               <View style={styles.newBadge}>
-                <Ionicons name="time-outline" size={14} color={THEME.colors.background} />
+                <Ionicons name="time-outline" size={14} color={theme.colors.background} />
                 <Text style={styles.newBadgeText}>NOVO</Text>
               </View>
             )}
@@ -181,7 +184,7 @@ export default function LocationsListScreen() {
               if (data) {
                 return (
                   <View key={index} style={styles.accessibilityFeatureItem}>
-                    <Ionicons name={data.icon} size={16} color={THEME.colors.background} style={styles.accessibilityFeatureIcon} />
+                    <Ionicons name={data.icon} size={16} color={theme.colors.background} style={styles.accessibilityFeatureIcon} />
                     <Text style={styles.accessibilityFeatureText}>{data.name}</Text>
                   </View>
                 );
@@ -197,7 +200,7 @@ export default function LocationsListScreen() {
   if (loading && !refreshing) {
     return (
       <View style={styles.centered}>
-        <ActivityIndicator size="large" color={THEME.colors.primary} />
+        <ActivityIndicator size="large" color={theme.colors.primary} />
         <Text style={styles.text}>Carregando locais...</Text>
       </View>
     );
@@ -206,7 +209,7 @@ export default function LocationsListScreen() {
   if (error) {
     return (
       <View style={styles.centered}>
-        <Ionicons name="alert-circle" size={40} color={THEME.colors.error} />
+        <Ionicons name="alert-circle" size={40} color={theme.colors.error} />
         <Text style={styles.text}>{error}</Text>
         <TouchableOpacity style={styles.retryBtn} onPress={loadLocations}>
           <Text style={styles.retryText}>Tentar novamente</Text>
@@ -218,14 +221,14 @@ export default function LocationsListScreen() {
   if (locations.length === 0) {
     return (
       <View style={styles.centered}>
-        <Ionicons name="location-outline" size={40} color="#aaa" />
+        <Ionicons name="location-outline" size={40} color={theme.colors.textSecondary || '#aaa'} />
         <Text style={styles.text}>Nenhum local adicionado ainda.</Text>
       </View>
     );
   }
 
   return (
-    <View style={styles.listContainer}>
+    <View style={[styles.listContainer, { backgroundColor: theme.colors.background }]}>
       <FlatList
         data={displayedLocations}
         keyExtractor={item => item.id}
@@ -235,11 +238,11 @@ export default function LocationsListScreen() {
         showsVerticalScrollIndicator={false}
       />
       <TouchableOpacity
-        style={styles.fab}
+        style={[styles.fab, { backgroundColor: theme.colors.primary }]}
         onPress={() => setAddModalVisible(true)}
         activeOpacity={0.8}
       >
-        <Ionicons name="add" size={32} color={THEME.colors.background} />
+        <Ionicons name="add" size={32} color={theme.colors.background} />
       </TouchableOpacity>
       <AddLocationModal
         visible={addModalVisible}

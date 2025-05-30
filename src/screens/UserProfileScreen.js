@@ -10,7 +10,8 @@ import {
   Alert,
   ActivityIndicator,
   Modal,
-  Platform
+  Platform,
+  Switch
 } from 'react-native';
 import { Ionicons, MaterialIcons, FontAwesome5 } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
@@ -19,7 +20,7 @@ import { useTheme } from '../contexts/ThemeContext';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function UserProfileScreen() {
-  const { isDark, toggleTheme } = useTheme();
+  const { isDark, toggleTheme, theme } = useTheme();
   const { user, updateUser, updateProfilePicture, logout, isUploading, changePassword } = useAuth();
   const [editMode, setEditMode] = useState(false);
   const [name, setName] = useState('');
@@ -199,26 +200,26 @@ export default function UserProfileScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: theme.colors.background }]}>
       <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
         <View style={styles.header}>
-          <Text style={styles.headerTitle}>Meu Perfil</Text>
+          <Text style={[styles.headerTitle, { color: theme.colors.text }]}>Meu Perfil</Text>
           <TouchableOpacity 
             style={styles.logoutButton} 
             onPress={() => setShowLogoutConfirm(true)}
           >
-            <Ionicons name="log-out-outline" size={24} color="#FF3B30" />
+            <Ionicons name="log-out-outline" size={24} color={theme.colors.error} />
           </TouchableOpacity>
         </View>
 
-        <View style={styles.profileSection}>
+        <View style={[styles.profileSection, { backgroundColor: theme.colors.card }]}>
           <View style={styles.profileImageContainer}>
             <TouchableOpacity onPress={handlePickImage} style={styles.profileImageWrapper}>
               {user.photoURL ? (
                 <Image source={{ uri: user.photoURL }} style={styles.profileImage} />
               ) : (
-                <View style={styles.profileImagePlaceholder}>
-                  <Text style={styles.profileImagePlaceholderText}>
+                <View style={[styles.profileImagePlaceholder, { backgroundColor: theme.colors.primary }]}>
+                  <Text style={[styles.profileImagePlaceholderText, { color: theme.colors.background }]}>
                     {user.name ? user.name.charAt(0).toUpperCase() : 'U'}
                   </Text>
                 </View>
@@ -239,16 +240,28 @@ export default function UserProfileScreen() {
           <View style={styles.profileInfo}>
             {editMode ? (
               <TextInput
-                style={styles.nameInput}
+                style={[styles.nameInput, { color: theme.colors.text, borderBottomColor: theme.colors.border }]}
                 value={name}
                 onChangeText={setName}
                 placeholder="Seu nome"
+                placeholderTextColor={theme.colors.textSecondary || '#888'}
                 autoCapitalize="words"
               />
             ) : (
-              <Text style={styles.userName}>{user.name}</Text>
+              <Text style={[styles.userName, { color: theme.colors.text }]}>{user.name}</Text>
             )}
             <Text style={styles.userEmail}>{user.email}</Text>
+
+            <View style={styles.themeSwitcherContainer}>
+              <Text style={[styles.themeSwitcherText, { color: theme.colors.text }]}>Tema Escuro</Text>
+              <Switch
+                trackColor={{ false: theme.colors.border, true: theme.colors.primary }}
+                thumbColor={isDark ? theme.colors.background : theme.colors.backgroundSecondary || '#f4f3f4'}
+                ios_backgroundColor={theme.colors.border}
+                onValueChange={toggleTheme}
+                value={isDark}
+              />
+            </View>
 
             {editMode ? (
               <View style={styles.editButtonsRow}>
@@ -264,18 +277,32 @@ export default function UserProfileScreen() {
                 <TouchableOpacity 
                   style={[styles.editButton, styles.saveButton]} 
                   onPress={handleSaveProfile}
+                  disabled={isUploading}
                 >
-                  <Text style={styles.saveButtonText}>Salvar</Text>
+                  {isUploading ? (
+                    <ActivityIndicator color={theme.colors.background} />
+                  ) : (
+                    <Text style={[styles.saveButtonText, { color: theme.colors.background }]}>Salvar</Text>
+                  )}
                 </TouchableOpacity>
               </View>
             ) : (
-              <TouchableOpacity 
-                style={styles.editProfileButton} 
-                onPress={() => setEditMode(true)}
-              >
-                <Ionicons name="pencil" size={16} color="#007AFF" />
-                <Text style={styles.editProfileText}>Editar Perfil</Text>
-              </TouchableOpacity>
+              <View style={styles.editButtonsRow}>
+                <TouchableOpacity 
+                  style={[styles.editButton, styles.cancelButton]} 
+                  onPress={() => setEditMode(true)}
+                >
+                  <Ionicons name="create-outline" size={20} color={theme.colors.textSecondary || '#555'} style={styles.editIcon} />
+                  <Text style={[styles.editButtonText, { color: theme.colors.textSecondary || '#555' }]}>Editar Perfil</Text>
+                </TouchableOpacity>
+                <TouchableOpacity 
+                  style={[styles.editButton, styles.changePasswordButton]} 
+                  onPress={() => setShowPasswordModal(true)}
+                >
+                  <Ionicons name="lock-closed-outline" size={20} color={theme.colors.textSecondary || '#555'} style={styles.editIcon} />
+                  <Text style={[styles.changePasswordButtonText, { color: theme.colors.textSecondary || '#555' }]}>Alterar Senha</Text>
+                </TouchableOpacity>
+              </View>
             )}
           </View>
         </View>
@@ -479,11 +506,10 @@ export default function UserProfileScreen() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#f7f9fc',
   },
   container: {
     flex: 1,
-    backgroundColor: '#f7f9fc',
+    padding: 16,
   },
   loadingContainer: {
     flex: 1,
@@ -498,41 +524,40 @@ const styles = StyleSheet.create({
   },
   header: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 16,
-    paddingHorizontal: 20,
-    backgroundColor: '#fff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#eee',
+    marginBottom: 24,
   },
   headerTitle: {
-    fontSize: 18,
+    fontSize: 24,
     fontWeight: 'bold',
-    color: '#333',
   },
   logoutButton: {
-    position: 'absolute',
-    right: 20,
+    padding: 4,
   },
   profileSection: {
-    padding: 20,
-    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 16,
     alignItems: 'center',
-    borderBottomWidth: 1,
-    borderBottomColor: '#eee',
+    marginBottom: 24,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 1.41,
   },
   profileImageContainer: {
-    alignItems: 'center',
     marginBottom: 16,
+    position: 'relative',
   },
   profileImageWrapper: {
-    position: 'relative',
     width: 100,
     height: 100,
     borderRadius: 50,
     overflow: 'hidden',
-    backgroundColor: '#e1e4e8',
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#ccc',
   },
   profileImage: {
     width: '100%',
@@ -541,37 +566,32 @@ const styles = StyleSheet.create({
   profileImagePlaceholder: {
     width: '100%',
     height: '100%',
-    backgroundColor: '#007AFF',
     justifyContent: 'center',
     alignItems: 'center',
+    backgroundColor: '#007AFF',
   },
   profileImagePlaceholderText: {
     fontSize: 40,
-    fontWeight: 'bold',
     color: '#fff',
+    fontWeight: 'bold',
   },
   cameraIconContainer: {
     position: 'absolute',
     bottom: 0,
     right: 0,
-    backgroundColor: '#007AFF',
-    width: 30,
-    height: 30,
-    borderRadius: 15,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 2,
-    borderColor: '#fff',
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    borderRadius: 12,
+    padding: 4,
   },
   progressContainer: {
-    width: '80%',
-    height: 20,
-    backgroundColor: '#e1e4e8',
-    borderRadius: 10,
-    marginTop: 10,
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: 5,
+    backgroundColor: 'rgba(0, 0, 0, 0.2)',
+    borderRadius: 2.5,
     overflow: 'hidden',
-    flexDirection: 'row',
-    alignItems: 'center',
   },
   progressBar: {
     height: '100%',
@@ -634,18 +654,24 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontWeight: '600',
   },
-  editProfileButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#f1f5ff',
+  editIcon: {
+    marginRight: 8,
+  },
+  editButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  changePasswordButton: {
     paddingVertical: 8,
     paddingHorizontal: 16,
-    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 8,
+    marginHorizontal: 6,
   },
-  editProfileText: {
-    color: '#007AFF',
+  changePasswordButtonText: {
+    fontSize: 16,
     fontWeight: '600',
-    marginLeft: 6,
   },
   infoSection: {
     backgroundColor: '#fff',
@@ -791,18 +817,17 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     textAlign: 'center',
   },
-  saveButton: {
-    backgroundColor: '#007AFF',
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: 8,
-    flex: 1,
+  themeSwitcherContainer: {
+    flexDirection: 'row',
     alignItems: 'center',
-    marginLeft: 8,
+    justifyContent: 'space-between',
+    width: '100%',
+    marginTop: 16,
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#ddd',
   },
-  saveButtonText: {
-    color: '#fff',
-    fontWeight: '600',
+  themeSwitcherText: {
     fontSize: 16,
   },
   successContainer: {
