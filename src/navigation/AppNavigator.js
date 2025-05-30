@@ -9,6 +9,7 @@ import { MapScreen } from '../screens/MapScreen';
 // Removido import duplicado de tela de perfil
 import ChatScreen from '../screens/ChatScreen';
 import { ConnectionScreen } from '../screens/ConnectionScreen';
+import { MainSelectionScreen } from '../screens/MainSelectionScreen';
 
 import LocationsListScreen from '../screens/LocationsListScreen';
 import LocationDetailScreen from '../screens/LocationDetailScreen';
@@ -19,6 +20,8 @@ import { useAuth } from '../contexts/AuthContext';
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
 
+/* Remove MainTabs component definition */
+/*
 const MainTabs = () => {
   return (
     <Tab.Navigator
@@ -65,6 +68,7 @@ const MainTabs = () => {
     </Tab.Navigator>
   );
 };
+*/
 
 export const AppNavigator = () => {
   const { user } = useAuth();
@@ -79,27 +83,50 @@ export const AppNavigator = () => {
         />
       ) : (
         <>
+          {/* After login, navigate to MainSelectionScreen */}
           <Stack.Screen
-            name="MainTabs"
-            component={MainTabs}
-            options={{ headerShown: false }}
+            name="MainSelection"
+            component={MainSelectionScreen}
+            options={{ headerShown: false }} // Hide header for this screen
+          />
+          {/* Add individual screens from former MainTabs */}
+          <Stack.Screen
+            name="ControlScreen"
+            component={ControlScreen}
+            options={{ title: 'Controle' }}
           />
           <Stack.Screen
-            name="Chat"
+            name="MapScreen"
+            component={MapScreen}
+            options={{ title: 'Mapa' }}
+          />
+          <Stack.Screen
+            name="ChatScreen"
             component={ChatScreen}
             options={{ title: 'Chat' }}
           />
+          <Stack.Screen
+            name="LocationsListScreen"
+            component={LocationsListScreen}
+            options={{ title: 'Locais' }}
+          />
+           <Stack.Screen
+            name="UserProfileScreen"
+            component={UserProfileScreen}
+            options={{ title: 'Perfil do Usuário' }}
+          />
+
+          {/* Keep other existing stack screens */}
           <Stack.Screen
             name="ConnectionScreen"
             component={ConnectionScreen}
             options={{ title: 'Conexão Bluetooth' }}
           />
           
-          <Stack.Screen
-            name="LocationsList"
-            component={LocationsListScreen}
-            options={{ title: 'Locais Adicionados' }}
-          />
+          {/* Removed redundant Chat screen definition */}
+          {/* Removed redundant LocationsList screen definition */}
+          {/* Removed redundant UserProfile screen definition */}
+
           <Stack.Screen
             name="LocationDetail"
             component={LocationDetailScreen}
@@ -109,11 +136,6 @@ export const AppNavigator = () => {
             name="SelectLocationMap"
             component={SelectLocationMapScreen}
             options={{ title: 'Selecionar Local' }}
-          />
-          <Stack.Screen
-            name="UserProfile"
-            component={UserProfileScreen}
-            options={{ title: 'Perfil do Usuário' }}
           />
         </>
       )}
