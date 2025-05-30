@@ -7,11 +7,11 @@ module.exports = {
     version: '1.0.0',
     orientation: 'portrait',
     icon: './assets/icon.png',
-    userInterfaceStyle: 'automatic',
+    userInterfaceStyle: 'dark',
     splash: {
       image: './assets/splash.png',
       resizeMode: 'contain',
-      backgroundColor: '#121212'
+      backgroundColor: '#1A1A1A'
     },
     assetBundlePatterns: [
       '**/*'
@@ -26,7 +26,7 @@ module.exports = {
     android: {
       adaptiveIcon: {
         foregroundImage: './assets/adaptive-icon.png',
-        backgroundColor: '#121212'
+        backgroundColor: '#1A1A1A'
       },
       package: 'com.wacs.app',
       permissions: [

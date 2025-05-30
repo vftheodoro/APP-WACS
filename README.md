@@ -108,8 +108,3 @@ npm run build:ios
 ## 📄 Licença
 
 Este projeto está licenciado sob a licença MIT - veja o arquivo LICENSE para detalhes.
-
-## 📞 Contato
-
-Victor Theodoro - victor.theodoro@exemplo.com
-Link do Projeto: https://github.com/VTheodoro/APP-WACS 

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   View,
   Text,
@@ -10,10 +10,16 @@ import {
   Platform,
   Alert,
   Image,
+  Animated,
+  Dimensions,
+  Pressable,
 } from 'react-native';
 import { useAuth } from '../contexts/AuthContext';
-import { getLastUser } from '../utils/storage';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, MaterialIcons, FontAwesome } from '@expo/vector-icons';
+import * as Haptics from 'expo-haptics';
+import { LinearGradient } from 'expo-linear-gradient';
+
+const { width, height } = Dimensions.get('window');
 
 export const LoginScreen = () => {
   const [email, setEmail] = useState('');
@@ -21,172 +27,209 @@ export const LoginScreen = () => {
   const [name, setName] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isRegistering, setIsRegistering] = useState(false);
-  const [lastUser, setLastUser] = useState(null);
-  const [showLoginForm, setShowLoginForm] = useState(false);
-  const [isLastUserLogin, setIsLastUserLogin] = useState(false);
-  const { login, register, error: authError } = useAuth();
+  const [showPassword, setShowPassword] = useState(false);
+  const { login, register, error: authError, signInWithGoogle } = useAuth();
   const passwordInputRef = useRef(null);
+  
+  // Animations
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(50)).current;
+  const scaleAnim = useRef(new Animated.Value(0.9)).current;
 
-  // Carregar último usuário ao iniciar
-  useEffect(() => {
-    const loadLastUser = async () => {
-      const userData = await getLastUser();
-      if (userData) {
-        setLastUser(userData);
-        // Pré-preencher o email para facilitar o login
-        setEmail(userData.email);
-      } else {
-        // Se não houver último usuário, mostrar formulário de login diretamente
-        setShowLoginForm(true);
-      }
-    };
+  // Theme colors
+  const colors = {
+    primary: '#4A90E2',
+    background: '#1A1A1A',
+    text: '#FFFFFF',
+    secondaryText: '#B0B0B0',
+    inputBackground: '#2A2A2A',
+    error: '#FF3B30',
+    success: '#34C759',
+    gradient: ['#1A1A1A', '#2A2A2A', '#1A1A1A'],
+  };
 
-    loadLastUser();
+  React.useEffect(() => {
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 1000,
+        useNativeDriver: true,
+      }),
+      Animated.timing(slideAnim, {
+        toValue: 0,
+        duration: 1000,
+        useNativeDriver: true,
+      }),
+      Animated.spring(scaleAnim, {
+        toValue: 1,
+        friction: 8,
+        tension: 40,
+        useNativeDriver: true,
+      }),
+    ]).start();
   }, []);
 
-  // Focar no campo de senha quando estiver usando o login do último usuário
-  useEffect(() => {
-    if (isLastUserLogin && passwordInputRef.current) {
-      // Pequeno delay para garantir que o input esteja renderizado
-      setTimeout(() => {
-        passwordInputRef.current.focus();
-      }, 100);
-    }
-  }, [isLastUserLogin]);
+  const validateEmail = (email) => {
+    const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return re.test(email);
+  };
+
+  const validatePassword = (password) => {
+    return password.length >= 6;
+  };
 
   const handleAuth = async () => {
     if (!email || !password) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       Alert.alert('Erro', 'Por favor, preencha todos os campos');
       return;
     }
 
+    if (!validateEmail(email)) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      Alert.alert('Erro', 'Por favor, insira um email válido');
+      return;
+    }
+
+    if (!validatePassword(password)) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      Alert.alert('Erro', 'A senha deve ter pelo menos 6 caracteres');
+      return;
+    }
+
     if (isRegistering && !name) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       Alert.alert('Erro', 'Por favor, informe seu nome para registrar');
       return;
     }
 
     try {
       setIsLoading(true);
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
       
       if (isRegistering) {
         await register(email, password, name);
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         Alert.alert('Sucesso', 'Conta criada com sucesso! Você já pode fazer login.');
         setIsRegistering(false);
         setName('');
       } else {
         await login(email, password);
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       }
     } catch (err) {
-      // Erro já tratado no contexto
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleLastUserLogin = () => {
-    // Mostrar formulário para inserir senha, mantendo o email preenchido
-    setIsLastUserLogin(true);
-    setShowLoginForm(true);
-    setPassword(''); // Limpar senha por segurança
-    // O foco no campo de senha será feito pelo useEffect
+  const handleGoogleSignIn = async () => {
+    Alert.alert(
+      'Indisponível',
+      'O login com Google está temporariamente indisponível. Por favor, use o login com email e senha.',
+      [{ text: 'OK' }]
+    );
   };
 
-  const handleSwitchAccount = () => {
-    // Limpar dados do formulário e mostrar tela de login completa
-    setEmail('');
-    setPassword('');
-    setShowLoginForm(true);
-    setIsLastUserLogin(false);
+  const handleForgotPassword = () => {
+    if (!email) {
+      Alert.alert('Erro', 'Por favor, insira seu email primeiro');
+      return;
+    }
+    Alert.alert('Recuperação de Senha', 'Um email foi enviado para você com instruções de recuperação.');
   };
 
   const toggleMode = () => {
     setIsRegistering(!isRegistering);
     setName('');
-    setIsLastUserLogin(false);
-  };
-
-  const renderLastUserSection = () => {
-    return (
-      <View style={styles.lastUserContainer}>
-        <View style={styles.userInfoContainer}>
-          <View style={styles.avatarContainer}>
-            {lastUser?.photoURL ? (
-              <Image source={{ uri: lastUser.photoURL }} style={styles.avatar} />
-            ) : (
-              <View style={styles.avatarPlaceholder}>
-                <Text style={styles.avatarText}>{lastUser?.name?.charAt(0) || 'U'}</Text>
-              </View>
-            )}
-          </View>
-          <View style={styles.userTextContainer}>
-            <Text style={styles.userName}>{lastUser?.name}</Text>
-            <Text style={styles.userEmail}>{lastUser?.email}</Text>
-          </View>
-        </View>
-
-        <TouchableOpacity
-          style={styles.button}
-          onPress={handleLastUserLogin}
-        >
-          <Text style={styles.buttonText}>Entrar com esta conta</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.switchAccountButton}
-          onPress={handleSwitchAccount}
-        >
-          <Text style={styles.switchAccountText}>Usar outra conta</Text>
-        </TouchableOpacity>
-      </View>
-    );
   };
 
   const renderLoginForm = () => {
     return (
-      <View style={styles.formContainer}>
-        {authError ? <Text style={styles.error}>{authError}</Text> : null}
+      <Animated.View 
+        style={[
+          styles.formContainer,
+          {
+            opacity: fadeAnim,
+            transform: [
+              { translateY: slideAnim },
+              { scale: scaleAnim }
+            ]
+          }
+        ]}
+      >
+        {authError ? (
+          <View style={styles.errorContainer}>
+            <Ionicons name="alert-circle" size={20} color={colors.error} />
+            <Text style={[styles.error, { color: colors.error }]}>{authError}</Text>
+          </View>
+        ) : null}
 
         {isRegistering && (
-          <TextInput
-            style={styles.input}
-            placeholder="Nome completo"
-            value={name}
-            onChangeText={setName}
-            autoCapitalize="words"
-          />
+          <View style={styles.inputContainer}>
+            <MaterialIcons name="person" size={20} color={colors.secondaryText} style={styles.inputIcon} />
+            <TextInput
+              style={[styles.input, { color: colors.text, backgroundColor: colors.inputBackground }]}
+              placeholder="Nome completo"
+              placeholderTextColor={colors.secondaryText}
+              value={name}
+              onChangeText={setName}
+              autoCapitalize="words"
+            />
+          </View>
         )}
 
-        {/* Se for login com último usuário, mostrar apenas o email sem poder editar */}
-        {isLastUserLogin ? (
-          <View style={styles.lastUserEmailContainer}>
-            <Text style={styles.lastUserEmailLabel}>Email:</Text>
-            <Text style={styles.lastUserEmailValue}>{email}</Text>
-          </View>
-        ) : (
+        <View style={styles.inputContainer}>
+          <MaterialIcons name="email" size={20} color={colors.secondaryText} style={styles.inputIcon} />
           <TextInput
-            style={styles.input}
+            style={[styles.input, { color: colors.text, backgroundColor: colors.inputBackground }]}
             placeholder="Email"
+            placeholderTextColor={colors.secondaryText}
             value={email}
             onChangeText={setEmail}
             keyboardType="email-address"
             autoCapitalize="none"
             autoCorrect={false}
           />
-        )}
+        </View>
 
-        <TextInput
-          ref={passwordInputRef}
-          style={styles.input}
-          placeholder="Senha"
-          value={password}
-          onChangeText={setPassword}
-          secureTextEntry
-          returnKeyType="go"
-          onSubmitEditing={handleAuth}
-        />
+        <View style={styles.inputContainer}>
+          <MaterialIcons name="lock" size={20} color={colors.secondaryText} style={styles.inputIcon} />
+          <TextInput
+            ref={passwordInputRef}
+            style={[styles.input, { color: colors.text, backgroundColor: colors.inputBackground }]}
+            placeholder="Senha"
+            placeholderTextColor={colors.secondaryText}
+            value={password}
+            onChangeText={setPassword}
+            secureTextEntry={!showPassword}
+            returnKeyType="go"
+            onSubmitEditing={handleAuth}
+          />
+          <TouchableOpacity 
+            style={styles.eyeIcon}
+            onPress={() => setShowPassword(!showPassword)}
+          >
+            <Ionicons 
+              name={showPassword ? 'eye-off' : 'eye'} 
+              size={20} 
+              color={colors.secondaryText} 
+            />
+          </TouchableOpacity>
+        </View>
 
         <TouchableOpacity
-          style={styles.button}
+          style={styles.forgotPassword}
+          onPress={handleForgotPassword}
+        >
+          <Text style={[styles.forgotPasswordText, { color: colors.primary }]}>
+            Esqueceu sua senha?
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.button, { backgroundColor: colors.primary }]}
           onPress={handleAuth}
           disabled={isLoading}
         >
@@ -199,47 +242,67 @@ export const LoginScreen = () => {
           )}
         </TouchableOpacity>
 
-        {!isLastUserLogin && (
-          <TouchableOpacity
-            style={styles.toggleButton}
-            onPress={toggleMode}
-            disabled={isLoading}
-          >
-            <Text style={styles.toggleText}>
-              {isRegistering
-                ? 'Já tem uma conta? Faça login'
-                : 'Não tem uma conta? Registre-se'}
-            </Text>
-          </TouchableOpacity>
-        )}
+        <View style={styles.divider}>
+          <View style={[styles.dividerLine, { backgroundColor: colors.secondaryText }]} />
+          <Text style={[styles.dividerText, { color: colors.secondaryText }]}>ou</Text>
+          <View style={[styles.dividerLine, { backgroundColor: colors.secondaryText }]} />
+        </View>
 
-        {lastUser && !isRegistering && (
-          <TouchableOpacity
-            style={styles.backButton}
-            onPress={() => {
-              setShowLoginForm(false);
-              setIsLastUserLogin(false);
-            }}
-          >
-            <Ionicons name="arrow-back" size={16} color="#007AFF" />
-            <Text style={styles.backButtonText}>Voltar</Text>
-          </TouchableOpacity>
-        )}
-      </View>
+        <TouchableOpacity
+          style={[styles.googleButton, styles.disabledButton]}
+          onPress={handleGoogleSignIn}
+          disabled={false}
+        >
+          <FontAwesome name="google" size={20} color="#999" />
+          <Text style={[styles.googleButtonText, styles.disabledText]}>Continuar com Google</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.toggleButton}
+          onPress={toggleMode}
+          disabled={isLoading}
+        >
+          <Text style={[styles.toggleText, { color: colors.primary }]}>
+            {isRegistering
+              ? 'Já tem uma conta? Faça login'
+              : 'Não tem uma conta? Registre-se'}
+          </Text>
+        </TouchableOpacity>
+      </Animated.View>
     );
   };
 
   return (
     <KeyboardAvoidingView
-      style={styles.container}
+      style={[styles.container, { backgroundColor: colors.background }]}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
-      <View style={styles.content}>
-        <Text style={styles.title}>WACS</Text>
-        <Text style={styles.subtitle}>Controle de Arduino</Text>
+      <LinearGradient
+        colors={colors.gradient}
+        style={styles.gradient}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+      >
+        <View style={styles.content}>
+          <Animated.View
+            style={[
+              styles.logoContainer,
+              {
+                opacity: fadeAnim,
+                transform: [{ scale: scaleAnim }]
+              }
+            ]}
+          >
+            <Image
+              source={require('../../assets/logos_wacs/logo_padrao_com_nome.png')}
+              style={styles.logo}
+              resizeMode="contain"
+            />
+          </Animated.View>
 
-        {lastUser && !showLoginForm ? renderLastUserSection() : renderLoginForm()}
-      </View>
+          {renderLoginForm()}
+        </View>
+      </LinearGradient>
     </KeyboardAvoidingView>
   );
 };
@@ -247,139 +310,152 @@ export const LoginScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+  },
+  gradient: {
+    flex: 1,
   },
   content: {
     flex: 1,
     justifyContent: 'center',
+    paddingHorizontal: 20,
+    paddingBottom: 0,
+  },
+  logoContainer: {
+    alignItems: 'center',
+    marginBottom: 40,
+  },
+  logo: {
+    width: width * 0.9,
+    height: height * 0.25,
+  },
+  formContainer: {
+    width: '100%',
     padding: 20,
+    borderRadius: 20,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.3,
+    shadowRadius: 4.65,
+    elevation: 8,
   },
-  title: {
-    fontSize: 32,
-    fontWeight: 'bold',
-    textAlign: 'center',
-    marginBottom: 10,
+  inputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 15,
+    position: 'relative',
   },
-  subtitle: {
-    fontSize: 18,
-    color: '#666',
-    textAlign: 'center',
-    marginBottom: 30,
+  inputIcon: {
+    position: 'absolute',
+    left: 15,
+    zIndex: 1,
   },
   input: {
-    backgroundColor: '#f5f5f5',
+    flex: 1,
     padding: 15,
-    borderRadius: 8,
-    marginBottom: 15,
+    paddingLeft: 45,
+    borderRadius: 15,
     fontSize: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  eyeIcon: {
+    position: 'absolute',
+    right: 15,
+    zIndex: 1,
+    padding: 5,
   },
   button: {
-    backgroundColor: '#007AFF',
     padding: 15,
-    borderRadius: 8,
+    borderRadius: 15,
     alignItems: 'center',
+    marginTop: 10,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
   },
   buttonText: {
     color: '#fff',
     fontSize: 16,
     fontWeight: 'bold',
   },
-  error: {
-    color: '#FF3B30',
-    textAlign: 'center',
+  errorContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 59, 48, 0.1)',
+    padding: 12,
+    borderRadius: 12,
     marginBottom: 15,
+  },
+  error: {
+    marginLeft: 8,
+    fontSize: 14,
   },
   toggleButton: {
     marginTop: 20,
     alignItems: 'center',
   },
   toggleText: {
-    color: '#007AFF',
     fontSize: 16,
   },
-  lastUserContainer: {
-    alignItems: 'center',
-    padding: 10,
+  forgotPassword: {
+    alignSelf: 'flex-end',
+    marginBottom: 20,
+    padding: 5,
   },
-  userInfoContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 25,
-    width: '100%',
-    paddingHorizontal: 10,
-  },
-  avatarContainer: {
-    marginRight: 15,
-  },
-  avatar: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-  },
-  avatarPlaceholder: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    backgroundColor: '#007AFF',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  avatarText: {
-    color: 'white',
-    fontSize: 24,
-    fontWeight: 'bold',
-  },
-  userTextContainer: {
-    flex: 1,
-  },
-  userName: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginBottom: 5,
-  },
-  userEmail: {
+  forgotPasswordText: {
     fontSize: 14,
-    color: '#666',
   },
-  switchAccountButton: {
-    marginTop: 20,
-    paddingVertical: 10,
+  divider: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: 20,
   },
-  switchAccountText: {
-    color: '#007AFF',
-    fontSize: 16,
+  dividerLine: {
+    flex: 1,
+    height: 1,
   },
-  formContainer: {
-    width: '100%',
+  dividerText: {
+    marginHorizontal: 10,
+    fontSize: 14,
   },
-  backButton: {
+  googleButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 15,
-  },
-  backButtonText: {
-    color: '#007AFF',
-    fontSize: 16,
-    marginLeft: 5,
-  },
-  lastUserEmailContainer: {
-    backgroundColor: '#f5f5f5',
     padding: 15,
-    borderRadius: 8,
-    marginBottom: 15,
-    flexDirection: 'row',
-    alignItems: 'center',
+    borderRadius: 15,
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: '#ddd',
+    marginBottom: 20,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 3.84,
+    elevation: 3,
   },
-  lastUserEmailLabel: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    marginRight: 10,
-    color: '#555',
-  },
-  lastUserEmailValue: {
+  googleButtonText: {
+    marginLeft: 10,
     fontSize: 16,
     color: '#333',
-    flex: 1,
-  }
+  },
+  disabledButton: {
+    backgroundColor: '#f5f5f5',
+    borderColor: '#ddd',
+    opacity: 0.7,
+  },
+  disabledText: {
+    color: '#999',
+  },
 }); 
