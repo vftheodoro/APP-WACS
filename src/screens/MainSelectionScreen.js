@@ -6,210 +6,373 @@ import {
   Pressable,
   ScrollView,
   Image,
+  RefreshControl,
+  Dimensions,
+  Animated,
+  Alert,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../contexts/AuthContext';
+import { LinearGradient } from 'expo-linear-gradient';
+
+const { width } = Dimensions.get('window');
 
 export const MainSelectionScreen = () => {
   const navigation = useNavigation();
   const { user, logout } = useAuth();
   const [isConnected, setIsConnected] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const [batteryLevel, setBatteryLevel] = useState(75);
+  const [connectionStrength, setConnectionStrength] = useState('strong');
+  const [fadeAnim] = useState(new Animated.Value(0));
+  const [slideAnim] = useState(new Animated.Value(-50));
 
   useEffect(() => {
-    // TODO: Implement actual Bluetooth connection check here
-    // For now, simulating being disconnected on mount
-    setIsConnected(false); // Set to true when connected
+    // Animação de entrada
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 800,
+        useNativeDriver: true,
+      }),
+      Animated.timing(slideAnim, {
+        toValue: 0,
+        duration: 600,
+        useNativeDriver: true,
+      }),
+    ]).start();
 
-    // Example: Replace with your Bluetooth library's check
-    // const checkBluetoothConnection = async () => {
-    //   const connected = await bluetoothApi.checkConnection();
-    //   setIsConnected(connected);
-    // };
-    // checkBluetoothConnection();
+    // Simulação de checagem de conexão Bluetooth
+    const checkConnection = () => {
+      // TODO: Implementar checagem real do Bluetooth
+      setIsConnected(Math.random() > 0.5);
+    };
 
+    checkConnection();
+    const interval = setInterval(checkConnection, 30000); // Check every 30s
+
+    return () => clearInterval(interval);
   }, []);
 
-  const handleGoToControlScreen = () => {
-    navigation.navigate('ControlScreen');
-  };
-
-  const handleGoToMapScreen = () => {
-    navigation.navigate('MapScreen');
-  };
-
-  const handleGoToChatScreen = () => {
-    navigation.navigate('ChatScreen');
-  };
-
-  const handleGoToLocationsListScreen = () => {
-    navigation.navigate('LocationsListScreen');
-  };
-
-  const handleGoToUserProfileScreen = () => {
-    navigation.navigate('UserProfileScreen');
-  };
-
-  const handleGoToConnectionScreen = () => {
-    navigation.navigate('ConnectionScreen');
+  const onRefresh = async () => {
+    setRefreshing(true);
+    // Simular refresh
+    await new Promise(resolve => setTimeout(resolve, 2000));
+    setRefreshing(false);
   };
 
   const handleLogout = async () => {
-    try {
-      await logout();
-    } catch (error) {
-      console.error('Erro ao deslogar:', error);
+    Alert.alert(
+      'Confirmar Logout',
+      'Tem certeza que deseja sair?',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Sair',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await logout();
+            } catch (error) {
+              console.error('Erro ao deslogar:', error);
+              Alert.alert('Erro', 'Não foi possível fazer logout');
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const handleQuickConnect = () => {
+    if (isConnected) {
+      Alert.alert('Já Conectado', 'Sua cadeira de rodas já está conectada!');
+    } else {
+      navigation.navigate('ConnectionScreen');
     }
   };
 
-  // Placeholder for news data
-  const newsItems = [
-    { id: '1', text: 'Bem-vindo à nova interface!' },
-    { id: '2', text: 'Atualização de segurança aplicada com sucesso.' },
-    { id: '3', text: 'Novos modos de controle disponíveis em breve.' },
-    { id: '4', text: 'Verifique a qualidade da conexão Bluetooth.' },
-    { id: '5', text: 'Personalize seu perfil na seção de usuário.' },
-  ];
-
-  // Placeholder for wheelchair info (only used if connected)
-  const wheelchairInfo = {
-    battery: '75%',
-    connection: 'Conectado',
-    speed: 'Médio',
+  const getTimeGreeting = () => {
+    const hour = new Date().getHours();
+    if (hour < 12) return 'Bom dia';
+    if (hour < 18) return 'Boa tarde';
+    return 'Boa noite';
   };
 
-  // Placeholder for recent activity data
-  const recentActivity = [
-    { id: 'a1', text: 'Última viagem: 2.5 km em 15 min' },
-    { id: 'a2', text: 'Total de uso hoje: 45 min' },
-    { id: 'a3', text: 'Notificação: Manutenção agendada para 01/12.' },
+  const getConnectionIcon = () => {
+    if (!isConnected) return 'bluetooth-outline';
+    return connectionStrength === 'strong' ? 'bluetooth' : 'bluetooth-outline';
+  };
+
+  const getBatteryIcon = () => {
+    if (batteryLevel > 80) return 'battery-full-outline';
+    if (batteryLevel > 50) return 'battery-half-outline';
+    if (batteryLevel > 20) return 'battery-dead-outline';
+    return 'battery-dead-outline';
+  };
+
+  const getBatteryColor = () => {
+    if (batteryLevel > 50) return '#4CAF50';
+    if (batteryLevel > 20) return '#FF9800';
+    return '#F44336';
+  };
+
+  const quickActions = [
+    {
+      id: 'control',
+      title: 'Controle',
+      icon: 'game-controller-outline',
+      onPress: () => navigation.navigate('ControlScreen'),
+      disabled: !isConnected,
+      gradient: ['#667eea', '#764ba2'],
+    },
+    {
+      id: 'map',
+      title: 'Mapa',
+      icon: 'map-outline',
+      onPress: () => navigation.navigate('MapScreen'),
+      gradient: ['#f093fb', '#f5576c'],
+    },
+    {
+      id: 'chat',
+      title: 'Assistente',
+      icon: 'chatbubble-ellipses-outline',
+      onPress: () => navigation.navigate('ChatScreen'),
+      gradient: ['#4facfe', '#00f2fe'],
+    },
+    {
+      id: 'locations',
+      title: 'Locais',
+      icon: 'location-outline',
+      onPress: () => navigation.navigate('LocationsListScreen'),
+      gradient: ['#43e97b', '#38f9d7'],
+    },
   ];
 
-  return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
-      {/* Header Area */}
-      <View style={styles.headerContainer}>
-        <View style={styles.profileSection}>
-          <Pressable
-            onPress={() => navigation.navigate('UserProfileScreen')}
-            style={({ pressed }) => [
-              { opacity: pressed ? 0.7 : 1 },
-            ]}
-          >
-            {user?.photoURL ? (
-              <Image source={{ uri: user.photoURL }} style={styles.profileImage} />
-            ) : (
-              <View style={styles.profileImagePlaceholder}>
-                <Ionicons name="person-circle-outline" size={55} color="#757575" />
-              </View>
-            )}
-          </Pressable>
-          <View style={styles.greetingTextContainer}>
-            <Text style={styles.greeting}>Olá, {user?.name || 'Usuário'}!</Text>
-            <Text style={styles.welcomeText}>Bem-vindo de volta.</Text>
-          </View>
-        </View>
-        <Pressable style={styles.logoutButton} onPress={handleLogout}>
-          <Ionicons name="log-out" size={24} color="#d32f2f" />
-        </Pressable>
-      </View>
+  const newsItems = [
+    { 
+      id: '1', 
+      text: 'Nova atualização disponível - Melhorias de performance',
+      type: 'update',
+      time: '2h'
+    },
+    { 
+      id: '2', 
+      text: 'Dica: Mantenha a bateria sempre acima de 20%',
+      type: 'tip',
+      time: '5h'
+    },
+    { 
+      id: '3', 
+      text: 'Novo modo de condução eco disponível',
+      type: 'feature',
+      time: '1d'
+    },
+  ];
 
-      {/* Wheelchair Info Section */}
-      <View style={[
-        styles.infoContainer, 
-        !isConnected && styles.disconnectedCardStyle
-      ]}>
-        <View style={styles.sectionTitleContainer}>
-          <Ionicons name="bluetooth-outline" size={20} color="#333" />
-          <Text style={styles.sectionTitle}>Status da Cadeira de Rodas</Text>
-        </View>
-        {!isConnected ? (
-          <View style={styles.disconnectedInfo}>
-            <Text style={styles.disconnectedInfoText}>Cadeira de rodas não conectada.</Text>
-            <Pressable style={styles.connectButton} onPress={handleGoToConnectionScreen}>
-              <Text style={styles.connectButtonText}>Conectar via Bluetooth</Text>
+  const getNewsIcon = (type) => {
+    switch (type) {
+      case 'update': return 'download-outline';
+      case 'tip': return 'bulb-outline';
+      case 'feature': return 'star-outline';
+      default: return 'information-circle-outline';
+    }
+  };
+
+  const renderQuickAction = (action) => (
+    <Pressable
+      key={action.id}
+      style={[
+        styles.quickActionButton,
+        action.disabled && styles.quickActionDisabled
+      ]}
+      onPress={action.onPress}
+      disabled={action.disabled}
+    >
+      <LinearGradient
+        colors={action.disabled ? ['#e0e0e0', '#bdbdbd'] : action.gradient}
+        style={styles.quickActionGradient}
+      >
+        <Ionicons 
+          name={action.icon} 
+          size={28} 
+          color={action.disabled ? '#9e9e9e' : '#fff'} 
+        />
+        <Text style={[
+          styles.quickActionText,
+          action.disabled && styles.quickActionTextDisabled
+        ]}>
+          {action.title}
+        </Text>
+      </LinearGradient>
+    </Pressable>
+  );
+
+  return (
+    <ScrollView 
+      style={styles.container}
+      contentContainerStyle={styles.contentContainer}
+      refreshControl={
+        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+      }
+      showsVerticalScrollIndicator={false}
+    >
+      {/* Header com gradiente */}
+      <LinearGradient
+        colors={['#667eea', '#764ba2']}
+        style={styles.headerGradient}
+      >
+        <Animated.View 
+          style={[
+            styles.headerContainer,
+            {
+              opacity: fadeAnim,
+              transform: [{ translateY: slideAnim }]
+            }
+          ]}
+        >
+          <View style={styles.profileSection}>
+            <Pressable
+              onPress={() => navigation.navigate('UserProfileScreen')}
+              style={styles.profileImageContainer}
+            >
+              {user?.photoURL ? (
+                <Image source={{ uri: user.photoURL }} style={styles.profileImage} />
+              ) : (
+                <View style={styles.profileImagePlaceholder}>
+                  <Ionicons name="person" size={30} color="#667eea" />
+                </View>
+              )}
             </Pressable>
+            <View style={styles.greetingContainer}>
+              <Text style={styles.timeGreeting}>{getTimeGreeting()},</Text>
+              <Text style={styles.userName}>{user?.name || 'Usuário'}!</Text>
+              <Text style={styles.welcomeSubtext}>Como posso ajudar hoje?</Text>
+            </View>
+          </View>
+          
+          <Pressable style={styles.logoutButton} onPress={handleLogout}>
+            <Ionicons name="log-out-outline" size={24} color="#fff" />
+          </Pressable>
+        </Animated.View>
+      </LinearGradient>
+
+      {/* Status da Cadeira - Card Moderno */}
+      <View style={[
+        styles.statusCard,
+        !isConnected && styles.statusCardDisconnected
+      ]}>
+        <View style={styles.statusHeader}>
+          <View style={styles.statusTitleContainer}>
+            <View style={[
+              styles.connectionIndicator,
+              { backgroundColor: isConnected ? '#4CAF50' : '#F44336' }
+            ]} />
+            <Text style={styles.statusTitle}>Cadeira de Rodas</Text>
+          </View>
+          <Pressable onPress={handleQuickConnect} style={styles.quickConnectButton}>
+            <Ionicons 
+              name={getConnectionIcon()} 
+              size={20} 
+              color={isConnected ? '#4CAF50' : '#F44336'} 
+            />
+          </Pressable>
+        </View>
+
+        {isConnected ? (
+          <View style={styles.connectedInfo}>
+            <View style={styles.infoGrid}>
+              <View style={styles.infoItem}>
+                <Ionicons 
+                  name={getBatteryIcon()} 
+                  size={24} 
+                  color={getBatteryColor()} 
+                />
+                <Text style={styles.infoLabel}>Bateria</Text>
+                <Text style={[styles.infoValue, { color: getBatteryColor() }]}>
+                  {batteryLevel}%
+                </Text>
+              </View>
+              
+              <View style={styles.infoItem}>
+                <Ionicons name="speedometer-outline" size={24} color="#FF9800" />
+                <Text style={styles.infoLabel}>Velocidade</Text>
+                <Text style={styles.infoValue}>Média</Text>
+              </View>
+              
+              <View style={styles.infoItem}>
+                <Ionicons name="time-outline" size={24} color="#2196F3" />
+                <Text style={styles.infoLabel}>Uso Hoje</Text>
+                <Text style={styles.infoValue}>2h 15m</Text>
+              </View>
+            </View>
           </View>
         ) : (
-          <View>
-            <View style={styles.infoRow}>
-              <Ionicons name="battery-charging-outline" size={20} color="#4caf50" />
-              <Text style={styles.infoText}>Bateria: {wheelchairInfo.battery}</Text>
-            </View>
-            <View style={styles.infoRow}>
-              <Ionicons name="bluetooth-outline" size={20} color="#2196f3" />
-              <Text style={styles.infoText}>Conexão: {wheelchairInfo.connection}</Text>
-            </View>
-            <View style={styles.infoRow}>
-              <Ionicons name="speedometer-outline" size={20} color="#ff9800" />
-              <Text style={styles.infoText}>Modo de Velocidade: {wheelchairInfo.speed}</Text>
-            </View>
+          <View style={styles.disconnectedInfo}>
+            <Ionicons name="bluetooth-outline" size={48} color="#9E9E9E" />
+            <Text style={styles.disconnectedText}>
+              Cadeira não conectada
+            </Text>
+            <Text style={styles.disconnectedSubtext}>
+              Toque no ícone Bluetooth para conectar
+            </Text>
           </View>
         )}
-
-        {/* Control Button - Placed inside status card */}
-        <Pressable 
-          style={[styles.navButton, !isConnected && styles.navButtonDisabled, { marginTop: 20 }]}
-          onPress={handleGoToControlScreen} 
-          disabled={!isConnected}
-        >
-          <Ionicons 
-            name="game-controller-outline" 
-            size={24} 
-            color={!isConnected ? '#b0b0b0' : '#fff'}
-          />
-          <Text style={[styles.navButtonText, !isConnected && styles.navButtonTextDisabled]}>Controle</Text> 
-        </Pressable>
       </View>
 
-      {/* News Terminal Section - Renamed for clarity */}
-      <View style={styles.cardContainer}>
-         <View style={styles.sectionTitleContainer}> 
-           <Ionicons name="newspaper-outline" size={20} color="#333" /> 
-           <Text style={styles.sectionTitle}>Central de Notícias</Text>
-         </View>
-
-        <ScrollView style={styles.newsScrollArea}>
-          {newsItems.map(item => (
-            <Text key={item.id} style={styles.newsItemText}>• {item.text}</Text>
-          ))}
-        </ScrollView>
+      {/* Ações Rápidas */}
+      <View style={styles.quickActionsContainer}>
+        <Text style={styles.sectionTitle}>Ações Rápidas</Text>
+        <View style={styles.quickActionsGrid}>
+          {quickActions.map(renderQuickAction)}
+        </View>
       </View>
 
-      {/* Recent Activity Section - Moved below News Terminal */}
-      <View style={styles.cardContainer}>
-         <View style={styles.sectionTitleContainer}> 
-           <Ionicons name="time-outline" size={20} color="#333" /> 
-           <Text style={styles.sectionTitle}>Atividades Recentes</Text>
-         </View>
-
-        {/* Conteúdo em desenvolvimento */}
-        <Text style={styles.placeholderText}>Em breve</Text>
+      {/* Notícias e Dicas */}
+      <View style={styles.newsContainer}>
+        <View style={styles.newsTitleContainer}>
+          <Ionicons name="newspaper-outline" size={20} color="#333" />
+          <Text style={styles.sectionTitle}>Notícias & Dicas</Text>
+        </View>
+        
+        {newsItems.map((item) => (
+          <View key={item.id} style={styles.newsItem}>
+            <Ionicons 
+              name={getNewsIcon(item.type)} 
+              size={20} 
+              color="#667eea" 
+            />
+            <View style={styles.newsContent}>
+              <Text style={styles.newsText}>{item.text}</Text>
+              <Text style={styles.newsTime}>{item.time}</Text>
+            </View>
+          </View>
+        ))}
       </View>
 
-      {/* Navigation Buttons Section */}
-      <View style={styles.navigationContainer}> 
-        <Text style={styles.sectionTitle}>Navegação</Text>
-
-        <Pressable style={styles.navButton} onPress={handleGoToMapScreen}>
-          <Ionicons name="map-outline" size={24} color="#fff" />
-          <Text style={styles.navButtonText}>Mapa</Text>
-        </Pressable>
-
-        <Pressable style={styles.navButton} onPress={handleGoToChatScreen}>
-          <Ionicons name="chatbubble-outline" size={24} color="#fff" />
-          <Text style={styles.navButtonText}>Chat</Text>
-        </Pressable>
-
-        <Pressable style={styles.navButton} onPress={handleGoToLocationsListScreen}>
-          <Ionicons name="list-outline" size={24} color="#fff" />
-          <Text style={styles.navButtonText}>Locais</Text>
-        </Pressable>
-
-        <Pressable style={styles.navButton} onPress={handleGoToUserProfileScreen}>
-          <Ionicons name="person-outline" size={24} color="#fff" />
-          <Text style={styles.navButtonText}>Meu Perfil</Text>
-        </Pressable>
+      {/* Atividade Recente */}
+      <View style={styles.activityContainer}>
+        <View style={styles.activityHeader}>
+          <Ionicons name="analytics-outline" size={20} color="#333" />
+          <Text style={styles.sectionTitle}>Resumo de Hoje</Text>
+        </View>
+        
+        <View style={styles.activityStats}>
+          <View style={styles.statItem}>
+            <Text style={styles.statValue}>12.5 km</Text>
+            <Text style={styles.statLabel}>Distância</Text>
+          </View>
+          <View style={styles.statDivider} />
+          <View style={styles.statItem}>
+            <Text style={styles.statValue}>2h 15m</Text>
+            <Text style={styles.statLabel}>Tempo Ativo</Text>
+          </View>
+          <View style={styles.statDivider} />
+          <View style={styles.statItem}>
+            <Text style={styles.statValue}>8.2 km/h</Text>
+            <Text style={styles.statLabel}>Vel. Média</Text>
+          </View>
+        </View>
       </View>
     </ScrollView>
   );
@@ -217,213 +380,276 @@ export const MainSelectionScreen = () => {
 
 const styles = StyleSheet.create({
   container: {
-    flexGrow: 1,
-    backgroundColor: '#eef2f7',
-    paddingTop: 20,
+    flex: 1,
+    backgroundColor: '#f8fafc',
   },
   contentContainer: {
-    padding: 15,
     paddingBottom: 30,
+  },
+  headerGradient: {
+    paddingTop: 50,
+    paddingBottom: 20,
+    paddingHorizontal: 20,
+    borderBottomLeftRadius: 25,
+    borderBottomRightRadius: 25,
   },
   headerContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 30,
-    width: '100%',
   },
   profileSection: {
     flexDirection: 'row',
     alignItems: 'center',
+    flex: 1,
   },
-  profileImagePlaceholder: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    backgroundColor: '#d0d0d0',
-    justifyContent: 'center',
-    alignItems: 'center',
+  profileImageContainer: {
     marginRight: 15,
-    borderWidth: 2,
-    borderColor: '#ccc',
   },
   profileImage: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    marginRight: 15,
-    borderWidth: 2,
-    borderColor: '#ccc',
+    width: 55,
+    height: 55,
+    borderRadius: 27.5,
+    borderWidth: 3,
+    borderColor: '#fff',
   },
-  greetingTextContainer: {
+  profileImagePlaceholder: {
+    width: 55,
+    height: 55,
+    borderRadius: 27.5,
+    backgroundColor: '#fff',
     justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 3,
+    borderColor: '#fff',
   },
-  greeting: {
-    fontSize: 20,
+  greetingContainer: {
+    flex: 1,
+  },
+  timeGreeting: {
+    fontSize: 16,
+    color: '#fff',
+    opacity: 0.9,
+  },
+  userName: {
+    fontSize: 24,
     fontWeight: 'bold',
-    color: '#333',
+    color: '#fff',
+    marginTop: 2,
   },
-  welcomeText: {
+  welcomeSubtext: {
     fontSize: 14,
-    color: '#555',
+    color: '#fff',
+    opacity: 0.8,
+    marginTop: 2,
   },
   logoutButton: {
-    padding: 10,
-    borderRadius: 25,
-    backgroundColor: '#ffeded',
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
+    padding: 12,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.2)',
   },
-  cardContainer: {
+  statusCard: {
     backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 18,
-    marginBottom: 20,
-    elevation: 6,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.2,
-    shadowRadius: 5,
-  },
-  infoContainer: {
-    borderRadius: 12,
+    margin: 20,
+    borderRadius: 20,
     padding: 20,
-    marginBottom: 20,
-    elevation: 6,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.2,
-    shadowRadius: 5,
-    alignItems: 'center',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 10,
+    elevation: 8,
   },
-  sectionTitleContainer: {
+  statusCardDisconnected: {
+    backgroundColor: '#fafafa',
+    borderWidth: 2,
+    borderColor: '#ffcdd2',
+  },
+  statusHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  statusTitleContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 15,
-    borderBottomWidth: 1,
-    borderBottomColor: '#eee',
-    paddingBottom: 8,
-    width: '100%',
   },
-  sectionTitle: {
-    fontSize: 19,
+  connectionIndicator: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    marginRight: 10,
+  },
+  statusTitle: {
+    fontSize: 18,
     fontWeight: 'bold',
     color: '#333',
-    marginLeft: 10,
+  },
+  quickConnectButton: {
+    padding: 8,
+    borderRadius: 12,
+    backgroundColor: '#f5f5f5',
+  },
+  connectedInfo: {
+    alignItems: 'center',
+  },
+  infoGrid: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    width: '100%',
+  },
+  infoItem: {
+    alignItems: 'center',
+    flex: 1,
+  },
+  infoLabel: {
+    fontSize: 12,
+    color: '#666',
+    marginTop: 8,
+    marginBottom: 4,
+  },
+  infoValue: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#333',
   },
   disconnectedInfo: {
-    flexDirection: 'column',
     alignItems: 'center',
     paddingVertical: 20,
-    borderRadius: 8,
-    marginTop: 10,
-    width: '100%',
   },
-  disconnectedInfoText: {
+  disconnectedText: {
     fontSize: 16,
-    color: '#f57c00',
-    fontWeight: 'bold',
-    marginBottom: 15,
-    textAlign: 'center',
-    paddingHorizontal: 10,
+    fontWeight: '600',
+    color: '#666',
+    marginTop: 12,
   },
-  connectButton: {
-    paddingVertical: 12,
-    paddingHorizontal: 25,
-    borderRadius: 25,
-    backgroundColor: '#1E88E5',
-    elevation: 4,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 3,
-  },
-  connectButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  infoRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 10,
-    width: '100%',
-  },
-  infoText: {
-    fontSize: 16,
-    color: '#555',
-    marginLeft: 10,
-  },
-  newsScrollArea: {
-    maxHeight: 120,
-  },
-  newsItemText: {
+  disconnectedSubtext: {
     fontSize: 14,
-    color: '#555',
-    marginBottom: 5,
+    color: '#999',
+    marginTop: 4,
+    textAlign: 'center',
   },
-  navigationContainer: {
-    flex: 1,
-    justifyContent: 'flex-start',
-    alignItems: 'center',
-    marginTop: 20,
-  },
-  navButton: {
-    flexDirection: 'row',
-    backgroundColor: '#1e88e5',
-    paddingVertical: 15,
+  quickActionsContainer: {
     paddingHorizontal: 20,
-    borderRadius: 8,
-    marginBottom: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-    elevation: 3,
+    marginBottom: 20,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 15,
+    marginLeft: 5,
+  },
+  quickActionsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+  },
+  quickActionButton: {
+    width: (width - 60) / 2,
+    marginBottom: 15,
+    borderRadius: 16,
+    overflow: 'hidden',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
-    shadowRadius: 3,
-    width: '95%',
+    shadowRadius: 8,
+    elevation: 4,
   },
-  navButtonDisabled: {
-    backgroundColor: '#e0e0e0',
+  quickActionDisabled: {
+    opacity: 0.6,
   },
-  navButtonTextDisabled: {
-    color: '#a0a0a0',
+  quickActionGradient: {
+    padding: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 100,
   },
-  navButtonText: {
+  quickActionText: {
     color: '#fff',
     fontSize: 16,
-    fontWeight: 'bold',
-    marginLeft: 10,
+    fontWeight: '600',
+    marginTop: 8,
   },
-  navButtonPlaceholder: {
+  quickActionTextDisabled: {
+    color: '#9e9e9e',
+  },
+  newsContainer: {
+    backgroundColor: '#fff',
+    marginHorizontal: 20,
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  newsTitleContainer: {
     flexDirection: 'row',
-    backgroundColor: '#e0e0e0',
-    paddingVertical: 15,
-    paddingHorizontal: 20,
-    borderRadius: 8,
-    marginBottom: 12,
     alignItems: 'center',
-    elevation: 1,
-    width: '95%',
+    marginBottom: 15,
   },
-   navButtonTextPlaceholder: {
-    color: '#a0a0a0',
-    fontSize: 16,
-    fontWeight: 'bold',
-    marginLeft: 10,
+  newsItem: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
   },
-  disconnectedCardStyle: {
-    backgroundColor: '#ffeded',
+  newsContent: {
+    flex: 1,
+    marginLeft: 12,
   },
-  placeholderText: {
+  newsText: {
     fontSize: 14,
-    color: '#555',
-    textAlign: 'center',
+    color: '#333',
+    lineHeight: 20,
   },
-}); 
+  newsTime: {
+    fontSize: 12,
+    color: '#999',
+    marginTop: 4,
+  },
+  activityContainer: {
+    backgroundColor: '#fff',
+    marginHorizontal: 20,
+    borderRadius: 16,
+    padding: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  activityHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  activityStats: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    alignItems: 'center',
+  },
+  statItem: {
+    alignItems: 'center',
+    flex: 1,
+  },
+  statValue: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#1976d2',
+  },
+  statLabel: {
+    fontSize: 12,
+    color: '#666',
+    marginTop: 4,
+  },
+  statDivider: {
+    width: 1,
+    height: 40,
+    backgroundColor: '#e0e0e0',
+  },
+});
