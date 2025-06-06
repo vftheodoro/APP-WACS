@@ -57,16 +57,16 @@ yarn start # ou npm start
 Aqui estão algumas telas do aplicativo:
 
 ### Tela Inicial
-![Tela Inicial](imagens/Tela%20Inicial.png)
+![Tela Inicial](Imagens/Tela%20Inicial.png)
 
 ### Tela de Conexão
-![Tela de Conexão](imagens/Tela%20de%20Conexao.png)
+![Tela de Conexão](Imagens/Tela%20de%20Conexao.png)
 
 ### Tela de Controle
-![Tela de Controle](imagens/Tela%20de%20Controle.png)
+![Tela de Controle](Imagens/Tela%20de%20Controle.png)
 
 ### Tela de Perfil
-![Tela de Perfil](imagens/Tela%20de%20Perfil.png)
+![Tela de Perfil](Imagens/Tela%20de%20Perfil.png)
 
 ## 🛠️ Estrutura do Projeto
 
