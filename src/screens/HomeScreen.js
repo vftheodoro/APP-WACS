@@ -29,17 +29,19 @@ const styles = StyleSheet.create({
     backgroundColor: '#121212',
   },
   title: {
-    fontSize: 24,
+    fontSize: 28,
     fontWeight: 'bold',
-    marginBottom: 10,
-    color: '#333',
+    marginBottom: 12,
+    color: '#007AFF',
+    textAlign: 'center',
   },
   darkText: {
     color: '#fff',
   },
   subtitle: {
-    fontSize: 16,
-    color: '#666',
+    fontSize: 18,
+    color: '#007AFF',
     textAlign: 'center',
+    opacity: 0.8,
   },
 }); 

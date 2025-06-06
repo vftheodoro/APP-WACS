@@ -10,6 +10,7 @@ import {
   Dimensions,
   Animated,
   Alert,
+  Platform,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
@@ -22,11 +23,13 @@ export const MainSelectionScreen = () => {
   const navigation = useNavigation();
   const { user, logout } = useAuth();
   const [isConnected, setIsConnected] = useState(false);
+  const [isConnecting, setIsConnecting] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
-  const [batteryLevel, setBatteryLevel] = useState(75);
-  const [connectionStrength, setConnectionStrength] = useState('strong');
+  const [batteryLevel, setBatteryLevel] = useState(0);
+  const [connectionStrength, setConnectionStrength] = useState('none');
   const [fadeAnim] = useState(new Animated.Value(0));
   const [slideAnim] = useState(new Animated.Value(-50));
+  const [deviceInfo, setDeviceInfo] = useState(null);
 
   useEffect(() => {
     // Animação de entrada
@@ -43,17 +46,73 @@ export const MainSelectionScreen = () => {
       }),
     ]).start();
 
-    // Simulação de checagem de conexão Bluetooth
-    const checkConnection = () => {
-      // TODO: Implementar checagem real do Bluetooth
-      setIsConnected(Math.random() > 0.5);
+    // TODO: Implementar inicialização do Bluetooth
+    checkConnectionStatus();
+    
+    return () => {
+      // TODO: Implementar limpeza da conexão Bluetooth
+      cleanupConnection();
     };
-
-    checkConnection();
-    const interval = setInterval(checkConnection, 30000); // Check every 30s
-
-    return () => clearInterval(interval);
   }, []);
+
+  const checkConnectionStatus = async () => {
+    try {
+      // TODO: Implementar verificação real do status da conexão
+      // Por enquanto, apenas simula uma verificação
+      const mockConnection = false;
+      setIsConnected(mockConnection);
+      if (mockConnection) {
+        setBatteryLevel(85);
+        setConnectionStrength('strong');
+      }
+    } catch (error) {
+      console.error('Erro ao verificar status da conexão:', error);
+    }
+  };
+
+  const cleanupConnection = async () => {
+    try {
+      // TODO: Implementar desconexão real do Bluetooth
+      if (isConnected) {
+        setIsConnected(false);
+        setBatteryLevel(0);
+        setConnectionStrength('none');
+        setDeviceInfo(null);
+      }
+    } catch (error) {
+      console.error('Erro ao limpar conexão:', error);
+    }
+  };
+
+  const handleQuickConnect = async () => {
+    if (isConnected) {
+      Alert.alert(
+        'Desconectar',
+        'Deseja desconectar a cadeira de rodas?',
+        [
+          { text: 'Cancelar', style: 'cancel' },
+          { 
+            text: 'Desconectar',
+            style: 'destructive',
+            onPress: async () => {
+              setIsConnecting(true);
+              try {
+                await cleanupConnection();
+              } finally {
+                setIsConnecting(false);
+              }
+            }
+          }
+        ]
+      );
+    } else {
+      if (isConnecting) {
+        Alert.alert('Aguarde', 'Conectando à cadeira de rodas...');
+      } else {
+        navigation.navigate('ConnectionScreen');
+      }
+    }
+  };
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -84,14 +143,6 @@ export const MainSelectionScreen = () => {
     );
   };
 
-  const handleQuickConnect = () => {
-    if (isConnected) {
-      Alert.alert('Já Conectado', 'Sua cadeira de rodas já está conectada!');
-    } else {
-      navigation.navigate('ConnectionScreen');
-    }
-  };
-
   const getTimeGreeting = () => {
     const hour = new Date().getHours();
     if (hour < 12) return 'Bom dia';
@@ -100,8 +151,15 @@ export const MainSelectionScreen = () => {
   };
 
   const getConnectionIcon = () => {
+    if (isConnecting) return 'bluetooth-searching';
     if (!isConnected) return 'bluetooth-outline';
     return connectionStrength === 'strong' ? 'bluetooth' : 'bluetooth-outline';
+  };
+
+  const getConnectionColor = () => {
+    if (isConnecting) return '#FF9800';
+    if (!isConnected) return '#F44336';
+    return connectionStrength === 'strong' ? '#4CAF50' : '#FF9800';
   };
 
   const getBatteryIcon = () => {
@@ -122,30 +180,39 @@ export const MainSelectionScreen = () => {
       id: 'control',
       title: 'Controle',
       icon: 'game-controller-outline',
-      onPress: () => navigation.navigate('ControlScreen'),
+      onPress: () => {
+        if (!isConnected) {
+          Alert.alert(
+            'Conexão Necessária',
+            'É necessário conectar à cadeira de rodas para acessar o controle.'
+          );
+          return;
+        }
+        navigation.navigate('ControlScreen', { deviceInfo });
+      },
       disabled: !isConnected,
-      gradient: ['#667eea', '#764ba2'],
+      gradient: ['#1976d2', '#2196f3'],
     },
     {
       id: 'map',
       title: 'Mapa',
       icon: 'map-outline',
       onPress: () => navigation.navigate('MapScreen'),
-      gradient: ['#f093fb', '#f5576c'],
+      gradient: ['#1976d2', '#2196f3'],
     },
     {
       id: 'chat',
-      title: 'Assistente',
+      title: 'Chat Global',
       icon: 'chatbubble-ellipses-outline',
       onPress: () => navigation.navigate('ChatScreen'),
-      gradient: ['#4facfe', '#00f2fe'],
+      gradient: ['#1976d2', '#2196f3'],
     },
     {
       id: 'locations',
       title: 'Locais',
       icon: 'location-outline',
       onPress: () => navigation.navigate('LocationsListScreen'),
-      gradient: ['#43e97b', '#38f9d7'],
+      gradient: ['#1976d2', '#2196f3'],
     },
   ];
 
@@ -219,7 +286,7 @@ export const MainSelectionScreen = () => {
     >
       {/* Header com gradiente */}
       <LinearGradient
-        colors={['#667eea', '#764ba2']}
+        colors={['#1976d2', '#2196f3']}
         style={styles.headerGradient}
       >
         <Animated.View 
@@ -240,7 +307,7 @@ export const MainSelectionScreen = () => {
                 <Image source={{ uri: user.photoURL }} style={styles.profileImage} />
               ) : (
                 <View style={styles.profileImagePlaceholder}>
-                  <Ionicons name="person" size={30} color="#667eea" />
+                  <Ionicons name="person" size={30} color="#1976d2" />
                 </View>
               )}
             </Pressable>
@@ -274,8 +341,11 @@ export const MainSelectionScreen = () => {
             <Ionicons 
               name={getConnectionIcon()} 
               size={20} 
-              color={isConnected ? '#4CAF50' : '#F44336'} 
+              color={getConnectionColor()} 
             />
+            {isConnecting && (
+              <Text style={styles.connectingText}>Conectando...</Text>
+            )}
           </Pressable>
         </View>
 
@@ -306,6 +376,18 @@ export const MainSelectionScreen = () => {
                 <Text style={styles.infoValue}>2h 15m</Text>
               </View>
             </View>
+            <Pressable 
+              style={styles.connectButton}
+              onPress={() => navigation.navigate('ConnectionScreen')}
+            >
+              <LinearGradient
+                colors={['#1976d2', '#2196f3']}
+                style={styles.connectButtonGradient}
+              >
+                <Ionicons name="settings-outline" size={20} color="#fff" />
+                <Text style={styles.connectButtonText}>Configurar Conexão</Text>
+              </LinearGradient>
+            </Pressable>
           </View>
         ) : (
           <View style={styles.disconnectedInfo}>
@@ -314,8 +396,20 @@ export const MainSelectionScreen = () => {
               Cadeira não conectada
             </Text>
             <Text style={styles.disconnectedSubtext}>
-              Toque no ícone Bluetooth para conectar
+              Toque no botão abaixo para conectar
             </Text>
+            <Pressable 
+              style={styles.connectButton}
+              onPress={() => navigation.navigate('ConnectionScreen')}
+            >
+              <LinearGradient
+                colors={['#1976d2', '#2196f3']}
+                style={styles.connectButtonGradient}
+              >
+                <Ionicons name="bluetooth-outline" size={20} color="#fff" />
+                <Text style={styles.connectButtonText}>Conectar Cadeira</Text>
+              </LinearGradient>
+            </Pressable>
           </View>
         )}
       </View>
@@ -340,7 +434,7 @@ export const MainSelectionScreen = () => {
             <Ionicons 
               name={getNewsIcon(item.type)} 
               size={20} 
-              color="#667eea" 
+              color="#1976d2" 
             />
             <View style={styles.newsContent}>
               <Text style={styles.newsText}>{item.text}</Text>
@@ -489,6 +583,13 @@ const styles = StyleSheet.create({
     padding: 8,
     borderRadius: 12,
     backgroundColor: '#f5f5f5',
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  connectingText: {
+    marginLeft: 8,
+    fontSize: 14,
+    color: '#FF9800',
   },
   connectedInfo: {
     alignItems: 'center',
@@ -513,6 +614,29 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#333',
   },
+  connectButton: {
+    marginTop: 20,
+    width: '100%',
+    borderRadius: 12,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  connectButtonGradient: {
+    padding: 15,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  connectButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+    marginLeft: 8,
+  },
   disconnectedInfo: {
     alignItems: 'center',
     paddingVertical: 20,
@@ -528,6 +652,7 @@ const styles = StyleSheet.create({
     color: '#999',
     marginTop: 4,
     textAlign: 'center',
+    marginBottom: 20,
   },
   quickActionsContainer: {
     paddingHorizontal: 20,
