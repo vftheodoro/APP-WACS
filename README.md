@@ -1,25 +1,32 @@
-# APP-WACS
+# APP-WACS: Controle e Navegação de Cadeira de Rodas
 
-Aplicativo de navegação desenvolvido em React Native com foco em experiência do usuário e eficiência.
+Aplicativo móvel desenvolvido em React Native e Expo para controle e navegação de cadeiras de rodas, com foco em acessibilidade, experiência do usuário e eficiência.
 
-## 🚀 Funcionalidades
+## ✨ Features Principais
 
-- Navegação em tempo real
-- Rastreamento de localização
-- Cálculo de rotas
-- Instruções de navegação
-- Modos de transporte
-- Histórico de rotas
-- Favoritos
-- Configurações personalizadas
+- **Gerenciamento de Perfil do Usuário:** Visualize e edite suas informações pessoais e foto de perfil.
+- **Conexão Bluetooth:** Busque e conecte-se à sua cadeira de rodas via Bluetooth.
+- **Controle da Cadeira:** Interface para controlar os movimentos da cadeira de rodas.
+- **Navegação e Rastreamento:** Funcionalidades de mapa, cálculo de rotas e histórico (baseado no README anterior).
+- **Assistente Virtual:** Interface para interação com um assistente (Chat).
+- **Locais Salvos:** Gerencie locais favoritos (baseado no README anterior).
+- **Tema Dinâmico:** Alternância entre temas claro e escuro (Temporariamente desativado no perfil, mas funcional na app).
+
+## 🚀 Tecnologias Utilizadas
+
+- React Native
+- Expo
+- Bluetooth Low Energy (BLE)
+- LinearGradient
+- @react-navigation
+- Outras dependências listadas no `package.json`.
 
 ## 📋 Pré-requisitos
 
 - Node.js 16.x ou superior
-- npm 7.x ou superior
+- npm 7.x ou superior ou Yarn
 - Expo CLI
-- Android Studio (para desenvolvimento Android)
-- Xcode (para desenvolvimento iOS)
+- Um dispositivo Android ou iOS para testar a conexão Bluetooth.
 
 ## 🔧 Instalação
 
@@ -31,30 +38,38 @@ cd APP-WACS
 
 2. Instale as dependências:
 ```bash
-npm install
+yarn install # ou npm install
 ```
 
 3. Configure as variáveis de ambiente:
-- Crie um arquivo .env na raiz do projeto
-- Adicione as seguintes variáveis:
-```
-MAPBOX_ACCESS_TOKEN=seu_token
-FIREBASE_API_KEY=sua_chave
-FIREBASE_AUTH_DOMAIN=seu_dominio
-FIREBASE_PROJECT_ID=seu_projeto
-FIREBASE_STORAGE_BUCKET=seu_bucket
-FIREBASE_MESSAGING_SENDER_ID=seu_sender_id
-FIREBASE_APP_ID=seu_app_id
-```
+- Crie um arquivo `.env` na raiz do projeto (consulte o `.env.example` se disponível).
+- Adicione as variáveis necessárias (e.g., para Firebase, Mapbox - consulte o código-fonte para saber quais são usadas).
 
 4. Inicie o aplicativo:
 ```bash
-npm start
+yarn start # ou npm start
 ```
 
-## 🛠️ Desenvolvimento
+5. Use o aplicativo Expo Go no seu dispositivo móvel para escanear o QR code e abrir o projeto.
 
-### Estrutura do Projeto
+## 📸 Screenshots
+
+Aqui estão algumas telas do aplicativo:
+
+### Tela Inicial
+![Tela Inicial](imagens/Tela%20Inicial.png)
+
+### Tela de Conexão
+![Tela de Conexão](imagens/Tela%20de%20Conexao.png)
+
+### Tela de Controle
+![Tela de Controle](imagens/Tela%20de%20Controle.png)
+
+### Tela de Perfil
+![Tela de Perfil](imagens/Tela%20de%20Perfil.png)
+
+## 🛠️ Estrutura do Projeto
+
 ```
 src/
 ├── app/                    # Configurações do app e ponto de entrada
@@ -62,49 +77,20 @@ src/
 ├── components/             # Componentes reutilizáveis
 ├── config/                 # Configurações globais
 ├── constants/              # Constantes e enums
+├── contexts/               # Contextos globais (Auth, Theme, Bluetooth)
 ├── hooks/                  # Custom hooks
 ├── navigation/             # Configuração de navegação
 ├── screens/                # Telas da aplicação
 ├── services/               # Serviços e APIs
-├── store/                  # Gerenciamento de estado
+├── store/                  # Gerenciamento de estado (se usado)
 ├── theme/                  # Temas e estilos globais
 └── utils/                  # Funções utilitárias
 ```
 
-### Padrões de Código
-- Componentes funcionais com hooks
-- Separação de lógica em custom hooks
-- Componentes pequenos e focados
-- PropTypes para tipagem
-- StyleSheet.create para estilos
-- Temas centralizados
-- JavaScript puro (sem TypeScript)
-
-### Testes
-- Jest para testes unitários
-- React Native Testing Library
-- Cobertura mínima de 80%
-
-## 📚 Documentação
-
-A documentação completa está disponível na pasta `Documentos/`:
-- `1-Configuracao/` - Documentação principal
-- `2-Desenvolvimento/` - Guia de desenvolvimento
-- `3-Testes/` - Guia de testes
-
-## 📦 Deploy
-
-1. Build:
-```bash
-npm run build:android
-npm run build:ios
-```
-
-2. Publicação:
-- Expo publish
-- Google Play Store
-- Apple App Store
-
 ## 📄 Licença
 
 Este projeto está licenciado sob a licença MIT - veja o arquivo LICENSE para detalhes.
+
+## Contribuição
+
+Se você gostaria de contribuir, por favor, crie um Fork do repositório e envie um Pull Request com suas alterações.
