@@ -8,6 +8,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SearchHistoryProvider } from './src/contexts/SearchHistoryContext';
 import { ChatProvider } from './src/contexts/ChatContext';
+import { BluetoothProvider } from './src/contexts/BluetoothContext';
 import * as SplashScreen from 'expo-splash-screen';
 import CustomSplashScreen from './src/screens/SplashScreen'; // Import your custom splash screen
 
@@ -61,10 +62,12 @@ export default function App() {
           <ThemeProvider>
             <SearchHistoryProvider>
               <ChatProvider>
-                <NavigationContainer>
-                  <StatusBar style="auto" />
-                  <AppNavigator />
-                </NavigationContainer>
+                <BluetoothProvider>
+                  <NavigationContainer>
+                    <StatusBar style="auto" />
+                    <AppNavigator />
+                  </NavigationContainer>
+                </BluetoothProvider>
               </ChatProvider>
             </SearchHistoryProvider>
           </ThemeProvider>

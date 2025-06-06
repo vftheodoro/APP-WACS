@@ -12,68 +12,72 @@ import {
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-
-// Simulação de dispositivos Bluetooth
-const MOCK_DEVICES = [
-  { id: '1', name: 'Wheelchair-001', rssi: -45, paired: true },
-  { id: '2', name: 'Wheelchair-002', rssi: -65, paired: false },
-  { id: '3', name: 'Wheelchair-003', rssi: -75, paired: false },
-];
+import { useBluetooth } from '../contexts/BluetoothContext';
 
 export const ConnectionScreen = () => {
   const navigation = useNavigation();
+  const { 
+    isConnected,
+    isConnecting,
+    deviceInfo,
+    connectToDevice,
+    disconnectFromDevice,
+    scanForDevices,
+  } = useBluetooth();
+
   const [isScanning, setIsScanning] = useState(false);
-  const [devices, setDevices] = useState([]);
+  const [devices, setDevices] = useState([]); 
   const [selectedDevice, setSelectedDevice] = useState(null);
-  const [isConnecting, setIsConnecting] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
-    startScan();
+    // Iniciar a busca apenas se NÃO estiver conectado ao montar a tela
+    if (!isConnected) {
+      handleScan();
+    }
+    
+    // TODO: Adicionar cleanup para parar o scan Bluetooth real ao sair da tela (se isScanning for true)
     return () => {
-      // Limpar qualquer listener ou estado quando sair da tela
       setIsScanning(false);
       setDevices([]);
+      setSelectedDevice(null);
+      // TODO: Chamar função de parar scan do contexto se existir
     };
-  }, []);
+  }, [isConnected]); 
 
-  const startScan = async () => {
+  const handleScan = async () => {
+    if (isConnected || isScanning) return;
+
     setIsScanning(true);
-    setDevices([]);
+    setDevices([]); 
+    setSelectedDevice(null);
     
-    // Simulação de busca de dispositivos
-    setTimeout(() => {
-      setDevices(MOCK_DEVICES);
+    try {
+      const foundDevices = await scanForDevices(); 
+      setDevices(foundDevices);
+    } catch (error) {
+      console.error('Erro ao buscar dispositivos:', error);
+      Alert.alert('Erro na Busca', 'Não foi possível buscar dispositivos Bluetooth.');
+    } finally {
       setIsScanning(false);
-    }, 2000);
+      setRefreshing(false); 
+    }
   };
 
+  const handleConnectPress = async (device) => {
+    if (isConnecting || isConnected) return;
+
+    setSelectedDevice(device); 
+    connectToDevice(device); 
+  };
+  
   const onRefresh = async () => {
-    setRefreshing(true);
-    await startScan();
-    setRefreshing(false);
-  };
-
-  const handleConnect = async (device) => {
-    if (isConnecting) return;
-
-    setIsConnecting(true);
-    setSelectedDevice(device);
-
-    // Simulação de conexão
-    setTimeout(() => {
-      setIsConnecting(false);
-      Alert.alert(
-        'Conexão Estabelecida',
-        `Conectado com sucesso à ${device.name}`,
-        [
-          {
-            text: 'OK',
-            onPress: () => navigation.goBack(),
-          },
-        ]
-      );
-    }, 2000);
+    setRefreshing(true); 
+    if (isConnected) { 
+        setRefreshing(false); 
+    } else { 
+        await handleScan(); 
+    }
   };
 
   const getSignalStrength = (rssi) => {
@@ -82,8 +86,27 @@ export const ConnectionScreen = () => {
     return { level: 'weak', color: '#F44336' };
   };
 
+  const handleDisconnectPress = () => {
+    Alert.alert(
+      "Desconectar Cadeira",
+      "Tem certeza que deseja desconectar a cadeira?",
+      [
+        {
+          text: "Cancelar",
+          style: "cancel"
+        },
+        {
+          text: "Desconectar",
+          style: "destructive",
+          onPress: disconnectFromDevice
+        }
+      ]
+    );
+  };
+
   const renderDevice = (device) => {
     const signal = getSignalStrength(device.rssi);
+    const isCurrentlyConnectedDevice = isConnected && deviceInfo?.id === device.id;
     const isSelected = selectedDevice?.id === device.id;
 
     return (
@@ -92,10 +115,11 @@ export const ConnectionScreen = () => {
         style={[
           styles.deviceCard,
           isSelected && styles.deviceCardSelected,
-          isConnecting && styles.deviceCardDisabled
+          isConnecting && styles.deviceCardDisabled,
+          isCurrentlyConnectedDevice && styles.deviceCardConnected
         ]}
-        onPress={() => !isConnecting && handleConnect(device)}
-        disabled={isConnecting}
+        onPress={() => !isConnected && !isConnecting && handleConnectPress(device)}
+        disabled={isConnected || isConnecting}
       >
         <View style={styles.deviceInfo}>
           <View style={styles.deviceHeader}>
@@ -105,50 +129,51 @@ export const ConnectionScreen = () => {
               color={signal.color} 
             />
             <Text style={styles.deviceName}>{device.name}</Text>
-            {device.paired && (
-              <View style={styles.pairedBadge}>
-                <Text style={styles.pairedText}>Pareado</Text>
-              </View>
-            )}
           </View>
           
           <View style={styles.deviceDetails}>
-            <View style={styles.signalInfo}>
-              <Ionicons 
-                name={signal.level === 'strong' ? 'wifi' : 'wifi-outline'} 
-                size={16} 
-                color={signal.color} 
-              />
-              <Text style={[styles.signalText, { color: signal.color }]}>
-                Sinal {signal.level}
-              </Text>
-            </View>
-            
+             <View style={styles.signalInfo}>
+               <Ionicons 
+                 name={signal.level === 'strong' ? 'wifi' : 'wifi-outline'} 
+                 size={16} 
+                 color={signal.color} 
+               />
+               <Text style={[styles.signalText, { color: signal.color }]}>
+                 Sinal {signal.level}
+               </Text>
+             </View>
+
             {isSelected && isConnecting ? (
               <ActivityIndicator color="#1976d2" />
-            ) : (
-              <Pressable
-                style={[
-                  styles.connectButton,
-                  isSelected && styles.connectButtonConnected
-                ]}
-                onPress={() => handleConnect(device)}
-                disabled={isConnecting}
-              >
-                <LinearGradient
-                  colors={isSelected ? ['#4CAF50', '#45a049'] : ['#1976d2', '#2196f3']}
-                  style={styles.connectButtonGradient}
-                >
-                  <Ionicons 
-                    name={isSelected ? 'checkmark' : 'bluetooth-outline'} 
-                    size={16} 
-                    color="#fff" 
-                  />
-                  <Text style={styles.connectButtonText}>
-                    {isSelected ? 'Conectado' : 'Conectar'}
-                  </Text>
-                </LinearGradient>
-              </Pressable>
+            ) : ( 
+              isCurrentlyConnectedDevice ? (
+                 <Pressable
+                    style={styles.connectButton}
+                    onPress={handleDisconnectPress}
+                 >
+                   <LinearGradient
+                     colors={['#f44336', '#d32f2f']}
+                     style={styles.connectButtonGradient}
+                   >
+                     <Ionicons name="close-circle-outline" size={16} color="#fff" />
+                     <Text style={styles.connectButtonText}>Desconectar</Text>
+                   </LinearGradient>
+                 </Pressable>
+              ) : (
+                 <Pressable
+                   style={styles.connectButton}
+                   onPress={() => handleConnectPress(device)}
+                   disabled={isConnecting}
+                 >
+                   <LinearGradient
+                     colors={['#1976d2', '#2196f3']}
+                     style={styles.connectButtonGradient}
+                   >
+                     <Ionicons name="bluetooth-outline" size={16} color="#fff" />
+                     <Text style={styles.connectButtonText}>Conectar</Text>
+                   </LinearGradient>
+                 </Pressable>
+              )
             )}
           </View>
         </View>
@@ -161,7 +186,7 @@ export const ConnectionScreen = () => {
       style={styles.container}
       contentContainerStyle={styles.contentContainer}
       refreshControl={
-        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} /> 
       }
     >
       <LinearGradient
@@ -172,73 +197,83 @@ export const ConnectionScreen = () => {
           <Pressable
             style={styles.backButton}
             onPress={() => navigation.goBack()}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           >
             <Ionicons name="arrow-back" size={24} color="#fff" />
           </Pressable>
           <Text style={styles.headerTitle}>Conectar Cadeira</Text>
-          <View style={styles.headerRight} />
+          <View style={styles.headerRightPlaceholder} /> 
         </View>
       </LinearGradient>
 
       <View style={styles.content}>
-        <View style={styles.statusCard}>
-          <View style={styles.statusHeader}>
-            <Ionicons 
-              name={isScanning ? 'bluetooth-searching' : 'bluetooth'} 
-              size={24} 
-              color={isScanning ? '#FF9800' : '#1976d2'} 
-            />
-            <Text style={styles.statusText}>
-              {isScanning ? 'Buscando dispositivos...' : 'Dispositivos encontrados'}
-            </Text>
-          </View>
-          
-          {isScanning ? (
-            <View style={styles.scanningContainer}>
-              <ActivityIndicator size="large" color="#1976d2" />
-              <Text style={styles.scanningText}>
-                Procurando cadeiras de rodas próximas...
-              </Text>
+        {isConnected && deviceInfo ? (
+            <View style={styles.devicesList}> 
+                {renderDevice(deviceInfo)}
             </View>
-          ) : (
-            <View style={styles.devicesList}>
-              {devices.length > 0 ? (
-                devices.map(renderDevice)
+        ) : (
+            <View style={styles.statusCard}> 
+              <View style={styles.statusHeader}>
+                <Ionicons 
+                  name={isScanning ? 'bluetooth-searching' : 'bluetooth'} 
+                  size={24} 
+                  color={isScanning ? '#FF9800' : '#1976d2'} 
+                />
+                <Text style={styles.statusText}>
+                  {isScanning ? 'Buscando dispositivos...' : (devices.length > 0 ? 'Dispositivos encontrados' : 'Nenhum dispositivo encontrado')}
+                </Text>
+              </View>
+              
+              {isScanning ? (
+                <View style={styles.scanningContainer}>
+                  <ActivityIndicator size="large" color="#1976d2" />
+                  <Text style={styles.scanningText}>
+                    Procurando cadeiras de rodas próximas...
+                  </Text>
+                </View>
               ) : (
-                <View style={styles.noDevicesContainer}>
-                  <Ionicons name="bluetooth-off" size={48} color="#9E9E9E" />
-                  <Text style={styles.noDevicesText}>
-                    Nenhum dispositivo encontrado
-                  </Text>
-                  <Text style={styles.noDevicesSubtext}>
-                    Certifique-se de que sua cadeira está ligada e próxima
-                  </Text>
+                <View style={styles.devicesList}>
+                  {devices.length > 0 ? (
+                    devices.map(renderDevice)
+                  ) : (
+                    <View style={styles.noDevicesContainer}>
+                      <Ionicons name="bluetooth-off" size={48} color="#9E9E9E" />
+                      <Text style={styles.noDevicesText}>
+                        Nenhum dispositivo encontrado
+                      </Text>
+                      <Text style={styles.noDevicesSubtext}>
+                        Certifique-se de que sua cadeira está ligada e próxima
+                      </Text>
+                    </View>
+                  )}
                 </View>
               )}
             </View>
-          )}
-        </View>
+        )}
 
-        <Pressable
-          style={styles.scanButton}
-          onPress={startScan}
-          disabled={isScanning}
-        >
-          <LinearGradient
-            colors={['#1976d2', '#2196f3']}
-            style={styles.scanButtonGradient}
-          >
-            <Ionicons 
-              name="refresh" 
-              size={20} 
-              color="#fff" 
-              style={isScanning && styles.scanningIcon} 
-            />
-            <Text style={styles.scanButtonText}>
-              {isScanning ? 'Buscando...' : 'Buscar Novamente'}
-            </Text>
-          </LinearGradient>
-        </Pressable>
+        {/* Botão Buscar Novamente - Apenas quando não conectado */}
+        {!isConnected && (
+            <Pressable
+              style={styles.scanButton}
+              onPress={handleScan} 
+              disabled={isScanning || isConnecting}
+            >
+              <LinearGradient
+                colors={['#1976d2', '#2196f3']}
+                style={styles.scanButtonGradient}
+              >
+                <Ionicons 
+                  name="refresh" 
+                  size={20} 
+                  color="#fff" 
+                  style={isScanning && styles.scanningIcon} 
+                />
+                <Text style={styles.scanButtonText}>
+                  {isScanning ? 'Buscando...' : 'Buscar Novamente'}
+                </Text>
+              </LinearGradient>
+            </Pressable>
+        )}
       </View>
     </ScrollView>
   );
@@ -258,29 +293,35 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     borderBottomLeftRadius: 25,
     borderBottomRightRadius: 25,
+    zIndex: 1,
   },
   headerContent: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    width: '100%',
   },
   backButton: {
-    padding: 8,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255,255,255,0.2)',
+    padding: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+    hitSlop: { top: 10, bottom: 10, left: 10, right: 10 }, 
   },
   headerTitle: {
     fontSize: 20,
     fontWeight: 'bold',
     color: '#fff',
+    flex: 1,
+    textAlign: 'center',
+    marginHorizontal: 10,
   },
-  headerRight: {
-    width: 40,
+  headerRightPlaceholder: {
+    width: 44,
   },
   content: {
     padding: 20,
   },
-  statusCard: {
+  statusCard: { 
     backgroundColor: '#fff',
     borderRadius: 20,
     padding: 20,
@@ -312,7 +353,7 @@ const styles = StyleSheet.create({
     color: '#666',
     textAlign: 'center',
   },
-  devicesList: {
+  devicesList: { 
     gap: 12,
   },
   deviceCard: {
@@ -321,16 +362,24 @@ const styles = StyleSheet.create({
     padding: 16,
     borderWidth: 1,
     borderColor: '#e0e0e0',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
   },
-  deviceCardSelected: {
+   deviceCardSelected: {
     borderColor: '#1976d2',
     backgroundColor: '#f5f9ff',
   },
-  deviceCardDisabled: {
-    opacity: 0.7,
-  },
+   deviceCardDisabled: {
+     opacity: 0.7,
+   },
+   deviceCardConnected: {
+     borderColor: '#4CAF50',
+     backgroundColor: '#e8f5e9',
+   },
   deviceInfo: {
-    gap: 12,
+    flex: 1,
+    gap: 8,
   },
   deviceHeader: {
     flexDirection: 'row',
@@ -343,21 +392,11 @@ const styles = StyleSheet.create({
     marginLeft: 12,
     flex: 1,
   },
-  pairedBadge: {
-    backgroundColor: '#e3f2fd',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  pairedText: {
-    fontSize: 12,
-    color: '#1976d2',
-    fontWeight: '500',
-  },
   deviceDetails: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    marginTop: 8,
   },
   signalInfo: {
     flexDirection: 'row',
@@ -367,16 +406,17 @@ const styles = StyleSheet.create({
   signalText: {
     fontSize: 14,
   },
-  connectButton: {
+  connectButton: { 
     borderRadius: 8,
     overflow: 'hidden',
   },
   connectButtonConnected: {
     opacity: 0.9,
   },
-  connectButtonGradient: {
+  connectButtonGradient:{
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     paddingHorizontal: 12,
     paddingVertical: 8,
     gap: 6,
@@ -402,7 +442,7 @@ const styles = StyleSheet.create({
     marginTop: 4,
     textAlign: 'center',
   },
-  scanButton: {
+  scanButton: { 
     borderRadius: 12,
     overflow: 'hidden',
     shadowColor: '#000',
@@ -410,8 +450,9 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 8,
     elevation: 4,
+    marginTop: 20,
   },
-  scanButtonGradient: {
+  scanButtonGradient: { 
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -426,4 +467,4 @@ const styles = StyleSheet.create({
   scanningIcon: {
     transform: [{ rotate: '45deg' }],
   },
-}); 
+});

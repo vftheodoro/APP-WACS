@@ -16,20 +16,25 @@ import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../contexts/AuthContext';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useBluetooth } from '../contexts/BluetoothContext';
 
 const { width } = Dimensions.get('window');
 
 export const MainSelectionScreen = () => {
   const navigation = useNavigation();
   const { user, logout } = useAuth();
-  const [isConnected, setIsConnected] = useState(false);
-  const [isConnecting, setIsConnecting] = useState(false);
+  const {
+    isConnected,
+    isConnecting,
+    deviceInfo,
+    batteryLevel,
+    connectionStrength,
+    connectToDevice,
+    disconnectFromDevice,
+  } = useBluetooth();
   const [refreshing, setRefreshing] = useState(false);
-  const [batteryLevel, setBatteryLevel] = useState(0);
-  const [connectionStrength, setConnectionStrength] = useState('none');
   const [fadeAnim] = useState(new Animated.Value(0));
   const [slideAnim] = useState(new Animated.Value(-50));
-  const [deviceInfo, setDeviceInfo] = useState(null);
 
   useEffect(() => {
     // Animação de entrada
@@ -46,78 +51,16 @@ export const MainSelectionScreen = () => {
       }),
     ]).start();
 
-    // TODO: Implementar inicialização do Bluetooth
-    checkConnectionStatus();
-    
-    return () => {
-      // TODO: Implementar limpeza da conexão Bluetooth
-      cleanupConnection();
-    };
-  }, []);
+    // TODO: Aqui, em uma implementação real, você pode querer:
+    // 1. Tentar reconectar automaticamente a um dispositivo pareado ao carregar a tela.
+    // 2. Manter um listener global para atualizações de status via contexto Bluetooth.
 
-  const checkConnectionStatus = async () => {
-    try {
-      // TODO: Implementar verificação real do status da conexão
-      // Por enquanto, apenas simula uma verificação
-      const mockConnection = false;
-      setIsConnected(mockConnection);
-      if (mockConnection) {
-        setBatteryLevel(85);
-        setConnectionStrength('strong');
-      }
-    } catch (error) {
-      console.error('Erro ao verificar status da conexão:', error);
-    }
-  };
-
-  const cleanupConnection = async () => {
-    try {
-      // TODO: Implementar desconexão real do Bluetooth
-      if (isConnected) {
-        setIsConnected(false);
-        setBatteryLevel(0);
-        setConnectionStrength('none');
-        setDeviceInfo(null);
-      }
-    } catch (error) {
-      console.error('Erro ao limpar conexão:', error);
-    }
-  };
-
-  const handleQuickConnect = async () => {
-    if (isConnected) {
-      Alert.alert(
-        'Desconectar',
-        'Deseja desconectar a cadeira de rodas?',
-        [
-          { text: 'Cancelar', style: 'cancel' },
-          { 
-            text: 'Desconectar',
-            style: 'destructive',
-            onPress: async () => {
-              setIsConnecting(true);
-              try {
-                await cleanupConnection();
-              } finally {
-                setIsConnecting(false);
-              }
-            }
-          }
-        ]
-      );
-    } else {
-      if (isConnecting) {
-        Alert.alert('Aguarde', 'Conectando à cadeira de rodas...');
-      } else {
-        navigation.navigate('ConnectionScreen');
-      }
-    }
-  };
+  }, []); // Sem dependências para rodar apenas na montagem
 
   const onRefresh = async () => {
     setRefreshing(true);
-    // Simular refresh
-    await new Promise(resolve => setTimeout(resolve, 2000));
+    // TODO: Implementar lógica de refresh real (ex: re-escanear ou pedir status do dispositivo conectado)
+    await new Promise(resolve => setTimeout(resolve, 2000)); // Simula refresh
     setRefreshing(false);
   };
 
@@ -132,6 +75,7 @@ export const MainSelectionScreen = () => {
           style: 'destructive',
           onPress: async () => {
             try {
+              // TODO: Desconectar Bluetooth antes de deslogar, se conectado
               await logout();
             } catch (error) {
               console.error('Erro ao deslogar:', error);
@@ -141,6 +85,29 @@ export const MainSelectionScreen = () => {
         },
       ]
     );
+  };
+
+  const handleQuickConnect = async () => {
+    if (isConnected) {
+      // Se já conectado, pergunta se quer desconectar (usando a função do contexto)
+      Alert.alert(
+        'Desconectar',
+        `Deseja desconectar a cadeira de rodas${deviceInfo?.name ? ' (' + deviceInfo.name + ')' : ''}?`,
+        [
+          { text: 'Cancelar', style: 'cancel' },
+          {
+            text: 'Desconectar',
+            style: 'destructive',
+            onPress: disconnectFromDevice, // Usa a função de desconectar do contexto
+          },
+        ]
+      );
+    } else if (isConnecting) {
+      Alert.alert('Aguarde', 'Já está conectando à cadeira de rodas...');
+    } else {
+      // Se não conectado, navega para a tela de conexão
+      navigation.navigate('ConnectionScreen');
+    }
   };
 
   const getTimeGreeting = () => {
@@ -166,7 +133,7 @@ export const MainSelectionScreen = () => {
     if (batteryLevel > 80) return 'battery-full-outline';
     if (batteryLevel > 50) return 'battery-half-outline';
     if (batteryLevel > 20) return 'battery-dead-outline';
-    return 'battery-dead-outline';
+    return 'battery-dead-outline'; // Ícone para bateria baixa/desconectado
   };
 
   const getBatteryColor = () => {
@@ -182,15 +149,18 @@ export const MainSelectionScreen = () => {
       icon: 'game-controller-outline',
       onPress: () => {
         if (!isConnected) {
+          // Se não conectado, informa e navega para a tela de conexão
           Alert.alert(
             'Conexão Necessária',
             'É necessário conectar à cadeira de rodas para acessar o controle.'
           );
+          navigation.navigate('ConnectionScreen');
           return;
         }
-        navigation.navigate('ControlScreen', { deviceInfo });
+        // Se conectado, navega para a tela de controle passando as informações do dispositivo do contexto
+        navigation.navigate('ControlScreen', { deviceInfo: deviceInfo });
       },
-      disabled: !isConnected,
+      disabled: !isConnected, // Desabilita o botão se não estiver conectado
       gradient: ['#1976d2', '#2196f3'],
     },
     {
@@ -202,7 +172,7 @@ export const MainSelectionScreen = () => {
     },
     {
       id: 'chat',
-      title: 'Chat Global',
+      title: 'Assistente',
       icon: 'chatbubble-ellipses-outline',
       onPress: () => navigation.navigate('ChatScreen'),
       gradient: ['#1976d2', '#2196f3'],
@@ -337,6 +307,7 @@ export const MainSelectionScreen = () => {
             ]} />
             <Text style={styles.statusTitle}>Cadeira de Rodas</Text>
           </View>
+          {/* Botão Quick Connect (ícone bluetooth) - Agora também usado para desconectar */}
           <Pressable onPress={handleQuickConnect} style={styles.quickConnectButton}>
             <Ionicons 
               name={getConnectionIcon()} 
@@ -391,25 +362,33 @@ export const MainSelectionScreen = () => {
           </View>
         ) : (
           <View style={styles.disconnectedInfo}>
-            <Ionicons name="bluetooth-outline" size={48} color="#9E9E9E" />
+            {/* Mostrar ícone de buscando se estiver conectando */}
+            {isConnecting ? (
+              <Ionicons name="bluetooth-searching" size={48} color="#FF9800" />
+            ) : (
+              <Ionicons name="bluetooth-outline" size={48} color="#9E9E9E" />
+            )}
             <Text style={styles.disconnectedText}>
-              Cadeira não conectada
+              {isConnecting ? 'Conectando...' : 'Cadeira não conectada'}
             </Text>
             <Text style={styles.disconnectedSubtext}>
-              Toque no botão abaixo para conectar
+              {isConnecting ? 'Aguarde a conexão ser estabelecida' : 'Toque no botão abaixo para conectar'}
             </Text>
-            <Pressable 
-              style={styles.connectButton}
-              onPress={() => navigation.navigate('ConnectionScreen')}
-            >
-              <LinearGradient
-                colors={['#1976d2', '#2196f3']}
-                style={styles.connectButtonGradient}
+            {/* Botão Conectar Cadeira aparece quando desconectado */}
+            {!isConnecting && (
+              <Pressable
+                style={styles.connectButton}
+                onPress={() => navigation.navigate('ConnectionScreen')}
               >
-                <Ionicons name="bluetooth-outline" size={20} color="#fff" />
-                <Text style={styles.connectButtonText}>Conectar Cadeira</Text>
-              </LinearGradient>
-            </Pressable>
+                <LinearGradient
+                  colors={['#1976d2', '#2196f3']}
+                  style={styles.connectButtonGradient}
+                >
+                  <Ionicons name="bluetooth-outline" size={20} color="#fff" />
+                  <Text style={styles.connectButtonText}>Conectar Cadeira</Text>
+                </LinearGradient>
+              </Pressable>
+            )}
           </View>
         )}
       </View>

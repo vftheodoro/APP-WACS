@@ -93,7 +93,7 @@ export const AppNavigator = () => {
           <Stack.Screen
             name="ControlScreen"
             component={ControlScreen}
-            options={{ title: 'Controle' }}
+            options={{ headerShown: false }}
           />
           <Stack.Screen
             name="MapScreen"
@@ -120,7 +120,7 @@ export const AppNavigator = () => {
           <Stack.Screen
             name="ConnectionScreen"
             component={ConnectionScreen}
-            options={{ title: 'Conexão Bluetooth' }}
+            options={{ headerShown: false }}
           />
           
           {/* Removed redundant Chat screen definition */}
