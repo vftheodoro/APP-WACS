@@ -1,115 +1,126 @@
-import React from 'react';
-import { View, Text, StyleSheet, ScrollView, Pressable, FlatList, Image, TouchableOpacity, Dimensions } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import React, { useState } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  ScrollView,
+  Alert,
+  Pressable,
+} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useAuth } from '../../contexts/AuthContext';
+import { ProfilePicture } from '../../components/ProfilePicture';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useNavigation } from '@react-navigation/native';
 import { Colors, Typography, Spacing, Borders, Shadows } from '../../theme';
 
-const { width } = Dimensions.get('window');
-
 export const ProfileTabScreen = () => {
+  const { user, logout } = useAuth();
+  const [refreshKey, setRefreshKey] = useState(0);
   const navigation = useNavigation();
 
-  const suggestions = [
-    { id: '1', name: 'Felipe Souza', role: 'Engenheiro de Dados', profilePic: 'https://via.placeholder.com/40/FFFF33/000000?text=FS' },
-    { id: '2', name: 'Larissa Costa', role: 'UX Designer', profilePic: 'https://via.placeholder.com/40/33FFFF/000000?text=LC' },
-  ];
+  const handleLogout = async () => {
+    try {
+      await logout();
+    } catch (error) {
+      console.error('Erro ao fazer logout:', error);
+      Alert.alert('Erro', 'Não foi possível sair. Tente novamente.');
+    }
+  };
 
-  const featuredTopics = [
-    { id: '1', name: '#AcessibilidadeDigital', posts: '1.2K Posts' },
-    { id: '2', name: '#InovacaoPCD', posts: '850 Posts' },
-  ];
-
-  const renderSuggestionItem = ({ item }) => (
-    <Pressable style={styles.suggestionCard}>
-      <Image source={{ uri: item.profilePic }} style={styles.suggestionProfilePic} />
-      <Text style={styles.suggestionName}>{item.name}</Text>
-      <Text style={styles.suggestionRole}>{item.role}</Text>
-      <TouchableOpacity style={styles.connectButton}>
-        <LinearGradient
-          colors={[Colors.primary.dark, Colors.primary.light]}
-          style={styles.connectButtonGradient}
-        >
-          <Text style={styles.connectButtonText}>Conectar</Text>
-        </LinearGradient>
-      </TouchableOpacity>
-    </Pressable>
-  );
-
-  const renderTopicItem = ({ item }) => (
-    <View style={styles.topicItem}>
-      <Text style={styles.topicName}>{item.name}</Text>
-      <Text style={styles.topicPosts}>{item.posts}</Text>
-    </View>
-  );
+  const handleImageUpdated = () => {
+    // Forçar atualização do componente quando a imagem for atualizada
+    setRefreshKey(prev => prev + 1);
+  };
 
   return (
     <View style={styles.container}>
-      <LinearGradient
-        colors={[Colors.primary.dark, Colors.primary.light]}
-        style={styles.header}
-      >
-        <View style={styles.headerContent}>
-          <Text style={styles.headerTitle}>Seu Perfil</Text>
-        </View>
-      </LinearGradient>
-
       <ScrollView contentContainerStyle={styles.scrollViewContent}>
-        {/* Seu Perfil */}
-        <View style={styles.sectionContainer}>
-          <Text style={styles.sectionTitle}>Seu Perfil</Text>
-          <View style={styles.profileCard}>
-            <View style={styles.profileStats}>
-              <View style={styles.profileStatItem}>
-                <Text style={styles.profileStatValue}>0</Text>
-                <Text style={styles.profileStatLabel}>Contribuições</Text>
-              </View>
-              <View style={styles.statDivider} />
-              <View style={styles.profileStatItem}>
-                <Text style={styles.profileStatValue}>0</Text>
-                <Text style={styles.profileStatLabel}>Avaliações</Text>
-              </View>
-              <View style={styles.statDivider} />
-              <View style={styles.profileStatItem}>
-                <Text style={styles.profileStatValue}>0</Text>
-                <Text style={styles.profileStatLabel}>Pontos</Text>
-              </View>
+        <View style={styles.sectionCard}>
+          <Text style={styles.sectionTitle}>Estatísticas Sociais</Text>
+          <View style={styles.statsContainer}>
+            <View style={styles.statItem}>
+              <Text style={styles.statValue}>0</Text>
+              <Text style={styles.statLabel}>Posts</Text>
             </View>
-            <View style={styles.profileButtons}>
-              <Pressable style={styles.profileButton}>
-                <Text style={styles.profileButtonText}>Editar Perfil</Text>
-              </Pressable>
-              <Pressable style={styles.profileButton}>
-                <Text style={styles.profileButtonText}>Ver Histórico</Text>
-              </Pressable>
+            <View style={styles.statItem}>
+              <Text style={styles.statValue}>0</Text>
+              <Text style={styles.statLabel}>Seguidores</Text>
+            </View>
+            <View style={styles.statItem}>
+              <Text style={styles.statValue}>0</Text>
+              <Text style={styles.statLabel}>Seguindo</Text>
             </View>
           </View>
         </View>
 
-        {/* Sugestões para Você */}
-        <View style={styles.sectionContainer}>
-          <Text style={styles.sectionTitle}>Sugestões para Você</Text>
-          <FlatList
-            data={suggestions}
-            keyExtractor={item => item.id}
-            renderItem={renderSuggestionItem}
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.suggestionsList}
-          />
+        <View style={styles.sectionCard}>
+          <Text style={styles.sectionTitle}>Configurações da Conta</Text>
+          <TouchableOpacity style={styles.menuItem}>
+            <Text style={styles.menuItemText}>Alterar Senha</Text>
+            <Ionicons name="chevron-forward" size={20} color={Colors.text.darkSecondary} />
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.menuItem}>
+            <Text style={styles.menuItemText}>Gerenciar Endereços</Text>
+            <Ionicons name="chevron-forward" size={20} color={Colors.text.darkSecondary} />
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.menuItem}>
+            <Text style={styles.menuItemText}>Privacidade</Text>
+            <Ionicons name="chevron-forward" size={20} color={Colors.text.darkSecondary} />
+          </TouchableOpacity>
         </View>
 
-        {/* Tópicos em Destaque */}
-        <View style={styles.sectionContainer}>
-          <Text style={styles.sectionTitle}>Tópicos em Destaque</Text>
-          <View style={styles.topicsGrid}>
-            {featuredTopics.map(item => (
-              <React.Fragment key={item.id}>
-                {renderTopicItem({ item })}
-              </React.Fragment>
-            ))}
+        <View style={styles.sectionCard}>
+          <Text style={styles.sectionTitle}>Configurações do Aplicativo</Text>
+          <TouchableOpacity style={styles.menuItem}>
+            <Text style={styles.menuItemText}>Notificações</Text>
+            <Ionicons name="chevron-forward" size={20} color={Colors.text.darkSecondary} />
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.menuItem}>
+            <Text style={styles.menuItemText}>Tema</Text>
+            <Ionicons name="chevron-forward" size={20} color={Colors.text.darkSecondary} />
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.menuItem}>
+            <Text style={styles.menuItemText}>Idioma</Text>
+            <Ionicons name="chevron-forward" size={20} color={Colors.text.darkSecondary} />
+          </TouchableOpacity>
+        </View>
+
+        <View style={styles.sectionCard}>
+          <Text style={styles.sectionTitle}>Dispositivos Conectados</Text>
+          <View style={styles.menuItem}>
+            <Text style={styles.menuItemText}>Cadeira de Rodas Exemplo</Text>
           </View>
         </View>
+
+        <View style={styles.sectionCard}>
+          <Text style={styles.sectionTitle}>Sobre</Text>
+          <TouchableOpacity style={styles.menuItem}>
+            <Text style={styles.menuItemText}>Versão do Aplicativo</Text>
+            <Text style={styles.menuItemValue}>1.0.0</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.menuItem}>
+            <Text style={styles.menuItemText}>Política de Privacidade</Text>
+            <Ionicons name="chevron-forward" size={20} color={Colors.text.darkSecondary} />
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.menuItem}>
+            <Text style={styles.menuItemText}>Termos de Serviço</Text>
+            <Ionicons name="chevron-forward" size={20} color={Colors.text.darkSecondary} />
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.menuItem}>
+            <Text style={styles.menuItemText}>Ajuda e Suporte</Text>
+            <Ionicons name="chevron-forward" size={20} color={Colors.text.darkSecondary} />
+          </TouchableOpacity>
+        </View>
+
+        <TouchableOpacity
+          style={styles.logoutButton}
+          onPress={handleLogout}
+        >
+          <Ionicons name="log-out" size={24} color="#fff" />
+          <Text style={styles.logoutButtonText}>Sair</Text>
+        </TouchableOpacity>
       </ScrollView>
     </View>
   );
@@ -120,167 +131,86 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: Colors.background.screen,
   },
-  header: {
-    paddingTop: Spacing.headerTop,
-    paddingBottom: Spacing.xl,
-    paddingHorizontal: Spacing.xl,
-    borderBottomLeftRadius: Borders.radius.xl,
-    borderBottomRightRadius: Borders.radius.xl,
-    zIndex: 1,
-  },
-  headerContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    width: '100%',
-  },
-  headerTitle: {
-    fontSize: Typography.fontSizes.xl,
-    fontWeight: Typography.fontWeights.bold,
-    color: Colors.text.lightOnPrimary,
-    flex: 1,
-    textAlign: 'center',
-    marginHorizontal: Spacing.sm * 1.25,
-  },
   scrollViewContent: {
-    padding: Spacing.xl,
-    paddingBottom: Spacing.xl * 2,
+    padding: 16,
   },
-  sectionContainer: {
+  sectionCard: {
     backgroundColor: Colors.background.card,
-    borderRadius: Borders.radius.lg,
-    padding: Spacing.xl,
-    marginBottom: Spacing.xl,
-    ...Shadows.default,
+    borderRadius: 16,
+    paddingVertical: 10,
+    paddingHorizontal: 15,
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
   },
   sectionTitle: {
-    fontSize: Typography.fontSizes.lg,
-    fontWeight: Typography.fontWeights.bold,
+    fontSize: 18,
+    fontWeight: 'bold',
     color: Colors.text.darkPrimary,
-    marginBottom: Spacing.lg,
+    marginBottom: 10,
+    paddingBottom: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border.light,
   },
-  // Seu Perfil Section
-  profileCard: {
-    backgroundColor: Colors.background.card,
-    borderRadius: Borders.radius.md,
-    padding: Spacing.lg,
-    ...Shadows.default,
-  },
-  profileStats: {
+  statsContainer: {
     flexDirection: 'row',
     justifyContent: 'space-around',
     alignItems: 'center',
-    marginBottom: Spacing.lg,
+    paddingVertical: 15,
   },
-  profileStatItem: {
+  statItem: {
     alignItems: 'center',
     flex: 1,
   },
-  profileStatValue: {
-    fontSize: Typography.fontSizes.xl,
-    fontWeight: Typography.fontWeights.bold,
+  statValue: {
+    fontSize: 24,
+    fontWeight: 'bold',
     color: Colors.primary.dark,
   },
-  profileStatLabel: {
-    fontSize: Typography.fontSizes.xs,
+  statLabel: {
+    fontSize: 14,
     color: Colors.text.darkSecondary,
-    marginTop: Spacing.xxs,
+    marginTop: 5,
   },
-  statDivider: {
-    width: Borders.width.sm,
-    height: 40,
-    backgroundColor: Colors.border.light,
-  },
-  profileButtons: {
+  menuItem: {
     flexDirection: 'row',
-    justifyContent: 'space-around',
-    marginTop: Spacing.md,
-  },
-  profileButton: {
-    paddingVertical: Spacing.sm,
-    paddingHorizontal: Spacing.lg,
-    borderRadius: Borders.radius.sm,
-    borderWidth: Borders.width.sm,
-    borderColor: Colors.primary.dark,
-    backgroundColor: Colors.background.screen,
-  },
-  profileButtonText: {
-    fontSize: Typography.fontSizes.sm,
-    fontWeight: Typography.fontWeights.semibold,
-    color: Colors.primary.dark,
-  },
-  // Sugestões para Você Section
-  suggestionsList: {
-    paddingVertical: Spacing.xs,
-  },
-  suggestionCard: {
-    backgroundColor: Colors.background.card,
-    borderRadius: Borders.radius.md,
-    padding: Spacing.lg,
-    marginRight: Spacing.md,
+    justifyContent: 'space-between',
     alignItems: 'center',
-    ...Shadows.sm,
-    width: width * 0.4, // Adjust card width for horizontal scroll
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border.light,
   },
-  suggestionProfilePic: {
-    width: 60,
-    height: 60,
-    borderRadius: Borders.radius.circular,
-    marginBottom: Spacing.sm,
-    borderWidth: Borders.width.sm,
-    borderColor: Colors.border.medium,
-  },
-  suggestionName: {
-    fontSize: Typography.fontSizes.md,
-    fontWeight: Typography.fontWeights.semibold,
+  menuItemText: {
+    fontSize: 16,
     color: Colors.text.darkPrimary,
-    marginBottom: Spacing.xxs,
+    flex: 1,
   },
-  suggestionRole: {
-    fontSize: Typography.fontSizes.xs,
+  menuItemValue: {
+    fontSize: 16,
     color: Colors.text.darkSecondary,
-    marginBottom: Spacing.sm,
   },
-  connectButton: {
-    marginTop: Spacing.sm,
-    borderRadius: Borders.radius.sm,
-    overflow: 'hidden',
-    width: '100%',
-  },
-  connectButtonGradient: {
-    paddingVertical: Spacing.xs,
-    paddingHorizontal: Spacing.sm,
+  logoutButton: {
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: '#FF3B30',
+    padding: 15,
+    borderRadius: 12,
+    marginVertical: 20,
+    marginHorizontal: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 5,
   },
-  connectButtonText: {
-    color: Colors.text.lightOnPrimary,
-    fontSize: Typography.fontSizes.sm,
-    fontWeight: Typography.fontWeights.semibold,
-  },
-  // Tópicos em Destaque Section
-  topicsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: Spacing.sm, // Gap between topic items
-  },
-  topicItem: {
-    backgroundColor: Colors.background.screen,
-    borderRadius: Borders.radius.sm,
-    paddingVertical: Spacing.sm,
-    paddingHorizontal: Spacing.md,
-    borderWidth: Borders.width.sm,
-    borderColor: Colors.border.light,
-    ...Shadows.sm,
-  },
-  topicName: {
-    fontSize: Typography.fontSizes.sm,
-    fontWeight: Typography.fontWeights.semibold,
-    color: Colors.primary.dark,
-  },
-  topicPosts: {
-    fontSize: Typography.fontSizes.xs,
-    color: Colors.text.darkSecondary,
-    marginTop: Spacing.xxs,
+  logoutButtonText: {
+    color: '#fff',
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginLeft: 10,
   },
 }); 

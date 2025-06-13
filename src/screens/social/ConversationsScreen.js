@@ -36,15 +36,6 @@ export const ConversationsScreen = () => {
 
   return (
     <View style={styles.container}>
-      <LinearGradient
-        colors={[Colors.primary.dark, Colors.primary.light]}
-        style={styles.header}
-      >
-        <View style={styles.headerContent}>
-          <Text style={styles.headerTitle}>Conversas</Text>
-        </View>
-      </LinearGradient>
-
       <ScrollView contentContainerStyle={styles.scrollViewContent}>
         {/* Chat Geral */}
         <View style={styles.sectionContainer}>
@@ -83,28 +74,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.background.screen,
-  },
-  header: {
-    paddingTop: Spacing.headerTop,
-    paddingBottom: Spacing.xl,
-    paddingHorizontal: Spacing.xl,
-    borderBottomLeftRadius: Borders.radius.xl,
-    borderBottomRightRadius: Borders.radius.xl,
-    zIndex: 1,
-  },
-  headerContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    width: '100%',
-  },
-  headerTitle: {
-    fontSize: Typography.fontSizes.xl,
-    fontWeight: Typography.fontWeights.bold,
-    color: Colors.text.lightOnPrimary,
-    flex: 1,
-    textAlign: 'center',
-    marginHorizontal: Spacing.sm * 1.25,
   },
   scrollViewContent: {
     padding: Spacing.xl,

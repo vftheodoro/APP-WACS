@@ -4,23 +4,25 @@ import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Colors, Typography, Spacing, Borders, Shadows } from '../../theme';
+import { useAuth } from '../../contexts/AuthContext';
 
 const { width } = Dimensions.get('window');
 
 export const PostsFeedScreen = () => {
   const navigation = useNavigation();
   const [postText, setPostText] = useState('');
+  const { user } = useAuth();
 
   // Placeholder data for demonstration
   const feedItems = [
     {
       id: '1',
-      profilePic: 'https://via.placeholder.com/40/FF5733/FFFFFF?text=JS', // Placeholder for João Silva
-      name: 'João Silva',
-      time: 'há 1 hora',
-      text: 'Acabei de mapear um novo local acessível na minha cidade! É incrível como pequenos atos podem fazer uma grande diferença. #Acessibilidade #WACS',
-      likes: 15,
-      comments: 3,
+      profilePic: user?.photoURL || 'https://via.placeholder.com/40/BDBDBD/FFFFFF?text=VP',
+      name: user?.name || 'Você',
+      time: 'agora mesmo',
+      text: postText || 'Bem-vindo(a) à Comunidade WACS! Use este espaço para compartilhar suas experiências e interagir com outros usuários.',
+      likes: 0,
+      comments: 0,
       hasImage: false,
     },
     {
@@ -62,20 +64,11 @@ export const PostsFeedScreen = () => {
 
   return (
     <View style={styles.container}>
-      <LinearGradient
-        colors={[Colors.primary.dark, Colors.primary.light]}
-        style={styles.header}
-      >
-        <View style={styles.headerContent}>
-          <Text style={styles.headerTitle}>Comunidade WACS</Text>
-        </View>
-      </LinearGradient>
-
       <ScrollView contentContainerStyle={styles.scrollViewContent}>
         {/* Seção de Postagem */}
         <View style={styles.postCard}>
           <View style={styles.postHeader}>
-            <Image source={{ uri: 'https://via.placeholder.com/40/BDBDBD/FFFFFF?text=VP' }} style={styles.feedProfilePic} />
+            <Image source={{ uri: user?.photoURL || 'https://via.placeholder.com/40/BDBDBD/FFFFFF?text=VP' }} style={styles.feedProfilePic} />
             <TextInput
               style={styles.postInput}
               placeholder="O que você está pensando?"
@@ -124,28 +117,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.background.screen,
-  },
-  header: {
-    paddingTop: Spacing.headerTop,
-    paddingBottom: Spacing.xl,
-    paddingHorizontal: Spacing.xl,
-    borderBottomLeftRadius: Borders.radius.xl,
-    borderBottomRightRadius: Borders.radius.xl,
-    zIndex: 1,
-  },
-  headerContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    width: '100%',
-  },
-  headerTitle: {
-    fontSize: Typography.fontSizes.xl,
-    fontWeight: Typography.fontWeights.bold,
-    color: Colors.text.lightOnPrimary,
-    flex: 1,
-    textAlign: 'center',
-    marginHorizontal: Spacing.sm * 1.25,
   },
   scrollViewContent: {
     padding: Spacing.xl,
@@ -259,25 +230,22 @@ const styles = StyleSheet.create({
     color: Colors.text.darkSecondary,
   },
   feedText: {
-    fontSize: Typography.fontSizes.sm,
+    fontSize: Typography.fontSizes.md,
     color: Colors.text.darkPrimary,
     marginBottom: Spacing.md,
   },
   feedPostImage: {
     width: '100%',
-    height: 200, // Fixed height for simplicity
-    borderRadius: Borders.radius.xs,
-    marginBottom: Spacing.md,
-    backgroundColor: Colors.border.light,
+    height: 200,
+    borderRadius: Borders.radius.md,
     resizeMode: 'cover',
+    marginBottom: Spacing.md,
   },
   feedActions: {
     flexDirection: 'row',
-    justifyContent: 'space-around',
-    borderTopWidth: Borders.width.sm,
-    borderTopColor: Colors.border.light,
-    paddingTop: Spacing.sm,
-    marginTop: Spacing.sm,
+    justifyContent: 'flex-start',
+    alignItems: 'center',
+    gap: Spacing.lg,
   },
   feedActionItem: {
     flexDirection: 'row',
