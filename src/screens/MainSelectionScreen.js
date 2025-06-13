@@ -174,7 +174,7 @@ export const MainSelectionScreen = () => {
       id: 'chat',
       title: 'Assistente',
       icon: 'chatbubble-ellipses-outline',
-      onPress: () => navigation.navigate('ChatScreen'),
+      onPress: () => navigation.navigate('SocialScreen'),
       gradient: ['#1976d2', '#2196f3'],
     },
     {

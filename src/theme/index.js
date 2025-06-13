@@ -75,4 +75,10 @@ export const globalStyles = StyleSheet.create({
     ...THEME.typography.h2,
     color: THEME.colors.primary,
   },
-}); 
+});
+
+export * from './Colors';
+export * from './Typography';
+export * from './Spacing';
+export * from './Borders';
+export * from './Shadows'; 

@@ -7,7 +7,8 @@ import { LoginScreen } from '../screens/LoginScreen';
 import { ControlScreen } from '../screens/ControlScreen';
 import { MapScreen } from '../screens/MapScreen';
 // Removido import duplicado de tela de perfil
-import ChatScreen from '../screens/ChatScreen';
+import ChatScreen from '../screens/social/ChatScreen';
+import { SocialScreen } from '../screens/social/SocialScreen';
 import { ConnectionScreen } from '../screens/ConnectionScreen';
 import { MainSelectionScreen } from '../screens/MainSelectionScreen';
 
@@ -101,9 +102,14 @@ export const AppNavigator = () => {
             options={{ title: 'Mapa' }}
           />
           <Stack.Screen
+            name="SocialScreen"
+            component={SocialScreen}
+            options={{ headerShown: false }} // SocialScreen tem seu próprio cabeçalho
+          />
+          <Stack.Screen
             name="ChatScreen"
             component={ChatScreen}
-            options={{ title: 'Chat' }}
+            options={{ title: 'Chat' }} // O título pode ser definido na SocialScreen, se preferir
           />
           <Stack.Screen
             name="LocationsListScreen"

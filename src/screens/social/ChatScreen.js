@@ -1,9 +1,14 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, FlatList, StyleSheet, KeyboardAvoidingView, Platform, ActivityIndicator, Image, Alert, Modal, Pressable, Vibration } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, FlatList, StyleSheet, KeyboardAvoidingView, Platform, ActivityIndicator, Image, Alert, Modal, Pressable, Vibration, Dimensions, SafeAreaView, StatusBar } from 'react-native';
 import { Ionicons } from '@expo/vector-icons'; // Ícone de envio profissional
 import * as ImagePicker from 'expo-image-picker';
-import { useChat } from '../contexts/ChatContext';
-import { useAuth } from '../contexts/AuthContext';
+import { useChat } from '../../contexts/ChatContext';
+import { useAuth } from '../../contexts/AuthContext';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Colors, Typography, Spacing, Borders, Shadows } from '../../theme';
+
+const { width } = Dimensions.get('window');
 
 function formatTime(timestamp) {
   if (!timestamp) return '';
@@ -18,8 +23,6 @@ function formatTime(timestamp) {
   return dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 }
 
-
-
 export default function ChatScreen() {
   const { messages, loading, sendMessage, sendImageMessage } = useChat();
   const { user } = useAuth();
@@ -32,6 +35,8 @@ export default function ChatScreen() {
   const [initialScrollDone, setInitialScrollDone] = useState(false); // Estado para controlar a rolagem inicial
   const [messageModalVisible, setMessageModalVisible] = useState(false); // Estado para controlar a visibilidade do modal de mensagem
   const [selectedMessage, setSelectedMessage] = useState(null); // Estado para armazenar a mensagem selecionada
+
+  const insets = useSafeAreaInsets();
 
   // Scroll para a última mensagem ao receber novas mensagens
   useEffect(() => {
@@ -48,7 +53,7 @@ export default function ChatScreen() {
   // Detecta se o usuário está longe do final
   const handleScroll = (event) => {
     const { layoutMeasurement, contentOffset, contentSize } = event.nativeEvent;
-    const isAtBottom = layoutMeasurement.height + contentOffset.y >= contentSize.height - 40; // Ajuste para a margem inferior
+    const isAtBottom = layoutMeasurement.height + contentOffset.y >= contentSize.height - Spacing.xl * 2; // Ajuste para a margem inferior
     setShowScrollButton(!isAtBottom);
   };
 
@@ -166,22 +171,22 @@ export default function ChatScreen() {
           style={({ pressed }) => [
             styles.messageContainer,
             isMe ? styles.myMessage : styles.otherMessage,
-            { alignSelf: isMe ? 'flex-end' : 'flex-start', flexDirection: isMe ? 'row-reverse' : 'row', alignItems: 'flex-end', position: 'relative', paddingRight: isMe ? 10 : undefined, paddingLeft: !isMe ? 10 : undefined },
+            { alignSelf: isMe ? 'flex-end' : 'flex-start', flexDirection: isMe ? 'row-reverse' : 'row', alignItems: 'flex-end', position: 'relative', paddingRight: isMe ? Spacing.sm * 1.25 : undefined, paddingLeft: !isMe ? Spacing.sm * 1.25 : undefined }, // Adjusted padding
             pressed && { opacity: 0.8 }
           ]}
         >
           {renderAvatar(item, isMe)}
-          <View style={{/* Removido flex: 1 */}}>{/* Conteúdo da mensagem */}
+          <View>{/* Conteúdo da mensagem */}
             {!isMe && (
               <Text style={styles.userName}>{item.userName || 'Usuário'}</Text>
             )}
             <View style={{ flexDirection: 'column', alignItems: isMe ? 'flex-end' : 'flex-start' }}>
               <Image
                 source={{ uri: item.imageUrl }}
-                style={{ width: 200, height: 200, borderRadius: 10, marginBottom: 4, backgroundColor: '#eee' }}
+                style={{ width: 200, height: 200, borderRadius: Borders.radius.xs, marginBottom: Spacing.xs, backgroundColor: Colors.border.light }}
                 resizeMode="cover"
               />
-              <Text style={[styles.timeText, isMe && { color: '#FFFFFF' }]}>{formatTime(item.timestamp)}</Text>
+              <Text style={[styles.timeText, isMe && { color: Colors.text.lightOnPrimary }]}>{formatTime(item.timestamp)}</Text>
             </View>
           </View>
         </Pressable>
@@ -195,7 +200,7 @@ export default function ChatScreen() {
         style={({ pressed }) => [
           styles.messageContainer,
           isMe ? styles.myMessage : styles.otherMessage,
-          { alignSelf: isMe ? 'flex-end' : 'flex-start', flexDirection: isMe ? 'row-reverse' : 'row', alignItems: 'flex-end', position: 'relative', paddingRight: isMe ? 10 : undefined, paddingLeft: !isMe ? 10 : undefined },
+          { alignSelf: isMe ? 'flex-end' : 'flex-start', flexDirection: isMe ? 'row-reverse' : 'row', alignItems: 'flex-end', position: 'relative', paddingRight: isMe ? Spacing.sm * 1.25 : undefined, paddingLeft: !isMe ? Spacing.sm * 1.25 : undefined }, // Adjusted padding
           pressed && { opacity: 0.8 }
         ]}
       >
@@ -208,22 +213,22 @@ export default function ChatScreen() {
               bottom: 0,
               width: 0,
               height: 0,
-              borderLeftWidth: 12,
+              borderLeftWidth: Spacing.md,
               borderLeftColor: 'transparent',
-              borderTopWidth: 18,
+              borderTopWidth: Spacing.md * 1.5,
               borderTopColor: 'transparent',
               borderBottomWidth: 0,
               borderBottomColor: 'transparent',
               borderRightWidth: 0,
               borderRightColor: 'transparent',
-              borderTopRightRadius: 8,
+              borderTopRightRadius: Borders.radius.xs,
               borderStyle: 'solid',
               borderBottomRightRadius: 0,
               borderTopLeftRadius: 0,
               borderBottomLeftRadius: 0,
               borderRightWidth: 0,
               borderRightColor: 'transparent',
-              borderTopColor: isMe ? '#007AFF' : '#FFFFFF',
+              borderTopColor: isMe ? Colors.text.chatMine : Colors.text.chatOther,
             }} />
           </View>
         ) : (
@@ -234,43 +239,42 @@ export default function ChatScreen() {
               bottom: 0,
               width: 0,
               height: 0,
-              borderRightWidth: 12,
+              borderRightWidth: Spacing.md,
               borderRightColor: 'transparent',
-              borderTopWidth: 18,
+              borderTopWidth: Spacing.md * 1.5,
               borderTopColor: 'transparent',
               borderBottomWidth: 0,
               borderBottomColor: 'transparent',
               borderLeftWidth: 0,
               borderLeftColor: 'transparent',
-              borderTopLeftRadius: 8,
+              borderTopLeftRadius: Borders.radius.xs,
               borderStyle: 'solid',
               borderBottomLeftRadius: 0,
               borderTopRightRadius: 0,
               borderBottomRightRadius: 0,
               borderLeftWidth: 0,
               borderLeftColor: 'transparent',
-              borderTopColor: isMe ? '#007AFF' : '#FFFFFF',
+              borderTopColor: isMe ? Colors.text.chatMine : Colors.text.chatOther,
             }} />
           </View>
         )}
         {renderAvatar(item, isMe)}
-        <View style={{/* Removido flex: 1 */}}>{/* Conteúdo da mensagem */}
+        <View>{/* Conteúdo da mensagem */}
           {!isMe && (
             <Text style={styles.userName}>{item.userName || 'Usuário'}</Text>
           )}
           <View style={{ flexDirection: 'row', alignItems: 'flex-end' }}>{/* Ajustado alignItems */}
             <Text style={[styles.messageText, isMe && styles.myMessageText]}>{item.text}</Text>
-            <Text style={[styles.timeText, isMe && { color: '#FFFFFF' }, !isMe && { color: '#666666' }]}>  {formatTime(item.timestamp)}</Text>
+            <Text style={[styles.timeText, isMe && { color: Colors.text.lightOnPrimary }, !isMe && { color: Colors.text.chatTimestamp }]}>  {formatTime(item.timestamp)}</Text>
           </View>
         </View>
       </Pressable>
     );
   };
 
-
-
   return (
     <>
+      <StatusBar barStyle="light-content" backgroundColor={Colors.primary.dark} />
       <Modal
         visible={profileModalVisible}
         transparent
@@ -289,9 +293,13 @@ export default function ChatScreen() {
             <Text style={styles.profileModalName}>{selectedUser?.userName || 'Usuário'}</Text>
             <Text style={styles.profileModalEmail}>{selectedUser?.userEmail || ''}</Text>
             <Text style={styles.profileModalId}>ID: {selectedUser?.userId || ''}</Text>
-            {/* Adicione aqui opções como "Ver perfil completo", "Bloquear", etc. */}
             <TouchableOpacity style={styles.modalCloseButton} onPress={() => setProfileModalVisible(false)}>
-              <Text style={styles.modalCloseButtonText}>Fechar</Text>
+              <LinearGradient
+                colors={[Colors.primary.dark, Colors.primary.light]}
+                style={styles.modalCloseButtonGradient}
+              >
+                <Text style={styles.modalCloseButtonText}>Fechar</Text>
+              </LinearGradient>
             </TouchableOpacity>
           </View>
         </Pressable>
@@ -312,7 +320,7 @@ export default function ChatScreen() {
                 resizeMode="contain"
               />
             ) : (
-              <Text style={[styles.fullScreenModalText, selectedMessage?.userId === user?.id && { color: '#FFFFFF' }]}>
+              <Text style={[styles.fullScreenModalText, selectedMessage?.userId === user?.id && { color: Colors.text.lightOnPrimary }]}>
                 {selectedMessage?.text}
               </Text>
             )}
@@ -320,51 +328,58 @@ export default function ChatScreen() {
         </Pressable>
       </Modal>
 
-      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <View style={styles.container}>
-          {loading ? (
-            <ActivityIndicator size="large" color="#007AFF" style={{ marginTop: 20 }} />
-          ) : (
-            <>
-              <FlatList
-                ref={flatListRef}
-                data={messages}
-                keyExtractor={item => item.id}
-                renderItem={renderItem}
-                contentContainerStyle={styles.messagesList}
-                showsVerticalScrollIndicator={false}
-                onScroll={handleScroll}
-                scrollEventThrottle={16}
+      <SafeAreaView style={{ flex: 1, backgroundColor: Colors.background.screen }}>
+        <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+          <View style={styles.container}>
+            {loading ? (
+              <ActivityIndicator size="large" color={Colors.primary.dark} style={{ marginTop: Spacing.xl }} />
+            ) : (
+              <>
+                <FlatList
+                  ref={flatListRef}
+                  data={messages}
+                  keyExtractor={item => item.id}
+                  renderItem={renderItem}
+                  contentContainerStyle={{ ...styles.messagesList, paddingBottom: 100 + insets.bottom }}
+                  showsVerticalScrollIndicator={false}
+                  onScroll={handleScroll}
+                  scrollEventThrottle={16}
+                />
+                {showScrollButton && (
+                  <TouchableOpacity style={{ ...styles.scrollToEndButton, bottom: 110 + insets.bottom }} onPress={scrollToEnd} activeOpacity={0.8}>
+                    <Ionicons name="chevron-down" size={Typography.fontSizes.xl} color={Colors.text.lightOnPrimary} />
+                  </TouchableOpacity>
+                )}
+              </>
+            )}
+            <View style={styles.inputContainer}>
+              <TouchableOpacity style={styles.attachButton} onPress={handlePickImage} activeOpacity={0.7} accessibilityLabel="Enviar imagem">
+                <Ionicons name="image-outline" size={Typography.fontSizes.xxl + 2} color={Colors.primary.dark} />
+              </TouchableOpacity>
+              <TextInput
+                style={[styles.input, { height: Math.max(40, Math.min(inputHeight, 120)) }]} // Keep min/max height for now
+                value={text}
+                onChangeText={setText}
+                placeholder="Digite sua mensagem..."
+                placeholderTextColor={Colors.text.darkTertiary}
+                onSubmitEditing={handleSend}
+                returnKeyType="send"
+                multiline
+                onContentSizeChange={e => setInputHeight(e.nativeEvent.contentSize.height)}
+                blurOnSubmit={false}
               />
-              {showScrollButton && (
-                <TouchableOpacity style={styles.scrollToEndButton} onPress={scrollToEnd} activeOpacity={0.8}>
-                  <Text style={styles.scrollToEndIcon}>▼</Text>
-                </TouchableOpacity>
-              )}
-            </>
-          )}
-          <View style={styles.inputContainer}>
-            <TouchableOpacity style={styles.attachButton} onPress={handlePickImage} activeOpacity={0.7} accessibilityLabel="Enviar imagem">
-              <Ionicons name="image-outline" size={26} color="#007AFF" />
-            </TouchableOpacity>
-            <TextInput
-              style={[styles.input, { height: Math.max(40, Math.min(inputHeight, 120)) }]}
-              value={text}
-              onChangeText={setText}
-              placeholder="Digite sua mensagem..."
-              placeholderTextColor="#999"
-              onSubmitEditing={handleSend}
-              returnKeyType="send"
-              multiline
-              onContentSizeChange={e => setInputHeight(e.nativeEvent.contentSize.height)}
-              blurOnSubmit={false}
-            />
-            <TouchableOpacity style={styles.sendButton} onPress={handleSend} activeOpacity={0.7} accessibilityLabel="Enviar mensagem">
-              <Ionicons name="send" size={24} color="#fff" />
-            </TouchableOpacity>
+              <TouchableOpacity style={styles.sendButton} onPress={handleSend} activeOpacity={0.7} accessibilityLabel="Enviar mensagem">
+                <LinearGradient
+                  colors={[Colors.primary.dark, Colors.primary.light]}
+                  style={styles.sendButtonGradient}
+                >
+                  <Ionicons name="send" size={Typography.fontSizes.xxl} color={Colors.text.lightOnPrimary} />
+                </LinearGradient>
+              </TouchableOpacity>
+            </View>
           </View>
-        </View>
-      </KeyboardAvoidingView>
+        </KeyboardAvoidingView>
+      </SafeAreaView>
     </>
   );
 }
@@ -377,86 +392,85 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   profileModalBox: {
-    backgroundColor: '#FFFFFF', // Fundo branco para o modal
-    borderRadius: 12, // Raio de borda ligeiramente menor
-    padding: 24,
+    backgroundColor: Colors.background.card,
+    borderRadius: Borders.radius.lg,
+    padding: Spacing.xl + Spacing.xs, // 24
     alignItems: 'center',
-    minWidth: 280, // Aumentar largura mínima
-    elevation: 8, // Sombra mais proeminente para modal
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
+    minWidth: 280,
+    ...Shadows.lg,
   },
   profileModalAvatar: {
-    width: 80, // Aumentar tamanho do avatar no modal
+    width: 80,
     height: 80,
-    borderRadius: 40, // Metade da largura/altura para círculo perfeito
-    marginBottom: 16,
-    backgroundColor: '#E0E0E0', // Cinza claro padrão
+    borderRadius: Borders.radius.circular, // 40
+    marginBottom: Spacing.lg,
+    backgroundColor: Colors.border.light,
     justifyContent: 'center',
     alignItems: 'center',
-    borderWidth: 3, // Borda um pouco mais grossa
-    borderColor: '#007AFF', // Cor primária
+    borderWidth: Borders.width.lg,
+    borderColor: Colors.primary.dark,
+    shadowColor: 'transparent',
+    shadowOpacity: 0,
+    shadowRadius: 0,
+    elevation: 0,
+    overflow: 'hidden',
   },
   profileModalName: {
-    fontSize: 22, // Aumentar tamanho da fonte
-    fontWeight: '600', // Peso da fonte semi-bold
-    marginBottom: 4,
-    color: '#333333', // Cor de texto mais escura
+    fontSize: Typography.fontSizes.xxl, // 22, close enough to 24
+    fontWeight: Typography.fontWeights.bold,
+    marginBottom: Spacing.xs,
+    color: Colors.text.darkPrimary,
   },
   profileModalEmail: {
-    fontSize: 15,
-    color: '#666666', // Cinza médio para email
-    marginBottom: 8,
+    fontSize: Typography.fontSizes.md - 1, // 15
+    color: Colors.text.darkSecondary,
+    marginBottom: Spacing.sm,
   },
   profileModalId: {
-    fontSize: 13,
-    color: '#888888', // Cinza mais claro para ID
-    marginBottom: 20,
+    fontSize: Typography.fontSizes.xs + 1, // 13
+    color: Colors.text.darkTertiary,
+    marginBottom: Spacing.xl,
   },
   modalCloseButton: {
-    marginTop: 15,
-    paddingVertical: 10,
-    paddingHorizontal: 20,
-    borderRadius: 8,
-    backgroundColor: '#007AFF', // Fundo com cor primária
-    alignSelf: 'stretch', // Ocupar largura total
+    marginTop: Spacing.lg - 1, // 15
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.xxl,
+    borderRadius: Borders.radius.sm,
+    overflow: 'hidden',
+    ...Shadows.default,
+    alignSelf: 'stretch',
     alignItems: 'center',
   },
-  modalCloseButtonText: { // Adicionar estilo para o texto do botão
-    color: '#FFFFFF',
-    fontWeight: 'bold',
-    fontSize: 16,
+  modalCloseButtonText: {
+    color: Colors.text.lightOnPrimary,
+    fontWeight: Typography.fontWeights.semibold,
+    fontSize: Typography.fontSizes.md,
   },
   container: {
     flex: 1,
-    backgroundColor: '#E0EAF5', // Um azul bem clarinho
-    padding: 0, // Remover padding do container principal
+    backgroundColor: Colors.background.screen,
+    padding: 0,
   },
   title: {
-    // Manter ou remover se não for necessário na tela de chat
-    fontSize: 22,
-    fontWeight: 'bold',
+    fontSize: Typography.fontSizes.xxl,
+    fontWeight: Typography.fontWeights.bold,
     textAlign: 'center',
-    marginVertical: 10,
-    color: '#007AFF',
+    marginVertical: Spacing.sm * 1.25, // 10
+    color: Colors.primary.dark,
   },
   messagesList: {
     flexGrow: 1,
-    paddingVertical: 10, // Adicionar padding vertical
-    paddingHorizontal: 8, // Adicionar padding horizontal
-    paddingBottom: 90, // espaço extra para input flutuante
+    paddingVertical: Spacing.sm * 1.25, // 10
+    paddingHorizontal: Spacing.sm,
   },
   avatar: {
-    width: 36, // Tamanho um pouco menor para o avatar na lista
+    width: 36,
     height: 36,
-    borderRadius: 18,
-    marginHorizontal: 4, // Espaçamento horizontal menor
-    backgroundColor: '#E0E0E0',
-    borderWidth: 2, // Borda ligeiramente mais fina
-    borderColor: '#007AFF', // Cor primária
-    // Remover sombras excessivas aqui, a sombra será na bolha da mensagem
+    borderRadius: Borders.radius.circular, // 18
+    marginHorizontal: Spacing.xs,
+    backgroundColor: Colors.border.light,
+    borderWidth: Borders.width.md,
+    borderColor: Colors.primary.dark,
     shadowColor: 'transparent',
     shadowOpacity: 0,
     shadowRadius: 0,
@@ -466,222 +480,205 @@ const styles = StyleSheet.create({
   avatarDefault: {
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#BDBDBD', // Cinza um pouco mais escuro para default
-    borderColor: '#007AFF',
-    borderWidth: 2,
+    backgroundColor: Colors.border.medium,
+    borderColor: Colors.primary.dark,
+    borderWidth: Borders.width.md,
   },
   avatarInitial: {
-    color: '#FFFFFF',
-    fontWeight: 'bold',
-    fontSize: 17,
-    // Manter fontes do sistema, mas garantir fallback
-    fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto',
+    color: Colors.text.lightOnPrimary,
+    fontWeight: Typography.fontWeights.bold,
+    fontSize: Typography.fontSizes.md + 1, // 17
+    fontFamily: Typography.fontFamily.system,
   },
   deleteButton: {
     position: 'absolute',
-    top: 6, // Ajustar posição
-    right: 6,
+    top: Spacing.xs + Spacing.xxs, // 6
+    right: Spacing.xs + Spacing.xxs, // 6
     zIndex: 10,
-    padding: 4, // Aumentar área clicável
+    padding: Spacing.xs,
   },
   deleteIcon: {
-    fontSize: 16, // Tamanho um pouco menor
-    color: '#FFFFFF', // Ícone branco para contraste
-    opacity: 1, // Remover opacidade
-    textShadowColor: 'rgba(0, 0, 0, 0.2)', // Sombra leve para destaque
+    fontSize: Typography.fontSizes.md,
+    color: Colors.text.lightOnPrimary,
+    opacity: 1,
+    textShadowColor: 'rgba(0, 0, 0, 0.2)',
     textShadowOffset: { width: 1, height: 1 },
     textShadowRadius: 2,
   },
   messageContainer: {
-    marginVertical: 2, // Reduzir ainda mais a margem vertical
-    borderRadius: 18, // Aumentar ligeiramente o raio de borda geral
-    paddingHorizontal: 10, // Ajustar padding horizontal
-    paddingVertical: 7, // Ajustar padding vertical
-    shadowColor: '#000', // Sombra geral para bolhas
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.07, // Sombra mais sutil
-    shadowRadius: 2, // Raio da sombra menor
-    elevation: 1, // Elevação menor
+    marginVertical: Spacing.xxs,
+    borderRadius: Borders.radius.lg - 7, // 18
+    paddingHorizontal: Spacing.sm * 1.25, // 10
+    paddingVertical: Spacing.sm - 1, // 7
+    ...Shadows.sm,
     alignSelf: 'flex-start',
     maxWidth: '85%',
-    minWidth: 50, // Manter um minWidth razoável
-    flexDirection: 'row', // Manter flexDirection row
-    alignItems: 'flex-end', // Alinhar itens ao final (para timestamp)
-    marginBottom: 4, // Ajustar margem inferior
+    minWidth: 50,
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    marginBottom: Spacing.xs,
     opacity: 1,
   },
   myMessage: {
-    backgroundColor: '#007AFF', // Azul principal
-    marginLeft: 55, // Ajustar margem para a direita
+    backgroundColor: Colors.text.chatMine,
+    marginLeft: 55,
     alignSelf: 'flex-end',
-    borderRadius: 18,
-    borderTopRightRadius: 5, // Canto superior direito menos arredondado
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.07,
-    shadowRadius: 2,
-    elevation: 1,
+    borderRadius: Borders.radius.lg - 7, // 18
+    borderTopRightRadius: Borders.radius.xxs,
+    ...Shadows.default,
     borderWidth: 0,
-    minHeight: 30, // Altura mínima menor
-    paddingVertical: 6, // Ajustar padding vertical
-    paddingHorizontal: 10, // Ajustar padding horizontal
-    paddingRight: 18, // Espaço para a cauda
+    minHeight: 30,
+    paddingVertical: Spacing.xs * 1.5, // 6
+    paddingHorizontal: Spacing.sm * 1.25, // 10
+    paddingRight: Spacing.lg - Spacing.sm, // 18
     flexShrink: 1,
   },
   myMessageTail: {
     position: 'absolute',
-    right: -5, // Ajustar posição
+    right: -5,
     bottom: 0,
     width: 0,
     height: 0,
     backgroundColor: 'transparent',
     borderStyle: 'solid',
-    borderLeftWidth: 10, // Ajustar tamanho da cauda
+    borderLeftWidth: Spacing.md,
     borderRightWidth: 0,
-    borderBottomWidth: 10,
+    borderBottomWidth: Spacing.md,
     borderLeftColor: 'transparent',
     borderRightColor: 'transparent',
-    borderBottomColor: '#007AFF', // Cor da cauda
+    borderBottomColor: Colors.text.chatMine,
     transform: [{ rotate: '90deg' }],
     zIndex: -1,
   },
   otherMessage: {
-    backgroundColor: '#FFFFFF', // Mantido branco
-    marginRight: 55, // Ajustar margem para a esquerda
+    backgroundColor: Colors.text.chatOther,
+    marginRight: 55,
     alignSelf: 'flex-start',
-    borderRadius: 18,
-    borderTopLeftRadius: 5, // Canto superior esquerdo menos arredondado
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.07,
-    shadowRadius: 2,
-    elevation: 1,
+    borderRadius: Borders.radius.lg - 7, // 18
+    borderTopLeftRadius: Borders.radius.xxs,
+    ...Shadows.default,
     borderWidth: 0,
-    minHeight: 30, // Altura mínima menor
-    paddingVertical: 6, // Ajustar padding vertical
-    paddingHorizontal: 10, // Ajustar padding horizontal
-    paddingLeft: 18, // Espaço para a cauda
+    minHeight: 30,
+    paddingVertical: Spacing.xs * 1.5, // 6
+    paddingHorizontal: Spacing.sm * 1.25, // 10
+    paddingLeft: Spacing.lg - Spacing.sm, // 18
     flexShrink: 1,
   },
   otherMessageTail: {
     position: 'absolute',
-    left: -5, // Ajustar posição
+    left: -5,
     bottom: 0,
     width: 0,
     height: 0,
     backgroundColor: 'transparent',
     borderStyle: 'solid',
     borderLeftWidth: 0,
-    borderRightWidth: 10, // Ajustar tamanho da cauda
-    borderBottomWidth: 10,
+    borderRightWidth: Spacing.md,
+    borderBottomWidth: Spacing.md,
     borderLeftColor: 'transparent',
     borderRightColor: 'transparent',
-    borderBottomColor: '#FFFFFF', // Cor da cauda
+    borderBottomColor: Colors.text.chatOther,
     transform: [{ rotate: '-90deg' }],
     zIndex: -1,
   },
   messageText: {
-    fontSize: 15, // Tamanho da fonte ligeiramente menor
-    color: '#000000',
+    fontSize: Typography.fontSizes.md - 1,
+    color: Colors.text.darkPrimary,
     flexShrink: 1,
-    paddingHorizontal: 0, // Remover padding horizontal aqui
-    // Adicionar lineHeight para melhor leitura
-    lineHeight: 20,
+    paddingHorizontal: 0,
+    lineHeight: Typography.lineHeights.default,
   },
   myMessageText: {
-    color: '#FFFFFF',
-    fontWeight: 'normal',
+    color: Colors.text.lightOnPrimary,
+    fontWeight: Typography.fontWeights.regular,
   },
   timeText: {
-    fontSize: 9, // Tamanho menor para timestamp
-    color: '#FFFFFF',
-    marginTop: 0, // Remover margem superior
-    marginLeft: 8, // Espaço à esquerda
-    alignSelf: 'flex-end', // Alinhar à direita dentro da bolha
-    // Adicionar um pequeno padding para não colar no texto/imagem
-    paddingLeft: 4,
+    fontSize: Typography.fontSizes.xxs,
+    color: Colors.text.lightOnPrimary,
+    marginTop: 0,
+    marginLeft: Spacing.sm,
+    alignSelf: 'flex-end',
+    paddingLeft: Spacing.xs,
   },
   deletedText: {
-    fontSize: 14, // Tamanho da fonte ajustado
-    color: '#888888',
+    fontSize: Typography.fontSizes.sm,
+    color: Colors.text.chatDeleted,
     fontStyle: 'italic',
-    marginLeft: 4,
+    marginLeft: Spacing.xs,
   },
   deletedIcon: {
-    fontSize: 16, // Tamanho ajustado
-    color: '#888888',
+    fontSize: Typography.fontSizes.md,
+    color: Colors.text.chatDeleted,
   },
   userName: {
-    fontSize: 12, // Tamanho menor para nome de usuário
-    fontWeight: '700',
-    color: '#4A90E2',
-    marginBottom: 1, // Reduzir margem inferior
-    marginLeft: 0, // Remover margem esquerda (avatar já tem)
+    fontSize: Typography.fontSizes.xs,
+    fontWeight: Typography.fontWeights.semibold,
+    color: Colors.primary.dark,
+    marginBottom: Spacing.xxs,
+    marginLeft: 0,
     letterSpacing: 0,
-    // Manter fontes do sistema
-    fontFamily: Platform.OS === 'ios' ? 'System' : 'Roboto',
+    fontFamily: Typography.fontFamily.system,
   },
   inputContainer: {
     flexDirection: 'row',
-    alignItems: 'flex-end', // Alinhar itens na parte inferior
-    paddingVertical: 6, // Ajustar padding vertical
-    paddingHorizontal: 8, // Ajustar padding horizontal
-    backgroundColor: '#F8F8F8', // Fundo cinza mais claro para input area
-    borderTopWidth: 1,
-    borderColor: '#EEEEEE', // Borda superior mais clara
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    paddingBottom: Platform.OS === 'ios' ? 20 : 6, // Ajustar padding inferior para iOS
+    alignItems: 'flex-end',
+    paddingVertical: Spacing.xs * 1.5, // 6
+    paddingHorizontal: Spacing.sm,
+    backgroundColor: Colors.background.card,
+    borderTopWidth: Borders.width.sm,
+    borderColor: Colors.border.light,
+    paddingBottom: Platform.OS === 'ios' ? Spacing.xl : Spacing.xs * 1.5, // 20 : 6
+    ...Shadows.header,
   },
   attachButton: {
-    padding: 8, // Ajustar padding
-    marginRight: 6, // Ajustar espaço
-    marginBottom: Platform.OS === 'ios' ? 0 : 6, // Alinhar com input no Android
+    padding: Spacing.sm,
+    marginRight: Spacing.xs * 1.5, // 6
+    marginBottom: Platform.OS === 'ios' ? 0 : Spacing.xs * 1.5, // 6
+    borderRadius: Borders.radius.sm,
+    backgroundColor: Colors.background.disabled,
   },
   input: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 20,
-    paddingHorizontal: 15,
-    paddingTop: 10, // Ajustar padding top
-    paddingBottom: 10, // Ajustar padding bottom
-    fontSize: 16,
+    backgroundColor: Colors.background.card,
+    borderRadius: Borders.radius.lg,
+    paddingHorizontal: Spacing.lg - 1, // 15
+    paddingTop: Spacing.sm * 1.25, // 10
+    paddingBottom: Spacing.sm * 1.25, // 10
+    fontSize: Typography.fontSizes.md,
     maxHeight: 120,
-    marginRight: 6, // Ajustar espaço
-    borderColor: '#E0E0E0',
-    borderWidth: 1,
-    // Adicionar minHeight para garantir altura mínima mesmo vazio
+    marginRight: Spacing.xs * 1.5, // 6
+    borderColor: Colors.border.light,
+    borderWidth: Borders.width.sm,
     minHeight: 40,
-    // Alinhar texto ao topo para multilinha
     textAlignVertical: 'top',
+    ...Shadows.input,
   },
   sendButton: {
-    backgroundColor: '#007AFF',
-    borderRadius: 20,
+    borderRadius: Borders.radius.circular, // 20
     width: 40,
     height: 40,
     justifyContent: 'center',
     alignItems: 'center',
-    marginLeft: 6, // Ajustar espaço
-    marginBottom: Platform.OS === 'ios' ? 0 : 6, // Alinhar com input no Android
+    marginLeft: Spacing.xs * 1.5, // 6
+    marginBottom: Platform.OS === 'ios' ? 0 : Spacing.xs * 1.5, // 6
+    ...Shadows.default,
+    overflow: 'hidden',
   },
   scrollToEndButton: {
     position: 'absolute',
-    bottom: 100, // Ajustar posição acima do input area
-    right: 20,
+    right: Spacing.xl,
     width: 40,
     height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)', // Fundo semi-transparente
+    borderRadius: Borders.radius.circular, // 20
+    backgroundColor: `rgba(${parseInt(Colors.primary.dark.slice(1, 3), 16)}, ${parseInt(Colors.primary.dark.slice(3, 5), 16)}, ${parseInt(Colors.primary.dark.slice(5, 7), 16)}, 0.8)`,
     justifyContent: 'center',
     alignItems: 'center',
     zIndex: 1,
+    ...Shadows.scrollToEnd,
   },
   scrollToEndIcon: {
-    color: '#FFFFFF',
-    fontSize: 20,
+    color: Colors.text.lightOnPrimary,
+    fontSize: Typography.fontSizes.xl,
   },
   fullScreenModalOverlay: {
     flex: 1,
@@ -692,17 +689,33 @@ const styles = StyleSheet.create({
   fullScreenMessageContainer: {
     maxWidth: '90%',
     maxHeight: '90%',
-    borderRadius: 10,
+    borderRadius: Borders.radius.sm,
   },
   fullScreenModalText: {
-    fontSize: 18,
-    color: '#FFFFFF',
+    fontSize: Typography.fontSizes.lg,
+    color: Colors.text.lightOnPrimary,
     textAlign: 'center',
   },
   fullScreenModalImage: {
     width: '100%',
     height: '100%',
-    borderRadius: 10,
+    borderRadius: Borders.radius.sm,
+  },
+  modalCloseButtonGradient: {
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.xxl,
+    borderRadius: Borders.radius.sm,
+    overflow: 'hidden',
+    ...Shadows.default,
+    alignSelf: 'stretch',
+    alignItems: 'center',
+  },
+  sendButtonGradient: {
+    width: 40,
+    height: 40,
+    borderRadius: Borders.radius.circular, // 20
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });
 
