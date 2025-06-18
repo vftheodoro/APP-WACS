@@ -3,7 +3,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
 
-import { LoginScreen } from '../screens/LoginScreen';
+import LoginScreen from '../screens/LoginScreen';
 import { ControlScreen } from '../screens/ControlScreen';
 import { MapScreen } from '../screens/MapScreen';
 // Removido import duplicado de tela de perfil
@@ -17,6 +17,7 @@ import LocationDetailScreen from '../screens/LocationDetailScreen';
 import SelectLocationMapScreen from '../screens/SelectLocationMapScreen';
 import UserProfileScreen from '../screens/UserProfileScreen';
 import { useAuth } from '../contexts/AuthContext';
+import RegisterScreen from '../screens/auth/RegisterScreen';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -77,11 +78,18 @@ export const AppNavigator = () => {
   return (
     <Stack.Navigator>
       {!user ? (
-        <Stack.Screen 
-          name="Login" 
-          component={LoginScreen}
-          options={{ headerShown: false }}
-        />
+        <>
+          <Stack.Screen 
+            name="Login" 
+            component={LoginScreen}
+            options={{ headerShown: false }}
+          />
+          <Stack.Screen
+            name="RegisterScreen"
+            component={RegisterScreen}
+            options={{ headerShown: false }}
+          />
+        </>
       ) : (
         <>
           {/* After login, navigate to MainSelectionScreen */}

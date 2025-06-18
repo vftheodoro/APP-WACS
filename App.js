@@ -4,7 +4,7 @@ import { StatusBar } from 'expo-status-bar';
 import { AuthProvider } from './src/contexts/AuthContext';
 import { ThemeProvider } from './src/contexts/ThemeContext';
 import { AppNavigator } from './src/navigation/AppNavigator';
-import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SearchHistoryProvider } from './src/contexts/SearchHistoryContext';
 import { ChatProvider } from './src/contexts/ChatContext';
@@ -65,7 +65,9 @@ export default function App() {
                 <BluetoothProvider>
                   <NavigationContainer>
                     <StatusBar style="auto" />
-                    <AppNavigator />
+                    <SafeAreaView style={{ flex: 1 }} edges={['top', 'bottom', 'left', 'right']}>
+                      <AppNavigator />
+                    </SafeAreaView>
                   </NavigationContainer>
                 </BluetoothProvider>
               </ChatProvider>
