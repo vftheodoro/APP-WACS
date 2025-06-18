@@ -20,6 +20,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useNavigation } from '@react-navigation/native';
+import ProfileForm from '../components/common/ProfileForm';
 
 const { width } = Dimensions.get('window');
 
@@ -32,6 +33,7 @@ export default function UserProfileScreen() {
   const [localImage, setLocalImage] = useState(null);
   const [fadeAnim] = useState(new Animated.Value(0));
   const [slideAnim] = useState(new Animated.Value(-50));
+  const [loading, setLoading] = useState(false);
   
   const navigation = useNavigation();
 
@@ -72,92 +74,42 @@ export default function UserProfileScreen() {
 
   const handlePickImage = async () => {
     try {
-      Alert.alert(
-        'Foto de Perfil',
-        'Escolha uma opção',
-        [
-          { text: 'Cancelar', style: 'cancel' },
-          { 
-            text: 'Escolher da Galeria', 
-            onPress: async () => {
-              // Solicitar permissões de acesso à galeria
-              const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-              
-              if (status !== 'granted') {
-                Alert.alert('Permissão negada', 'Precisamos de permissão para acessar suas fotos.');
-                return;
-              }
-
-              // Abrir seletor de imagem
-              const result = await ImagePicker.launchImageLibraryAsync({
-                mediaTypes: ImagePicker.MediaTypeOptions.Images,
-                allowsEditing: true,
-                aspect: [1, 1],
-                quality: 0.8,
-              });
-
-              if (!result.canceled && result.assets && result.assets[0]) {
-                setLocalImage(result.assets[0]);
-                handleUpdateProfilePicture(result.assets[0]);
-              }
-            } 
-          },
-          { 
-            text: 'Tirar Foto', 
-            onPress: async () => {
-              const { status } = await ImagePicker.requestCameraPermissionsAsync();
-              
-              if (status !== 'granted') {
-                Alert.alert('Permissão negada', 'Precisamos de permissão para acessar sua câmera.');
-                return;
-              }
-
-              const result = await ImagePicker.launchCameraAsync({
-                allowsEditing: true,
-                aspect: [1, 1],
-                quality: 0.8,
-              });
-
-              if (!result.canceled && result.assets && result.assets[0]) {
-                setLocalImage(result.assets[0]);
-                handleUpdateProfilePicture(result.assets[0]);
-              }
-            } 
-          },
-        ]
-      );
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8,
+      });
+      if (!result.canceled && result.assets && result.assets[0]) {
+        await updateProfilePicture(result.assets[0], setUploadProgress);
+      }
     } catch (error) {
-      console.error('Erro ao selecionar imagem:', error);
       Alert.alert('Erro', 'Não foi possível selecionar a imagem.');
     }
   };
 
-  const handleUpdateProfilePicture = async (imageAsset) => {
+  const handleSaveProfileForm = async (values) => {
+    setLoading(true);
     try {
-      await updateProfilePicture(imageAsset, (progress) => {
-        setUploadProgress(progress);
-      });
-      setUploadProgress(0);
-      Alert.alert('Sucesso', 'Foto de perfil atualizada com sucesso!');
-    } catch (error) {
-      console.error('Erro ao atualizar foto:', error);
-      setUploadProgress(0);
-    }
-  };
-
-  const handleSaveProfile = async () => {
-    try {
-      if (!name.trim()) {
-        Alert.alert('Erro', 'O nome não pode estar vazio.');
-        return;
+      // Atualiza foto de perfil se mudou
+      if (values.profilePic && values.profilePic !== user.photoURL) {
+        await updateProfilePicture({ uri: values.profilePic }, setUploadProgress);
       }
-
-      await updateUser({ displayName: name });
+      // Atualiza demais campos
+      await updateUser({
+        displayName: values.fullName,
+        birthdate: values.birthdate,
+        cidade: values.cidade,
+        mobilityType: values.mobilityType,
+        comorbidades: values.comorbidades,
+        // outros campos customizados se necessário
+      });
       setEditMode(false);
       Alert.alert('Sucesso', 'Perfil atualizado com sucesso!');
     } catch (error) {
-      console.error('Erro ao salvar perfil:', error);
       Alert.alert('Erro', 'Não foi possível atualizar o perfil.');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -227,293 +179,274 @@ export default function UserProfileScreen() {
   }
 
   return (
-    <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-      <LinearGradient
-        colors={['#1976d2', '#2196f3']}
-        style={styles.headerGradient}
-      >
-        <Animated.View 
-          style={[
-            styles.headerContainer,
-            {
-              opacity: fadeAnim,
-              transform: [{ translateY: slideAnim }]
-            }
-          ]}
-        >
+    <View style={{ flex: 1, backgroundColor: '#f8fafc' }}>
+      <ScrollView contentContainerStyle={{ paddingBottom: 40 }} showsVerticalScrollIndicator={false}>
+        {/* Header visual */}
+        <LinearGradient colors={['#1976d2', '#2196f3']} style={styles.headerGradient}>
           <View style={styles.headerContent}>
-            <TouchableOpacity
-              style={styles.backButton}
-              onPress={() => navigation.goBack()}
-            >
-              <Ionicons name="arrow-back" size={24} color="#fff" />
+            <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
+              <Ionicons name="arrow-back" size={26} color="#fff" />
             </TouchableOpacity>
             <Text style={styles.headerTitle}>Meu Perfil</Text>
-            <View style={styles.headerRightPlaceholder} />
-            <TouchableOpacity
-              style={styles.logoutButton}
-              onPress={() => setShowLogoutConfirm(true)}
-            >
-              <Ionicons name="log-out-outline" size={24} color="#fff" />
-            </TouchableOpacity>
           </View>
-        </Animated.View>
-      </LinearGradient>
-
-      <View style={styles.contentContainer}>
-        <View style={styles.card}>
-          <View style={styles.profileImageContainer}>
-            <TouchableOpacity onPress={handlePickImage} style={styles.profileImageWrapper}>
-              {user.photoURL ? (
-                <Image source={{ uri: user.photoURL }} style={styles.profileImage} />
-              ) : (
-                <View style={styles.profileImagePlaceholder}>
-                  <Text style={styles.profileImagePlaceholderText}>
-                    {user.name ? user.name.charAt(0).toUpperCase() : 'U'}
-                  </Text>
-                </View>
-              )}
-              <View style={styles.cameraIconContainer}>
-                <Ionicons name="camera" size={18} color="#fff" />
-              </View>
-            </TouchableOpacity>
-
-            {isUploading && (
-              <View style={styles.progressContainer}>
-                <View style={[styles.progressBar, { width: `${uploadProgress}%` }]} />
-                {uploadProgress > 5 && <Text style={styles.progressText}>{Math.round(uploadProgress)}%</Text>}
-              </View>
-            )}
-          </View>
-
-          <View style={styles.profileInfo}>
-            {editMode ? (
-              <TextInput
-                style={styles.nameInput}
-                value={name}
-                onChangeText={setName}
-                placeholder="Seu nome"
-                placeholderTextColor="#888"
-                autoCapitalize="words"
+        </LinearGradient>
+        {/* Foto de perfil centralizada, única */}
+        <View style={styles.avatarSection}>
+          <View style={styles.avatarWrapper}>
+            {user.photoURL ? (
+              <Image
+                source={{ uri: user.photoURL }}
+                style={styles.avatarLarge}
               />
             ) : (
-              <Text style={styles.userName}>{user.name}</Text>
-            )}
-            <Text style={styles.userEmail}>{user.email}</Text>
-
-            {editMode ? (
-              <View style={styles.editButtonsRow}>
-                <TouchableOpacity
-                  style={[styles.button, styles.cancelButton]}
-                  onPress={() => {
-                    setEditMode(false);
-                    setName(user.name || '');
-                  }}
-                >
-                  <Text style={styles.cancelButtonText}>Cancelar</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[styles.button, styles.saveButton]}
-                  onPress={handleSaveProfile}
-                  disabled={isUploading}
-                >
-                  <LinearGradient
-                    colors={['#1976d2', '#2196f3']}
-                    style={styles.saveButtonGradient}
-                  >
-                    {isUploading ? (
-                      <ActivityIndicator color="#fff" />
-                    ) : (
-                      <Text style={styles.saveButtonText}>Salvar</Text>
-                    )}
-                  </LinearGradient>
-                </TouchableOpacity>
+              <View style={[styles.avatarLarge, { backgroundColor: '#e3f2fd', alignItems: 'center', justifyContent: 'center' }]}> 
+                <Ionicons name="person-circle" size={100} color="#b0b0b0" />
               </View>
-            ) : (
-              <View style={styles.editButtonsRow}>
-                <TouchableOpacity
-                  style={[styles.button, styles.secondaryButton]}
-                  onPress={() => setEditMode(true)}
-                >
-                  <Ionicons name="create-outline" size={20} color="#1976d2" style={styles.buttonIcon} />
-                  <Text style={styles.secondaryButtonText}>Editar Perfil</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[styles.button, styles.secondaryButton]}
-                  onPress={() => setShowPasswordModal(true)}
-                >
-                  <Ionicons name="lock-closed-outline" size={20} color="#1976d2" style={styles.buttonIcon} />
-                  <Text style={styles.secondaryButtonText}>Alterar Senha</Text>
-                </TouchableOpacity>
+            )}
+            <TouchableOpacity style={styles.avatarEditBtn} onPress={handlePickImage} accessibilityLabel="Trocar foto de perfil">
+              <LinearGradient colors={['#1976d2', '#2196f3']} style={styles.avatarEditGradient}>
+                <Ionicons name="camera" size={22} color="#fff" />
+              </LinearGradient>
+            </TouchableOpacity>
+            {isUploading && (
+              <View style={styles.progressBarContainer}>
+                <View style={[styles.progressBar, { width: `${uploadProgress}%` }]} />
               </View>
             )}
           </View>
         </View>
-
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Informações da Conta</Text>
-
-          <View style={styles.infoItem}>
-            <View style={styles.infoIconContainer}>
-              <Ionicons name="person" size={22} color="#1976d2" />
-            </View>
-            <View style={styles.infoContent}>
-              <Text style={styles.infoLabel}>Nome</Text>
-              <Text style={styles.infoValue}>{user.name}</Text>
-            </View>
+        {/* Modo edição: formulário tela cheia */}
+        {editMode ? (
+          <View style={styles.editFormArea}>
+            <ProfileForm
+              initialValues={{
+                fullName: user.name || '',
+                email: user.email || '',
+                birthdate: user.birthdate || '',
+                cidade: user.cidade || '',
+                mobilityType: user.mobilityType || '',
+                comorbidades: user.comorbidades || [],
+                profilePic: user.photoURL || null,
+                acceptTerms: user.acceptTerms || true,
+              }}
+              onSave={handleSaveProfileForm}
+              onCancel={() => setEditMode(false)}
+              readOnlyEmail={true}
+              showTerms={true}
+              isEditMode={true}
+              loading={loading}
+            />
           </View>
-
-          <View style={styles.infoItem}>
-            <View style={styles.infoIconContainer}>
-              <Ionicons name="mail" size={22} color="#1976d2" />
+        ) : (
+          <View style={styles.infoArea}>
+            {/* Cartão de informações principais aprimorado */}
+            <View style={styles.profileCard}>
+              <View style={styles.infoRow}>
+                <Ionicons name="person" size={22} color="#1976d2" style={styles.infoIcon} />
+                <Text style={styles.infoLabel}>Nome</Text>
+                <Text style={styles.infoValue}>{user.name}</Text>
+              </View>
+              <View style={styles.infoRow}>
+                <Ionicons name="mail" size={22} color="#1976d2" style={styles.infoIcon} />
+                <Text style={styles.infoLabel}>Email</Text>
+                <Text style={styles.infoValue}>{user.email}</Text>
+              </View>
+              {user.birthdate && (
+                <View style={styles.infoRow}>
+                  <Ionicons name="calendar" size={22} color="#1976d2" style={styles.infoIcon} />
+                  <Text style={styles.infoLabel}>Nascimento</Text>
+                  <Text style={styles.infoValue}>{new Date(user.birthdate).toLocaleDateString('pt-BR')}</Text>
+                </View>
+              )}
+              <View style={styles.infoRow}>
+                <Ionicons name="location" size={22} color="#1976d2" style={styles.infoIcon} />
+                <Text style={styles.infoLabel}>Cidade</Text>
+                <Text style={styles.infoValue}>{user.cidade || '-'}</Text>
+                <View style={styles.ufBadge}><Text style={styles.ufBadgeText}>SP</Text></View>
+              </View>
+              {user.mobilityType && (
+                <View style={styles.infoRow}>
+                  <Ionicons name="walk" size={22} color="#1976d2" style={styles.infoIcon} />
+                  <Text style={styles.infoLabel}>Mobilidade</Text>
+                  <Text style={styles.infoValue}>{user.mobilityType}</Text>
+                </View>
+              )}
+              {user.comorbidades && user.comorbidades.length > 0 && (
+                <View style={styles.infoRow}>
+                  <Ionicons name="medkit" size={22} color="#1976d2" style={styles.infoIcon} />
+                  <Text style={styles.infoLabel}>Comorbidades</Text>
+                  <Text style={styles.infoValue}>{user.comorbidades.map(c => c.charAt(0).toUpperCase() + c.slice(1)).join(', ')}</Text>
+                </View>
+              )}
             </View>
-            <View style={styles.infoContent}>
-              <Text style={styles.infoLabel}>Email</Text>
-              <Text style={styles.infoValue}>{user.email}</Text>
-            </View>
-          </View>
-
-          <View style={[styles.infoItem, { borderBottomWidth: 0 }]}>
-            <View style={styles.infoIconContainer}>
-              <Ionicons name="key" size={22} color="#1976d2" />
-            </View>
-            <View style={styles.infoContent}>
-              <Text style={styles.infoLabel}>ID do Usuário</Text>
-              <Text style={styles.infoValue}>{user.id}</Text>
-            </View>
-          </View>
-        </View>
-      </View>
-
-      {/* Modals */}
-      <Modal
-        visible={showLogoutConfirm}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setShowLogoutConfirm(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Sair da conta?</Text>
-            <Text style={styles.modalText}>Tem certeza que deseja sair da sua conta?</Text>
-
-            <View style={styles.modalButtons}>
+            {/* Botões de ação aprimorados */}
+            <View style={styles.actionButtonsRow}>
               <TouchableOpacity
-                style={[styles.modalButton, styles.modalCancelButton]}
-                onPress={() => setShowLogoutConfirm(false)}
+                style={[styles.actionBtn, styles.actionBtnPrimary]}
+                onPress={() => setEditMode(true)}
+                activeOpacity={0.8}
+                accessibilityLabel="Editar perfil"
               >
-                <Text style={styles.modalCancelText}>Cancelar</Text>
+                <LinearGradient colors={['#1976d2', '#2196f3']} style={styles.actionBtnGradient}>
+                  <Ionicons name="create-outline" size={24} color="#fff" style={styles.actionBtnIcon} />
+                  <Text style={styles.actionBtnText}>Editar Perfil</Text>
+                </LinearGradient>
               </TouchableOpacity>
-
               <TouchableOpacity
-                style={[styles.modalButton, styles.modalConfirmButton]}
-                onPress={() => {
-                  setShowLogoutConfirm(false);
-                  handleLogout();
-                }}
+                style={[styles.actionBtn, styles.actionBtnPrimary]}
+                onPress={() => setShowPasswordModal(true)}
+                activeOpacity={0.8}
+                accessibilityLabel="Alterar senha"
               >
-                <LinearGradient
-                  colors={['#f44336', '#d32f2f']}
-                  style={styles.modalConfirmGradient}
-                >
-                  <Text style={styles.modalConfirmText}>Sair</Text>
+                <LinearGradient colors={['#1976d2', '#2196f3']} style={styles.actionBtnGradient}>
+                  <Ionicons name="lock-closed-outline" size={24} color="#fff" style={styles.actionBtnIcon} />
+                  <Text style={styles.actionBtnText}>Alterar Senha</Text>
+                </LinearGradient>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.actionBtn, styles.actionBtnDanger, { marginLeft: 0, marginRight: 0, marginTop: 8 }]}
+                onPress={() => setShowLogoutConfirm(true)}
+                activeOpacity={0.85}
+                accessibilityLabel="Sair da conta"
+              >
+                <LinearGradient colors={['#f44336', '#d32f2f']} style={styles.actionBtnGradientDanger}>
+                  <Ionicons name="log-out-outline" size={28} color="#fff" style={styles.actionBtnIcon} />
+                  <Text style={styles.actionBtnTextDanger}>Sair</Text>
                 </LinearGradient>
               </TouchableOpacity>
             </View>
           </View>
-        </View>
-      </Modal>
+        )}
+        {/* Modals */}
+        <Modal
+          visible={showLogoutConfirm}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setShowLogoutConfirm(false)}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalContent}>
+              <Text style={styles.modalTitle}>Sair da conta?</Text>
+              <Text style={styles.modalText}>Tem certeza que deseja sair da sua conta?</Text>
 
-      <Modal
-        visible={showPasswordModal}
-        transparent
-        animationType="fade"
-        onRequestClose={() => {
-          setShowPasswordModal(false);
-          setCurrentPassword('');
-          setNewPassword('');
-          setConfirmPassword('');
-          setPasswordError('');
-          setPasswordSuccess(false);
-        }}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, styles.passwordModalContent]}>
-            <Text style={styles.modalTitle}>Alterar Senha</Text>
-            
-            {passwordSuccess ? (
-              <View style={styles.successContainer}>
-                <Ionicons name="checkmark-circle" size={60} color="#34C759" />
-                <Text style={styles.successText}>Senha alterada com sucesso!</Text>
+              <View style={styles.modalButtons}>
+                <TouchableOpacity
+                  style={[styles.modalButton, styles.modalCancelButton]}
+                  onPress={() => setShowLogoutConfirm(false)}
+                >
+                  <Text style={styles.modalCancelText}>Cancelar</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[styles.modalButton, styles.modalConfirmButton]}
+                  onPress={() => {
+                    setShowLogoutConfirm(false);
+                    handleLogout();
+                  }}
+                >
+                  <LinearGradient
+                    colors={['#f44336', '#d32f2f']}
+                    style={styles.modalConfirmGradient}
+                  >
+                    <Text style={styles.modalConfirmText}>Sair</Text>
+                  </LinearGradient>
+                </TouchableOpacity>
               </View>
-            ) : (
-              <>
-                <TextInput
-                  style={styles.passwordInput}
-                  placeholder="Senha atual"
-                  placeholderTextColor="#888"
-                  value={currentPassword}
-                  onChangeText={setCurrentPassword}
-                  secureTextEntry
-                  autoCapitalize="none"
-                />
-                
-                <TextInput
-                  style={styles.passwordInput}
-                  placeholder="Nova senha"
-                  placeholderTextColor="#888"
-                  value={newPassword}
-                  onChangeText={setNewPassword}
-                  secureTextEntry
-                  autoCapitalize="none"
-                />
-                
-                <TextInput
-                  style={styles.passwordInput}
-                  placeholder="Confirmar nova senha"
-                  placeholderTextColor="#888"
-                  value={confirmPassword}
-                  onChangeText={setConfirmPassword}
-                  secureTextEntry
-                  autoCapitalize="none"
-                />
-                
-                {passwordError ? (
-                  <Text style={styles.errorText}>{passwordError}</Text>
-                ) : null}
-                
-                <View style={styles.modalButtons}>
-                  <TouchableOpacity
-                    style={[styles.modalButton, styles.modalCancelButton]}
-                    onPress={() => {
-                      setShowPasswordModal(false);
-                      setCurrentPassword('');
-                      setNewPassword('');
-                      setConfirmPassword('');
-                      setPasswordError('');
-                    }}
-                  >
-                    <Text style={styles.modalCancelText}>Cancelar</Text>
-                  </TouchableOpacity>
-                  
-                  <TouchableOpacity
-                    style={[styles.modalButton, styles.saveButton]}
-                    onPress={handleChangePassword}
-                  >
-                    <LinearGradient
-                      colors={['#1976d2', '#2196f3']}
-                      style={styles.saveButtonGradient}
-                    >
-                      <Text style={styles.saveButtonText}>Salvar</Text>
-                    </LinearGradient>
-                  </TouchableOpacity>
-                </View>
-              </>
-            )}
+            </View>
           </View>
-        </View>
-      </Modal>
-    </ScrollView>
+        </Modal>
+
+        <Modal
+          visible={showPasswordModal}
+          transparent
+          animationType="fade"
+          onRequestClose={() => {
+            setShowPasswordModal(false);
+            setCurrentPassword('');
+            setNewPassword('');
+            setConfirmPassword('');
+            setPasswordError('');
+            setPasswordSuccess(false);
+          }}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={[styles.modalContent, styles.passwordModalContent]}>
+              <Text style={styles.modalTitle}>Alterar Senha</Text>
+              
+              {passwordSuccess ? (
+                <View style={styles.successContainer}>
+                  <Ionicons name="checkmark-circle" size={60} color="#34C759" />
+                  <Text style={styles.successText}>Senha alterada com sucesso!</Text>
+                </View>
+              ) : (
+                <>
+                  <TextInput
+                    style={styles.passwordInput}
+                    placeholder="Senha atual"
+                    placeholderTextColor="#888"
+                    value={currentPassword}
+                    onChangeText={setCurrentPassword}
+                    secureTextEntry
+                    autoCapitalize="none"
+                  />
+                  
+                  <TextInput
+                    style={styles.passwordInput}
+                    placeholder="Nova senha"
+                    placeholderTextColor="#888"
+                    value={newPassword}
+                    onChangeText={setNewPassword}
+                    secureTextEntry
+                    autoCapitalize="none"
+                  />
+                  
+                  <TextInput
+                    style={styles.passwordInput}
+                    placeholder="Confirmar nova senha"
+                    placeholderTextColor="#888"
+                    value={confirmPassword}
+                    onChangeText={setConfirmPassword}
+                    secureTextEntry
+                    autoCapitalize="none"
+                  />
+                  
+                  {passwordError ? (
+                    <Text style={styles.errorText}>{passwordError}</Text>
+                  ) : null}
+                  
+                  <View style={styles.modalButtons}>
+                    <TouchableOpacity
+                      style={[styles.modalButton, styles.modalCancelButton]}
+                      onPress={() => {
+                        setShowPasswordModal(false);
+                        setCurrentPassword('');
+                        setNewPassword('');
+                        setConfirmPassword('');
+                        setPasswordError('');
+                      }}
+                    >
+                      <Text style={styles.modalCancelText}>Cancelar</Text>
+                    </TouchableOpacity>
+                    
+                    <TouchableOpacity
+                      style={[styles.modalButton, styles.saveButton]}
+                      onPress={handleChangePassword}
+                    >
+                      <LinearGradient
+                        colors={['#1976d2', '#2196f3']}
+                        style={styles.saveButtonGradient}
+                      >
+                        <Text style={styles.saveButtonText}>Salvar</Text>
+                      </LinearGradient>
+                    </TouchableOpacity>
+                  </View>
+                </>
+              )}
+            </View>
+          </View>
+        </Modal>
+      </ScrollView>
+    </View>
   );
 }
 
@@ -846,5 +779,116 @@ const styles = StyleSheet.create({
     marginTop: 12,
     fontSize: 16,
     color: '#666',
+  },
+  avatarSection: {
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  avatarWrapper: {
+    position: 'relative',
+  },
+  avatarLarge: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    overflow: 'hidden',
+  },
+  avatarEditBtn: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    padding: 8,
+    borderRadius: 15,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+  },
+  avatarEditGradient: {
+    padding: 8,
+    borderRadius: 15,
+    alignItems: 'center',
+  },
+  progressBarContainer: {
+    position: 'absolute',
+    bottom: -20,
+    left: 0,
+    right: 0,
+    height: 4,
+    backgroundColor: 'rgba(0,0,0,0.1)',
+    borderRadius: 2,
+    overflow: 'hidden',
+  },
+  editFormArea: {
+    padding: 20,
+  },
+  infoArea: {
+    padding: 20,
+  },
+  profileCard: {
+    backgroundColor: '#fff',
+    borderRadius: 20,
+    padding: 20,
+    marginBottom: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  infoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 8,
+  },
+  infoIcon: {
+    marginRight: 12,
+  },
+  actionButtonsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    width: '100%',
+    gap: 12,
+    marginBottom: 20,
+  },
+  actionBtn: {
+    flex: 1,
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  actionBtnGradient: {
+    padding: 12,
+    alignItems: 'center',
+  },
+  actionBtnIcon: {
+    marginRight: 8,
+  },
+  actionBtnText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  ufBadge: {
+    backgroundColor: '#1976d2',
+    borderRadius: 10,
+    padding: 2,
+    marginLeft: 8,
+  },
+  ufBadgeText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: 'bold',
+  },
+  actionBtnPrimary: {
+    backgroundColor: 'rgba(25, 118, 210, 0.1)',
+  },
+  actionBtnDanger: {
+    backgroundColor: 'rgba(244, 67, 54, 0.1)',
+  },
+  actionBtnGradientDanger: {
+    padding: 12,
+    alignItems: 'center',
+  },
+  actionBtnTextDanger: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
   },
 });

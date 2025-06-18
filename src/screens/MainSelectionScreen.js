@@ -294,7 +294,15 @@ export const MainSelectionScreen = () => {
         </Animated.View>
       </LinearGradient>
 
-      {/* Status da Cadeira - Card Moderno */}
+      {/* Ações Rápidas - AGORA ACIMA DO CARD DA CADEIRA */}
+      <View style={styles.quickActionsContainer}>
+        <Text style={styles.sectionTitle}>Ações Rápidas</Text>
+        <View style={styles.quickActionsGrid}>
+          {quickActions.map(renderQuickAction)}
+        </View>
+      </View>
+
+      {/* Status da Cadeira - Card Moderno (MENOR) */}
       <View style={[
         styles.statusCard,
         !isConnected && styles.statusCardDisconnected
@@ -311,11 +319,11 @@ export const MainSelectionScreen = () => {
           <Pressable onPress={handleQuickConnect} style={styles.quickConnectButton}>
             <Ionicons 
               name={getConnectionIcon()} 
-              size={20} 
+              size={16} 
               color={getConnectionColor()} 
             />
             {isConnecting && (
-              <Text style={styles.connectingText}>Conectando...</Text>
+              <Text style={[styles.connectingText, { fontSize: 12 }]}>Conectando...</Text>
             )}
           </Pressable>
         </View>
@@ -326,25 +334,25 @@ export const MainSelectionScreen = () => {
               <View style={styles.infoItem}>
                 <Ionicons 
                   name={getBatteryIcon()} 
-                  size={24} 
+                  size={18} 
                   color={getBatteryColor()} 
                 />
                 <Text style={styles.infoLabel}>Bateria</Text>
-                <Text style={[styles.infoValue, { color: getBatteryColor() }]}>
+                <Text style={[styles.infoValue, { color: getBatteryColor(), fontSize: 13 }]}>
                   {batteryLevel}%
                 </Text>
               </View>
               
               <View style={styles.infoItem}>
-                <Ionicons name="speedometer-outline" size={24} color="#FF9800" />
+                <Ionicons name="speedometer-outline" size={18} color="#FF9800" />
                 <Text style={styles.infoLabel}>Velocidade</Text>
-                <Text style={styles.infoValue}>Média</Text>
+                <Text style={[styles.infoValue, { fontSize: 13 }]}>Média</Text>
               </View>
               
               <View style={styles.infoItem}>
-                <Ionicons name="time-outline" size={24} color="#2196F3" />
+                <Ionicons name="time-outline" size={18} color="#2196F3" />
                 <Text style={styles.infoLabel}>Uso Hoje</Text>
-                <Text style={styles.infoValue}>2h 15m</Text>
+                <Text style={[styles.infoValue, { fontSize: 13 }]}>2h 15m</Text>
               </View>
             </View>
             <Pressable 
@@ -364,9 +372,9 @@ export const MainSelectionScreen = () => {
           <View style={styles.disconnectedInfo}>
             {/* Mostrar ícone de buscando se estiver conectando */}
             {isConnecting ? (
-              <Ionicons name="bluetooth-searching" size={48} color="#FF9800" />
+              <Ionicons name="bluetooth-searching" size={36} color="#FF9800" />
             ) : (
-              <Ionicons name="bluetooth-outline" size={48} color="#9E9E9E" />
+              <Ionicons name="bluetooth-outline" size={36} color="#9E9E9E" />
             )}
             <Text style={styles.disconnectedText}>
               {isConnecting ? 'Conectando...' : 'Cadeira não conectada'}
@@ -384,21 +392,13 @@ export const MainSelectionScreen = () => {
                   colors={['#1976d2', '#2196f3']}
                   style={styles.connectButtonGradient}
                 >
-                  <Ionicons name="bluetooth-outline" size={20} color="#fff" />
+                  <Ionicons name="bluetooth-outline" size={16} color="#fff" />
                   <Text style={styles.connectButtonText}>Conectar Cadeira</Text>
                 </LinearGradient>
               </Pressable>
             )}
           </View>
         )}
-      </View>
-
-      {/* Ações Rápidas */}
-      <View style={styles.quickActionsContainer}>
-        <Text style={styles.sectionTitle}>Ações Rápidas</Text>
-        <View style={styles.quickActionsGrid}>
-          {quickActions.map(renderQuickAction)}
-        </View>
       </View>
 
       {/* Notícias e Dicas */}
@@ -523,9 +523,11 @@ const styles = StyleSheet.create({
   },
   statusCard: {
     backgroundColor: '#fff',
-    margin: 20,
-    borderRadius: 20,
-    padding: 20,
+    marginHorizontal: 12,
+    marginTop: 0,
+    marginBottom: 16,
+    borderRadius: 16,
+    padding: 16,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.1,
@@ -635,7 +637,9 @@ const styles = StyleSheet.create({
   },
   quickActionsContainer: {
     paddingHorizontal: 20,
-    marginBottom: 20,
+    paddingTop: 16,
+    paddingBottom: 16,
+    marginBottom: 0,
   },
   sectionTitle: {
     fontSize: 18,
@@ -682,8 +686,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     marginHorizontal: 20,
     borderRadius: 16,
-    padding: 20,
-    marginBottom: 20,
+    padding: 16,
+    marginBottom: 16,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
@@ -720,7 +724,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     marginHorizontal: 20,
     borderRadius: 16,
-    padding: 20,
+    padding: 16,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
