@@ -284,7 +284,7 @@ export const MainSelectionScreen = () => {
             <View style={styles.greetingContainer}>
               <Text style={styles.timeGreeting}>{getTimeGreeting()},</Text>
               <Text style={styles.userName}>{user?.name || 'Usuário'}!</Text>
-              <Text style={styles.welcomeSubtext}>Como posso ajudar hoje?</Text>
+              <Text style={styles.welcomeSubtext}>Bem-Vindo(a) ao WACS!</Text>
             </View>
           </View>
           
