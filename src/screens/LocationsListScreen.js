@@ -14,7 +14,9 @@ import {
   StatusBar,
   Alert,
   Platform,
-  BackHandler
+  BackHandler,
+  Modal,
+  TouchableWithoutFeedback
 } from 'react-native';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { fetchLocations } from '../services/firebase/locations';
@@ -25,6 +27,8 @@ import { collection, addDoc, serverTimestamp, deleteDoc, doc } from 'firebase/fi
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { THEME } from '../config/constants';
 import { useTheme } from '../contexts/ThemeContext';
+import { LinearGradient } from 'expo-linear-gradient';
+import AppHeader from '../components/common/AppHeader';
 
 const { width, height } = Dimensions.get('window');
 
@@ -42,8 +46,8 @@ export default function LocationsListScreen() {
   const [sortBy, setSortBy] = useState('newest'); // newest, rating, name, distance
   const [filterBy, setFilterBy] = useState('all'); // all, wheelchair, blind, deaf, etc.
   const [viewMode, setViewMode] = useState('grid'); // grid, list
-  const [selectedItems, setSelectedItems] = useState([]);
-  const [selectionMode, setSelectionMode] = useState(false);
+  const [filterModalVisible, setFilterModalVisible] = useState(false);
+  const [sortModalVisible, setSortModalVisible] = useState(false);
 
   // Animations
   const searchAnimation = useRef(new Animated.Value(0)).current;
@@ -166,49 +170,6 @@ export default function LocationsListScreen() {
 
   const searchInputRef = useRef();
 
-  // Selection mode functions
-  const toggleSelectionMode = () => {
-    setSelectionMode(!selectionMode);
-    setSelectedItems([]);
-  };
-
-  const toggleItemSelection = (itemId) => {
-    if (selectedItems.includes(itemId)) {
-      setSelectedItems(selectedItems.filter(id => id !== itemId));
-    } else {
-      setSelectedItems([...selectedItems, itemId]);
-    }
-  };
-
-  const deleteSelectedItems = () => {
-    Alert.alert(
-      'Confirmar Exclusão',
-      `Deseja excluir ${selectedItems.length} local(is)?`,
-      [
-        {
-          text: 'Cancelar',
-          style: 'cancel',
-        },
-        {
-          text: 'Excluir',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await Promise.all(
-                selectedItems.map(id => deleteDoc(doc(db, 'accessibleLocations', id)))
-              );
-              setSelectedItems([]);
-              setSelectionMode(false);
-              loadLocations();
-            } catch (error) {
-              Alert.alert('Erro', 'Não foi possível excluir os locais selecionados.');
-            }
-          },
-        },
-      ]
-    );
-  };
-
   // Enhanced star rendering with animation
   const renderStars = (rating = 0) => {
     const stars = [];
@@ -282,37 +243,12 @@ export default function LocationsListScreen() {
 
   // Enhanced location rendering
   const renderLocation = ({ item, index }) => {
-    const isSelected = selectedItems.includes(item.id);
-    const isNewest = index === 0 && sortBy === 'newest';
-
     return (
       <TouchableOpacity
-        style={getLocationCardStyle(item.rating, isSelected)}
+        style={getLocationCardStyle(item.rating)}
         activeOpacity={0.7}
-        onPress={() => {
-          if (selectionMode) {
-            toggleItemSelection(item.id);
-          } else {
-            navigation.navigate('LocationDetail', { locationId: item.id });
-          }
-        }}
-        onLongPress={() => {
-          if (!selectionMode) {
-            setSelectionMode(true);
-            setSelectedItems([item.id]);
-          }
-        }}
+        onPress={() => navigation.navigate('LocationDetail', { locationId: item.id })}
       >
-        {selectionMode && (
-          <View style={styles.selectionIndicator}>
-            <Ionicons
-              name={isSelected ? 'checkmark-circle' : 'ellipse-outline'}
-              size={24}
-              color={isSelected ? theme.colors.primary : '#DDD'}
-            />
-          </View>
-        )}
-
         <View style={viewMode === 'grid' ? styles.gridImageContainer : styles.listImageContainer}>
           {item.imageUrl ? (
             <>
@@ -321,11 +257,6 @@ export default function LocationsListScreen() {
                 style={viewMode === 'grid' ? styles.gridImage : styles.listImage}
                 resizeMode="cover"
               />
-              {isNewest && (
-                <View style={styles.newBadge}>
-                  <Text style={styles.newBadgeText}>NOVO</Text>
-                </View>
-              )}
             </>
           ) : (
             <View style={styles.placeholderImage}>
@@ -430,145 +361,37 @@ export default function LocationsListScreen() {
   useFocusEffect(
     useCallback(() => {
       const onBackPress = () => {
-        if (selectionMode) {
-          setSelectionMode(false);
-          setSelectedItems([]);
-          return true;
-        }
-        return false;
+        return true;
       };
 
       const subscription = BackHandler.addEventListener('hardwareBackPress', onBackPress);
       return () => subscription.remove();
-    }, [selectionMode])
+    }, [])
   );
 
   // Header component
-  const renderHeader = () => (
-    <View style={styles.header}>
-      <View style={styles.headerTop}>
-        <Text style={styles.headerTitle}>
-          {selectionMode ? `${selectedItems.length} selecionado(s)` : 'Locais Acessíveis'}
-        </Text>
-        <View style={styles.headerActions}>
-          {!selectionMode ? (
-            <>
-              <TouchableOpacity onPress={toggleSearch} style={styles.headerButton}>
-                <Ionicons name="search" size={24} color={theme.colors.text} />
-              </TouchableOpacity>
-              <TouchableOpacity
-                onPress={() => setViewMode(viewMode === 'grid' ? 'list' : 'grid')}
-                style={styles.headerButton}
-              >
-                <Ionicons
-                  name={viewMode === 'grid' ? 'list' : 'grid'}
-                  size={24}
-                  color={theme.colors.text}
-                />
-              </TouchableOpacity>
-              <TouchableOpacity onPress={toggleSelectionMode} style={styles.headerButton}>
-                <Ionicons name="checkmark-circle-outline" size={24} color={theme.colors.text} />
-              </TouchableOpacity>
-            </>
-          ) : (
-            <>
-              <TouchableOpacity onPress={deleteSelectedItems} style={styles.headerButton}>
-                <Ionicons name="trash" size={24} color="#F44336" />
-              </TouchableOpacity>
-              <TouchableOpacity onPress={toggleSelectionMode} style={styles.headerButton}>
-                <Ionicons name="close" size={24} color={theme.colors.text} />
-              </TouchableOpacity>
-            </>
-          )}
-        </View>
-      </View>
-
-      {/* Search bar */}
-      <Animated.View
-        style={[
-          styles.searchContainer,
-          {
-            height: searchAnimation.interpolate({
-              inputRange: [0, 1],
-              outputRange: [0, 50],
-            }),
-            opacity: searchAnimation,
-          },
-        ]}
-      >
-        <TextInput
-          ref={searchInputRef}
-          style={styles.searchInput}
-          placeholder="Buscar locais..."
-          value={searchQuery}
-          onChangeText={handleSearch}
-          clearButtonMode="while-editing"
-        />
-      </Animated.View>
-
-      {/* Filter and sort options */}
-      <View style={styles.controlsContainer}>
-        <View style={styles.filtersRow}>
-          <FlatList
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            data={filterOptions}
-            keyExtractor={item => item.key}
-            renderItem={({ item }) => (
-              <TouchableOpacity
-                style={[
-                  styles.filterChip,
-                  {
-                    backgroundColor: filterBy === item.key ? item.color : '#F0F0F0',
-                  }
-                ]}
-                onPress={() => {
-                  setFilterBy(item.key);
-                  applyFiltersAndSort(locations, searchQuery, sortBy, item.key);
-                }}
-              >
-                <Ionicons
-                  name={item.icon}
-                  size={16}
-                  color={filterBy === item.key ? 'white' : '#666'}
-                />
-                <Text
-                  style={[
-                    styles.filterChipText,
-                    { color: filterBy === item.key ? 'white' : '#666' }
-                  ]}
-                >
-                  {item.label}
-                </Text>
-              </TouchableOpacity>
-            )}
-            style={styles.filtersList}
-          />
-        </View>
-
-        <TouchableOpacity
-          style={styles.sortButton}
-          onPress={() => {
-            // Cycle through sort options
-            const currentIndex = sortOptions.findIndex(opt => opt.key === sortBy);
-            const nextIndex = (currentIndex + 1) % sortOptions.length;
-            const nextSort = sortOptions[nextIndex].key;
-            setSortBy(nextSort);
-            applyFiltersAndSort(locations, searchQuery, nextSort, filterBy);
-          }}
-        >
-          <Ionicons
-            name={sortOptions.find(opt => opt.key === sortBy)?.icon || 'swap-vertical'}
-            size={16}
-            color={theme.colors.primary}
-          />
-          <Text style={styles.sortButtonText}>
-            {sortOptions.find(opt => opt.key === sortBy)?.label || 'Ordenar'}
-          </Text>
-        </TouchableOpacity>
-      </View>
-    </View>
-  );
+  const headerActions = [
+    {
+      icon: 'search',
+      label: '',
+      onPress: toggleSearch,
+    },
+    {
+      icon: 'filter',
+      label: filterOptions.find(f => f.key === filterBy)?.label || 'Filtro',
+      onPress: () => setFilterModalVisible(true),
+    },
+    {
+      icon: 'swap-vertical',
+      label: sortOptions.find(s => s.key === sortBy)?.label || 'Ordenar',
+      onPress: () => setSortModalVisible(true),
+    },
+    {
+      icon: viewMode === 'grid' ? 'list' : 'grid',
+      label: viewMode === 'grid' ? 'Lista' : 'Grade',
+      onPress: () => setViewMode(viewMode === 'grid' ? 'list' : 'grid'),
+    },
+  ];
 
   const onRefresh = () => {
     setRefreshing(true);
@@ -623,7 +446,35 @@ export default function LocationsListScreen() {
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
       <StatusBar barStyle="dark-content" backgroundColor={theme.colors.background} />
       
-      {renderHeader()}
+      <AppHeader
+        title="Locais Acessíveis"
+        onBack={() => navigation.goBack()}
+        actions={headerActions}
+      >
+        {/* Search bar */}
+        <Animated.View
+          style={[
+            styles.searchContainer,
+            {
+              height: searchAnimation.interpolate({
+                inputRange: [0, 1],
+                outputRange: [0, 50],
+              }),
+              opacity: searchAnimation,
+            },
+          ]}
+        >
+          <TextInput
+            ref={searchInputRef}
+            style={styles.searchInput}
+            placeholder="Buscar locais..."
+            placeholderTextColor="#888"
+            value={searchQuery}
+            onChangeText={handleSearch}
+            clearButtonMode="while-editing"
+          />
+        </Animated.View>
+      </AppHeader>
 
       <Animated.View style={[styles.listContainer, { opacity: fadeAnimation }]}>
         <FlatList
@@ -656,15 +507,13 @@ export default function LocationsListScreen() {
       </Animated.View>
 
       {/* Floating Action Button */}
-      {!selectionMode && (
-        <TouchableOpacity
-          style={[styles.fab, { backgroundColor: theme.colors.primary }]}
-          onPress={() => setAddModalVisible(true)}
-          activeOpacity={0.8}
-        >
-          <Ionicons name="add" size={28} color="white" />
-        </TouchableOpacity>
-      )}
+      <TouchableOpacity
+        style={[styles.fab, { backgroundColor: theme.colors.primary }]}
+        onPress={() => setAddModalVisible(true)}
+        activeOpacity={0.8}
+      >
+        <Ionicons name="add" size={28} color="white" />
+      </TouchableOpacity>
 
       {/* Add Location Modal */}
       <AddLocationModal
@@ -725,38 +574,65 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#FAFAFA',
   },
-  header: {
-    backgroundColor: 'white',
+  headerGradient: {
     paddingTop: Platform.OS === 'ios' ? 50 : 20,
+    paddingBottom: 18,
     paddingHorizontal: 16,
-    paddingBottom: 16,
+    borderBottomLeftRadius: 25,
+    borderBottomRightRadius: 25,
+    elevation: 8,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 4,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.12,
+    shadowRadius: 10,
     zIndex: 1000,
   },
-  headerTop: {
+  headerContainer: {
+    // Para garantir espaçamento e alinhamento
+  },
+  headerTopRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 12,
+    justifyContent: 'space-between',
+    marginBottom: 4,
+  },
+  backButton: {
+    padding: 8,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.18)',
+    marginRight: 8,
+    width: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   headerTitle: {
-    fontSize: 24,
+    flex: 1,
+    fontSize: 22,
     fontWeight: 'bold',
-    color: '#333',
+    color: '#fff',
+    textAlign: 'center',
   },
-  headerActions: {
+  headerActionsRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+    gap: 4,
   },
   headerButton: {
-    padding: 8,
-    marginLeft: 8,
-    borderRadius: 20,
-    backgroundColor: '#F5F5F5',
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.12)',
+    borderRadius: 16,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    marginRight: 4,
+  },
+  headerButtonText: {
+    color: '#fff',
+    fontSize: 13,
+    fontWeight: '600',
+    marginLeft: 4,
   },
   searchContainer: {
     overflow: 'hidden',
@@ -764,10 +640,16 @@ const styles = StyleSheet.create({
   },
   searchInput: {
     height: 40,
-    backgroundColor: '#F5F5F5',
+    backgroundColor: '#fff',
     borderRadius: 20,
     paddingHorizontal: 16,
     fontSize: 16,
+    color: '#333',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
+    elevation: 2,
   },
   controlsContainer: {
     flexDirection: 'row',
@@ -799,14 +681,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 12,
     paddingVertical: 8,
-    backgroundColor: '#F0F0F0',
+    backgroundColor: 'rgba(255,255,255,0.2)',
     borderRadius: 16,
   },
   sortButtonText: {
     fontSize: 12,
     fontWeight: '600',
     marginLeft: 4,
-    color: THEME.colors.primary,
+    color: '#fff',
   },
   listContainer: {
     flex: 1,
@@ -968,15 +850,6 @@ const styles = StyleSheet.create({
     color: '#666',
     fontWeight: 'bold',
   },
-  selectionIndicator: {
-    position: 'absolute',
-    top: 8,
-    left: 8,
-    zIndex: 10,
-    backgroundColor: 'white',
-    borderRadius: 12,
-    padding: 2,
-  },
   // Loading and Error States
   centered: {
     flex: 1,
@@ -1075,5 +948,69 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 8,
     elevation: 8,
+  },
+  pickerSummaryRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-start',
+    marginBottom: 8,
+    marginTop: 4,
+    gap: 12,
+  },
+  pickerSummaryButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.12)',
+    borderRadius: 16,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    marginRight: 8,
+  },
+  pickerSummaryText: {
+    color: '#fff',
+    fontSize: 13,
+    fontWeight: '600',
+    marginLeft: 6,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.3)',
+  },
+  pickerModalContainer: {
+    position: 'absolute',
+    top: '25%',
+    left: '10%',
+    right: '10%',
+    backgroundColor: '#fff',
+    borderRadius: 18,
+    padding: 24,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.18,
+    shadowRadius: 12,
+    elevation: 10,
+    zIndex: 1001,
+  },
+  pickerModalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#1976d2',
+    marginBottom: 18,
+    textAlign: 'center',
+  },
+  pickerModalItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 8,
+    borderRadius: 10,
+    marginBottom: 4,
+  },
+  pickerModalItemSelected: {
+    backgroundColor: '#e3f2fd',
+  },
+  pickerModalItemText: {
+    fontSize: 15,
+    color: '#333',
   },
 });

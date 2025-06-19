@@ -122,7 +122,7 @@ export const AppNavigator = () => {
           <Stack.Screen
             name="LocationsListScreen"
             component={LocationsListScreen}
-            options={{ title: 'Locais' }}
+            options={{ headerShown: false }}
           />
            <Stack.Screen
             name="UserProfileScreen"
