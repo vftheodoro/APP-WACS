@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Modal, View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView, Alert, Image } from 'react-native';
 import { Ionicons, FontAwesome5, MaterialCommunityIcons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
+import { auth } from '../services/firebase/config';
 
 // Opções de acessibilidade alinhadas com AccessibilityIcons.js
 const ACCESSIBILITY_OPTIONS = [
@@ -54,7 +55,24 @@ export default function AddLocationModal({ visible, onClose, onSubmit, navigatio
       return;
     }
     setSubmitting(true);
-    await onSubmit({ name, address, latitude, longitude, accessibility, image });
+    
+    const currentUser = auth.currentUser;
+    if (!currentUser) {
+      Alert.alert('Erro', 'Você precisa estar logado para adicionar um local.');
+      setSubmitting(false);
+      return;
+    }
+
+    await onSubmit({
+      name,
+      address,
+      latitude,
+      longitude,
+      accessibility,
+      image,
+      authorId: currentUser.uid
+    });
+
     setSubmitting(false);
     setName('');
     setAddress('');

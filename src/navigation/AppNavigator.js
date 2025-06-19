@@ -144,7 +144,7 @@ export const AppNavigator = () => {
           <Stack.Screen
             name="LocationDetail"
             component={LocationDetailScreen}
-            options={{ title: 'Detalhes do Local' }}
+            options={{ headerShown: false }}
           />
           <Stack.Screen
             name="SelectLocationMap"
