@@ -139,6 +139,68 @@ const PLACE_TYPE_LABELS = {
   other: 'Outros',
 };
 
+// Adicionar dicionário de explicações dos recursos
+const FEATURE_EXPLANATIONS = {
+  'wheelchair': 'Acessível para cadeirantes: rampas, portas largas e circulação livre.',
+  'blind': 'Acessível para deficientes visuais: sinalização tátil, braile, piso tátil.',
+  'deaf': 'Acessível para deficientes auditivos: sinalização visual, intérprete de Libras.',
+  'elevator': 'Elevador disponível para acesso entre andares.',
+  'parking': 'Vaga reservada para pessoas com deficiência.',
+  'restroom': 'Banheiro adaptado: barras de apoio, espaço para cadeira de rodas.',
+  'ramp': 'Rampa de acesso para cadeirantes.',
+  'Acessível para cadeirantes': 'Acessível para cadeirantes: rampas, portas largas e circulação livre.',
+  'Piso tátil': 'Piso tátil para orientação de deficientes visuais.',
+  'Rampa de acesso': 'Rampa de acesso para cadeirantes.',
+  'Banheiro acessível': 'Banheiro adaptado: barras de apoio, espaço para cadeira de rodas.',
+  'Vaga PCD': 'Vaga reservada para pessoas com deficiência.',
+  'Atendimento prioritário': 'Atendimento prioritário para pessoas com deficiência.',
+  'Cão-guia permitido': 'Cão-guia permitido no local.',
+  'Sinalização em braile': 'Sinalização em braile para deficientes visuais.',
+};
+
+// Função utilitária para extrair latitude/longitude do campo location ou dos campos separados
+function getLatLngFromLocationField(item) {
+  if (typeof item.latitude === 'number' && typeof item.longitude === 'number') {
+    return { latitude: item.latitude, longitude: item.longitude };
+  }
+  if (item.location && typeof item.location === 'object' && !Array.isArray(item.location)) {
+    if (typeof item.location.latitude === 'number' && typeof item.location.longitude === 'number') {
+      return { latitude: item.location.latitude, longitude: item.location.longitude };
+    }
+  }
+  if (Array.isArray(item.location) && item.location.length === 2) {
+    let lat = item.location[0];
+    let lng = item.location[1];
+    if (typeof lat === 'string') lat = parseLatLngString(lat, true);
+    if (typeof lng === 'string') lng = parseLatLngString(lng, false);
+    if (typeof lat === 'number' && typeof lng === 'number' && !isNaN(lat) && !isNaN(lng)) {
+      return { latitude: lat, longitude: lng };
+    }
+  }
+  if (typeof item.location === 'string') {
+    let str = item.location.replace(/\[|\]/g, '').trim();
+    const parts = str.split(',');
+    if (parts.length === 2) {
+      const lat = parseLatLngString(parts[0], true);
+      const lng = parseLatLngString(parts[1], false);
+      if (typeof lat === 'number' && typeof lng === 'number' && !isNaN(lat) && !isNaN(lng)) {
+        return { latitude: lat, longitude: lng };
+      }
+    }
+  }
+  return null;
+}
+function parseLatLngString(str, isLat) {
+  if (typeof str !== 'string') return NaN;
+  const match = str.match(/([\d.\-]+)[^\d\-]*([NSLOEW])?/i);
+  if (!match) return NaN;
+  let value = parseFloat(match[1]);
+  if (isNaN(value)) return NaN;
+  if (/S|O|W/i.test(str)) value = -Math.abs(value);
+  else value = Math.abs(value);
+  return value;
+}
+
 export default function LocationDetailScreen() {
   const route = useRoute();
   const navigation = useNavigation();
@@ -155,6 +217,7 @@ export default function LocationDetailScreen() {
   const [isFavorite, setIsFavorite] = useState(false);
   const [distance, setDistance] = useState(null);
   const { currentUser } = useAuth();
+  const [reviewsToShow, setReviewsToShow] = useState(3);
   
   // Função para carregar dados
   const loadData = useCallback(async () => {
@@ -180,25 +243,23 @@ export default function LocationDetailScreen() {
   
   // Função para obter localização do usuário e calcular distância
   const getUserLocation = useCallback(async () => {
-    if (!location?.latitude) return;
+    // Usar função utilitária para extrair lat/lng do local
+    const latLng = location ? getLatLngFromLocationField(location) : null;
+    if (!latLng) return;
     try {
       let { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== 'granted') {
-        console.log('Permissão de localização negada');
         return;
       }
-      
       let userLoc = await Location.getCurrentPositionAsync({});
-        const dist = calculateDistance(
-          userLoc.coords.latitude,
-          userLoc.coords.longitude,
-          location.latitude,
-          location.longitude
-        );
-        setDistance(dist);
-    } catch (error) {
-      console.log('Erro ao obter localização:', error);
-    }
+      const dist = calculateDistance(
+        userLoc.coords.latitude,
+        userLoc.coords.longitude,
+        latLng.latitude,
+        latLng.longitude
+      );
+      setDistance(dist);
+    } catch (error) {}
   }, [location]);
   
   useEffect(() => {
@@ -388,11 +449,12 @@ export default function LocationDetailScreen() {
                 </Text>
               </View>
             )}
+            {/* Badge de distância igual ao card da lista */}
             {distance !== null && (
-              <View style={styles.distanceContainer}>
-                <Ionicons name="location-outline" size={16} color={COLORS.primary} />
-                <Text style={styles.distanceText}>{distance.toFixed(1)} km de distância</Text>
-          </View>
+              <View style={styles.distanceBadgeDetail}>
+                <Ionicons name="navigate" size={16} color="#fff" style={{ marginRight: 4 }} />
+                <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 14 }}>{distance.toFixed(1)} km</Text>
+              </View>
             )}
           </View>
           
@@ -430,7 +492,8 @@ export default function LocationDetailScreen() {
               <Text style={styles.description}>{location.description}</Text>
             )}
           </View>
-          
+
+          {/* Botões de ação: Avaliar e Ver no Mapa, lado a lado */}
           <View style={styles.actionButtonsGrid}>
             <TouchableOpacity style={styles.gridButton} onPress={() => setReviewModalVisible(true)}>
               <LinearGradient colors={[COLORS.primary, COLORS.primaryLight]} style={styles.gridButtonGradient}>
@@ -438,32 +501,72 @@ export default function LocationDetailScreen() {
                 <Text style={styles.gridButtonText}>Avaliar</Text>
               </LinearGradient>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.gridButton} onPress={openInMaps}>
-              <LinearGradient colors={['#43a047', '#66bb6a']} style={styles.gridButtonGradient}>
+            <TouchableOpacity
+              style={styles.gridButton}
+              onPress={() => {
+                const latLng = getLatLngFromLocationField(location);
+                navigation.navigate('MapScreen', {
+                  locationId: locationId,
+                  latitude: latLng?.latitude,
+                  longitude: latLng?.longitude,
+                  centerOn: 'location',
+                });
+              }}
+            >
+              <LinearGradient colors={['#1976d2', '#63a4ff']} style={styles.gridButtonGradient}>
                 <Ionicons name="map-outline" size={24} color="#fff" />
-                <Text style={styles.gridButtonText}>Navegar</Text>
+                <Text style={styles.gridButtonText}>Ver no Mapa</Text>
               </LinearGradient>
-              </TouchableOpacity>
+            </TouchableOpacity>
           </View>
           
+          {/* Seção de Recursos de Acessibilidade melhorada */}
           {location.accessibilityFeatures?.length > 0 && (
             <View style={styles.card}>
-              <Text style={styles.sectionTitle}>Recursos de Acessibilidade</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
+                <Ionicons name="accessibility" size={22} color={COLORS.primary} style={{ marginRight: 8 }} />
+                <Text style={[styles.sectionTitle, { marginBottom: 0 }]}>Recursos de Acessibilidade</Text>
+              </View>
               <View style={styles.featuresGrid}>
                 {location.accessibilityFeatures.map((featureKey) => {
                   const data = getFeatureData(featureKey);
                   const avgRating = location.featureRatings?.[featureKey];
-                  const ratingColor = getRatingColor(avgRating);
+                  let bgColor = '#f6f8fa';
+                  if (avgRating !== undefined) {
+                    if (avgRating >= 4) bgColor = '#e6f9ed';
+                    else if (avgRating >= 3) bgColor = '#fffbe6';
+                    else if (avgRating > 0) bgColor = '#ffeaea';
+                  }
                   return (
-                    <View key={featureKey} style={styles.featureItem}>
-                      <Ionicons name={data.icon} size={24} color={ratingColor} />
-                      <Text style={styles.featureText}>{data.name}</Text>
+                    <TouchableOpacity
+                      key={featureKey}
+                      activeOpacity={0.85}
+                      style={[styles.accessChip, { backgroundColor: bgColor }]}
+                      onPress={() => {
+                        const msg = FEATURE_EXPLANATIONS[featureKey] || data.name;
+                        Alert.alert(data.name, msg);
+                      }}
+                    >
+                      <View style={{
+                        backgroundColor: avgRating >= 4 ? '#43a04722' : avgRating >= 3 ? '#FFC10722' : avgRating > 0 ? '#F4433622' : '#e0e0e0',
+                        borderRadius: 14,
+                        padding: 6,
+                        marginBottom: 2,
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                      }}>
+                        <Ionicons name={data.icon} size={22} color={avgRating >= 4 ? '#43a047' : avgRating >= 3 ? '#FFC107' : avgRating > 0 ? '#F44336' : '#b0b0b0'} />
+                      </View>
+                      <Text style={styles.accessChipLabel}>{data.name}</Text>
                       {avgRating !== undefined ? (
-                        <Text style={[styles.featureRatingText, { color: ratingColor }]}>{avgRating.toFixed(1)}</Text>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 1 }}>
+                          <Ionicons name="star" size={12} color="#FFD700" style={{ marginRight: 2 }} />
+                          <Text style={styles.accessChipRating}>{avgRating.toFixed(1)}</Text>
+                        </View>
                       ) : (
-                        <Text style={[styles.featureRatingText, { color: COLORS.textSecondary }]}>N/A</Text>
-              )}
-            </View>
+                        <Text style={[styles.accessChipRating, { color: '#b0b0b0', marginTop: 1 }]}>N/A</Text>
+                      )}
+                    </TouchableOpacity>
                   );
                 })}
               </View>
@@ -473,48 +576,53 @@ export default function LocationDetailScreen() {
           <View style={styles.card}>
             <Text style={styles.sectionTitle}>Avaliações ({reviews.length})</Text>
             {reviews.length > 0 ? (
-              reviews.map(item => (
-                <View key={item.id} style={styles.reviewItem}>
-                  <View style={styles.reviewHeader}>
-                    {item.photoURL ? (
-                      <Image source={{uri: item.photoURL}} style={styles.reviewerPhoto} />
-              ) : (
-                      <View style={styles.reviewerPhotoPlaceholder}>
-                         <Ionicons name="person-outline" size={18} color="#666" />
-                </View>
-              )}
-                    <View style={styles.reviewHeaderText}>
-                      <Text style={styles.reviewUser}>{item.userName || 'Anônimo'}</Text>
-                      {renderStars(item.rating, 16)}
-              </View>
-            </View>
-                  {item.comment && <Text style={styles.reviewComment}>{item.comment}</Text>}
-                  
-                  {item.featureRatings && Object.keys(item.featureRatings).length > 0 && (
-                     <View style={styles.detailedRatingsContainer}>
-                       {Object.entries(item.featureRatings).map(([feature, rating]) => {
-                         const featureData = getFeatureData(feature);
-                         return (
-                           <View key={feature} style={styles.detailedRatingItem}>
-                             <Ionicons name={featureData.icon} size={16} color={getRatingColor(rating)} />
-                             <Text style={styles.detailedRatingText}>{featureData.name}:</Text>
-                             {renderStars(rating, 14)}
-                </View>
-                         );
-                       })}
-              </View>
-            )}
-
-                  <Text style={styles.reviewDate}>
-                    {item.createdAt?.toDate?.().toLocaleDateString?.('pt-BR') || ''}
-              </Text>
+              <>
+                {reviews.slice(-reviewsToShow).reverse().map(item => (
+                  <View key={item.id} style={styles.reviewItem}>
+                    <View style={styles.reviewHeader}>
+                      {item.photoURL ? (
+                        <Image source={{uri: item.photoURL}} style={styles.reviewerPhoto} />
+                      ) : (
+                        <View style={styles.reviewerPhotoPlaceholder}>
+                          <Ionicons name="person-outline" size={18} color="#666" />
+                        </View>
+                      )}
+                      <View style={styles.reviewHeaderText}>
+                        <Text style={styles.reviewUser}>{item.userName || 'Anônimo'}</Text>
+                        {renderStars(item.rating, 16)}
                       </View>
-              ))
+                    </View>
+                    {item.comment && <Text style={styles.reviewComment}>{item.comment}</Text>}
+                    {item.featureRatings && Object.keys(item.featureRatings).length > 0 && (
+                      <View style={styles.detailedRatingsContainer}>
+                        {Object.entries(item.featureRatings).map(([feature, rating]) => {
+                          const featureData = getFeatureData(feature);
+                          return (
+                            <View key={feature} style={styles.detailedRatingItem}>
+                              <Ionicons name={featureData.icon} size={16} color={getRatingColor(rating)} />
+                              <Text style={styles.detailedRatingText}>{featureData.name}:</Text>
+                              {renderStars(rating, 14)}
+                            </View>
+                          );
+                        })}
+                      </View>
+                    )}
+                    <Text style={styles.reviewDate}>
+                      {item.createdAt?.toDate?.().toLocaleDateString?.('pt-BR') || ''}
+                    </Text>
+                  </View>
+                ))}
+                {reviewsToShow < reviews.length && (
+                  <TouchableOpacity style={{ alignSelf: 'center', marginTop: 10 }} onPress={() => setReviewsToShow(reviewsToShow + 3)}>
+                    <Text style={{ color: COLORS.primary, fontWeight: 'bold', fontSize: 15 }}>Ver mais avaliações</Text>
+                  </TouchableOpacity>
+                )}
+              </>
             ) : (
               <Text style={styles.noReviewsText}>Nenhuma avaliação ainda.</Text>
             )}
-                    </View>
-            </View>
+          </View>
+        </View>
       </ScrollView>
 
       <ReviewModal 
@@ -849,5 +957,50 @@ const styles = StyleSheet.create({
     backgroundColor: '#e2e8f0',
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  accessChip: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 14,
+    paddingVertical: 8,
+    paddingHorizontal: 8,
+    margin: 4,
+    minWidth: 70,
+    maxWidth: 90,
+    flex: 1,
+    elevation: 1,
+    shadowColor: '#000',
+    shadowOpacity: 0.04,
+    shadowOffset: { width: 0, height: 1 },
+    shadowRadius: 2,
+    transform: [{ scale: 1 }],
+  },
+  accessChipLabel: {
+    marginTop: 4,
+    fontSize: 11,
+    color: '#333',
+    textAlign: 'center',
+    fontWeight: '500',
+  },
+  accessChipRating: {
+    fontSize: 11,
+    fontWeight: 'bold',
+    color: '#222',
+  },
+  distanceBadgeDetail: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    backgroundColor: 'rgba(25, 118, 210, 0.95)',
+    borderRadius: 16,
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    marginTop: 4,
+    marginBottom: 4,
+    shadowColor: '#1976d2',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.18,
+    shadowRadius: 8,
+    elevation: 4,
   },
 });

@@ -6,7 +6,7 @@ import { Ionicons, MaterialIcons, FontAwesome5 } from '@expo/vector-icons';
 import Constants from 'expo-constants';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { fetchLocations } from '../services/firebase/locations';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import AppHeader from '../components/common/AppHeader';
 import SearchBar from '../components/SearchBar';
@@ -69,6 +69,20 @@ const MapScreen = () => {
   const [selectedLocationReviews, setSelectedLocationReviews] = useState([]);
   const [loadingReviews, setLoadingReviews] = useState(false);
   const [isFavorite, setIsFavorite] = useState(false);
+
+  // Adicionar estado para initialRegion
+  const [mapInitialRegion, setMapInitialRegion] = useState(null);
+
+  // Estado para loading da tela
+  const [showLoading, setShowLoading] = useState(true);
+
+  // Estado para saber se o mapa está pronto
+  const [mapReady, setMapReady] = useState(false);
+  const [didAnimateToLocal, setDidAnimateToLocal] = useState(false);
+
+  const navigation = useNavigation();
+  const route = useRoute();
+  const { locationId } = route.params || {};
 
   // Buscar locais acessíveis do Firestore ao montar
   useEffect(() => {
@@ -441,8 +455,6 @@ const MapScreen = () => {
     }
   };
 
-  const navigation = useNavigation();
-
   const handleShare = async () => {
     if (!selectedLocation) return;
     try {
@@ -470,6 +482,93 @@ const MapScreen = () => {
     setDestination({ latitude: selectedLocation.latitude, longitude: selectedLocation.longitude });
     // getRoute será chamado pelo useEffect de destination
   };
+
+  // Atualizar initialRegion ao receber params ou localização do usuário
+  useEffect(() => {
+    if (route.params && route.params.centerOn === 'location' && route.params.latitude && route.params.longitude) {
+      setMapInitialRegion({
+        latitude: route.params.latitude,
+        longitude: route.params.longitude,
+        latitudeDelta: 0.01,
+        longitudeDelta: 0.01,
+      });
+    } else if (location) {
+      setMapInitialRegion({
+        latitude: location.latitude,
+        longitude: location.longitude,
+        latitudeDelta: 0.01,
+        longitudeDelta: 0.01,
+      });
+    }
+  }, [route.params, location]);
+
+  // Splash de carregamento inicial
+  useEffect(() => {
+    // Espera carregar locais acessíveis e localização inicial
+    if (mapInitialRegion && !loadingAccessible) {
+      setTimeout(() => setShowLoading(false), 1200); // Splash mínimo de 1.2s
+    }
+  }, [mapInitialRegion, loadingAccessible]);
+
+  // Exibir modal de detalhes do local após 2-3 segundos ao abrir o mapa com locationId
+  useEffect(() => {
+    if (!showLoading && route.params && route.params.locationId && accessibleLocations.length > 0) {
+      const loc = accessibleLocations.find(l => l.id === route.params.locationId);
+      if (loc) {
+        setTimeout(() => setSelectedLocation(loc), 2200); // 2.2s após mostrar o mapa
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showLoading, route.params, accessibleLocations]);
+
+  // Novo: animação de transição do usuário para o local selecionado, só após o mapa estar pronto
+  useEffect(() => {
+    if (
+      !didAnimateToLocal &&
+      mapReady &&
+      showLoading === false &&
+      route.params &&
+      route.params.centerOn === 'location' &&
+      route.params.latitude &&
+      route.params.longitude &&
+      location
+    ) {
+      setDidAnimateToLocal(true);
+      // 1. Centraliza próximo do usuário (zoom fechado)
+      if (mapRef.current) {
+        mapRef.current.animateToRegion({
+          latitude: location.latitude,
+          longitude: location.longitude,
+          latitudeDelta: 0.005,
+          longitudeDelta: 0.005,
+        }, 800);
+      }
+      // 2. Após 1s, anima para o local selecionado (zoom suave)
+      setTimeout(() => {
+        if (mapRef.current) {
+          mapRef.current.animateToRegion({
+            latitude: route.params.latitude,
+            longitude: route.params.longitude,
+            latitudeDelta: 0.01,
+            longitudeDelta: 0.01,
+          }, 1200);
+        }
+      }, 1000);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mapReady, showLoading, route.params, location]);
+
+  // Resetar didAnimateToLocal ao abrir a tela novamente
+  useEffect(() => { setDidAnimateToLocal(false); }, [route.key]);
+
+  if (showLoading) {
+    return (
+      <View style={{ flex: 1, backgroundColor: COLORS.background, justifyContent: 'center', alignItems: 'center' }}>
+        <ActivityIndicator size="large" color={COLORS.primary} />
+        <Text style={{ marginTop: 18, fontSize: 18, color: COLORS.primary, fontWeight: 'bold' }}>Carregando mapa...</Text>
+      </View>
+    );
+  }
 
   return (
     <View style={{ flex: 1, backgroundColor: COLORS.background }}>
@@ -539,21 +638,11 @@ const MapScreen = () => {
         style={styles.map}
         customMapStyle={mapCustomStyle}
         provider={PROVIDER_GOOGLE}
-        initialRegion={location ? {
-          latitude: location.latitude,
-          longitude: location.longitude,
-          latitudeDelta: 0.01,
-          longitudeDelta: 0.01,
-        } : undefined}
-        region={location ? {
-          latitude: location.latitude,
-          longitude: location.longitude,
-          latitudeDelta: 0.01,
-          longitudeDelta: 0.01,
-        } : undefined}
+        initialRegion={mapInitialRegion}
         showsUserLocation
         showsMyLocationButton={false}
         onLongPress={handleLongPress}
+        onMapReady={() => setMapReady(true)}
       >
         {location && (
           <Marker

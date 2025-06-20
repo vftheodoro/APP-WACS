@@ -501,7 +501,7 @@ export default function LocationsListScreen() {
               <Text style={{ marginLeft: 6, fontSize: 13, color: '#1976d2', fontWeight: 'bold' }}>
                 {PLACE_TYPE_LABELS[item.placeType] || item.placeType}
               </Text>
-            </View>
+    </View>
           )}
         </View>
       </TouchableOpacity>
