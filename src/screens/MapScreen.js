@@ -10,6 +10,14 @@ import { useNavigation } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import AppHeader from '../components/common/AppHeader';
 import SearchBar from '../components/SearchBar';
+import CustomMarker from '../components/mapas/CustomMarker.js';
+import AccessibilityIcons from '../components/mapas/AccessibilityIcons.js';
+import LivePanel from '../components/mapas/LivePanel.js';
+import AccessibleLocationDetailPanel from '../components/mapas/AccessibleLocationDetailPanel.js';
+import { calculateDistance, decodePolyline, getManeuverIcon } from '../utils/mapUtils';
+import MapSearchPanel from '../components/mapas/MapSearchPanel.js';
+import { Share } from 'react-native';
+import { fetchReviewsForLocation } from '../services/firebase/locations';
 
 const GOOGLE_MAPS_APIKEY = Constants.expoConfig.extra.GOOGLE_MAPS_API_KEY;
 const { width, height } = Dimensions.get('window');
@@ -56,6 +64,11 @@ const MapScreen = () => {
 
   // Adicionar no início do componente:
   const [selectedLocation, setSelectedLocation] = useState(null);
+
+  // Adicionar estados e funções antes do return:
+  const [selectedLocationReviews, setSelectedLocationReviews] = useState([]);
+  const [loadingReviews, setLoadingReviews] = useState(false);
+  const [isFavorite, setIsFavorite] = useState(false);
 
   // Buscar locais acessíveis do Firestore ao montar
   useEffect(() => {
@@ -292,34 +305,6 @@ const MapScreen = () => {
     setLoadingRoute(false);
   };
 
-  // Decodificador de polyline Google
-  function decodePolyline(encoded) {
-    let points = [];
-    let index = 0, len = encoded.length;
-    let lat = 0, lng = 0;
-    while (index < len) {
-      let b, shift = 0, result = 0;
-      do {
-        b = encoded.charCodeAt(index++) - 63;
-        result |= (b & 0x1f) << shift;
-        shift += 5;
-      } while (b >= 0x20);
-      let dlat = ((result & 1) ? ~(result >> 1) : (result >> 1));
-      lat += dlat;
-      shift = 0;
-      result = 0;
-      do {
-        b = encoded.charCodeAt(index++) - 63;
-        result |= (b & 0x1f) << shift;
-        shift += 5;
-      } while (b >= 0x20);
-      let dlng = ((result & 1) ? ~(result >> 1) : (result >> 1));
-      lng += dlng;
-      points.push({ latitude: lat / 1e5, longitude: lng / 1e5 });
-    }
-    return points;
-  }
-
   // Centralizar no usuário
   const centerOnUser = () => {
     if (mapRef.current && location) {
@@ -403,23 +388,6 @@ const MapScreen = () => {
     }, 5000); // Verificar a cada 5 segundos
   };
 
-  // Calcular distância entre dois pontos em metros
-  const calculateDistance = (lat1, lon1, lat2, lon2) => {
-    const R = 6371e3; // Raio da Terra em metros
-    const φ1 = lat1 * Math.PI / 180;
-    const φ2 = lat2 * Math.PI / 180;
-    const Δφ = (lat2 - lat1) * Math.PI / 180;
-    const Δλ = (lon2 - lon1) * Math.PI / 180;
-
-    const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) +
-              Math.cos(φ1) * Math.cos(φ2) *
-              Math.sin(Δλ/2) * Math.sin(Δλ/2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-    const distance = R * c;
-
-    return distance; // Distância em metros
-  };
-
   // Obter ícone com base no tipo de manobra
   const getManeuverIcon = (maneuver) => {
     switch (maneuver) {
@@ -475,6 +443,34 @@ const MapScreen = () => {
 
   const navigation = useNavigation();
 
+  const handleShare = async () => {
+    if (!selectedLocation) return;
+    try {
+      await Share.share({
+        message: `Confira este local acessível no WACS: ${selectedLocation.name}. Endereço: ${selectedLocation.address}`,
+        title: `WACS: ${selectedLocation.name}`
+      });
+    } catch (error) {
+      Alert.alert('Erro', 'Não foi possível compartilhar o local.');
+    }
+  };
+
+  useEffect(() => {
+    if (selectedLocation) {
+      setLoadingReviews(true);
+      fetchReviewsForLocation(selectedLocation.id)
+        .then(revs => setSelectedLocationReviews(revs))
+        .catch(() => setSelectedLocationReviews([]))
+        .finally(() => setLoadingReviews(false));
+    }
+  }, [selectedLocation]);
+
+  const handleStartRoute = () => {
+    if (!selectedLocation) return;
+    setDestination({ latitude: selectedLocation.latitude, longitude: selectedLocation.longitude });
+    // getRoute será chamado pelo useEffect de destination
+  };
+
   return (
     <View style={{ flex: 1, backgroundColor: COLORS.background }}>
       <StatusBar barStyle="dark-content" backgroundColor={COLORS.background} />
@@ -518,100 +514,25 @@ const MapScreen = () => {
         )}
       </View>
       {/* Autocomplete aprimorado */}
-      {(searchResults.length > 0 || autoCompleteLoading || (showSearchHistory && searchText.length === 0 && (searchHistory.length > 0 || nearbyPlaces.length > 0))) && (
-        <View style={{
-          position: 'absolute',
-          top: 120,
-          left: 0,
-          right: 0,
-          backgroundColor: '#fff',
-          borderRadius: 18,
-          marginHorizontal: 16,
-          shadowColor: '#000',
-          shadowOffset: { width: 0, height: 4 },
-          shadowOpacity: 0.13,
-          shadowRadius: 12,
-          elevation: 8,
-          zIndex: 100,
-          maxHeight: height * 0.45,
-        }}>
-          {autoCompleteLoading ? (
-            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', padding: 18 }}>
-              <ActivityIndicator size="small" color={COLORS.primary} />
-              <Text style={{ marginLeft: 10, color: COLORS.textSecondary }}>Buscando locais...</Text>
-            </View>
-          ) : searchResults.length > 0 ? (
-            <FlatList
-              data={searchResults}
-              keyExtractor={item => item.id}
-              renderItem={({ item }) => (
-                <TouchableOpacity style={{ flexDirection: 'row', alignItems: 'center', padding: 14, borderBottomWidth: 1, borderBottomColor: '#f0f0f0' }} onPress={() => selectPlace(item)}>
-                  <MaterialIcons name="location-on" size={22} color={COLORS.primary} style={{ marginRight: 10 }} />
-                  <View style={{ flex: 1 }}>
-                    <Text style={{ fontWeight: 'bold', color: '#333', fontSize: 15 }} numberOfLines={1}>
-                      {/* Destacar termo buscado */}
-                      {item.name.split(new RegExp(`(${searchText})`, 'gi')).map((part, i) =>
-                        part.toLowerCase() === searchText.toLowerCase() ? <Text key={i} style={{ backgroundColor: '#e3f2fd', color: COLORS.primary }}>{part}</Text> : part
-                      )}
-                    </Text>
-                    <Text style={{ color: '#666', fontSize: 13 }} numberOfLines={1}>{item.address}</Text>
-                    {item.distance && (
-                      <Text style={{ color: COLORS.accent, fontSize: 12 }}>
-                        {item.distance < 1000 ? `${Math.round(item.distance)}m` : `${(item.distance / 1000).toFixed(1)}km`} de distância
-                      </Text>
-                    )}
-                  </View>
-                </TouchableOpacity>
-              )}
-              keyboardShouldPersistTaps="handled"
-              showsVerticalScrollIndicator={false}
-            />
-          ) : showSearchHistory && searchText.length === 0 && (searchHistory.length > 0 || nearbyPlaces.length > 0) ? (
-            <ScrollView keyboardShouldPersistTaps="handled">
-              {searchHistory.length > 0 && (
-                <View>
-                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 12, backgroundColor: '#f8f9fa', borderBottomWidth: 1, borderBottomColor: '#eee' }}>
-                    <Text style={{ fontWeight: 'bold', color: '#333', fontSize: 14 }}>Histórico de pesquisa</Text>
-                    <TouchableOpacity onPress={clearSearchHistory}><Text style={{ color: '#007bff', fontSize: 13 }}>Limpar</Text></TouchableOpacity>
-                  </View>
-                  {searchHistory.map(item => (
-                    <TouchableOpacity key={item.id} style={{ flexDirection: 'row', alignItems: 'center', padding: 14, borderBottomWidth: 1, borderBottomColor: '#f0f0f0' }} onPress={() => selectHistoryItem(item)}>
-                      <MaterialIcons name="history" size={20} color={COLORS.textSecondary} style={{ marginRight: 10 }} />
-                      <View style={{ flex: 1 }}>
-                        <Text style={{ fontWeight: 'bold', color: '#333', fontSize: 15 }} numberOfLines={1}>{item.name}</Text>
-                        <Text style={{ color: '#666', fontSize: 13 }} numberOfLines={1}>{item.address}</Text>
-                      </View>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              )}
-              {nearbyPlaces.length > 0 && (
-                <View>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', padding: 12, backgroundColor: '#f8f9fa', borderBottomWidth: 1, borderBottomColor: '#eee' }}>
-                    <Text style={{ fontWeight: 'bold', color: '#333', fontSize: 14 }}>Lugares próximos</Text>
-                  </View>
-                  {nearbyPlaces.map(place => (
-                    <TouchableOpacity key={place.id} style={{ flexDirection: 'row', alignItems: 'center', padding: 14, borderBottomWidth: 1, borderBottomColor: '#f0f0f0' }} onPress={() => selectPlace(place)}>
-                      <MaterialIcons name="near-me" size={20} color={COLORS.accent} style={{ marginRight: 10 }} />
-                      <View style={{ flex: 1 }}>
-                        <Text style={{ fontWeight: 'bold', color: '#333', fontSize: 15 }} numberOfLines={1}>{place.name}</Text>
-                        <Text style={{ color: '#666', fontSize: 13 }} numberOfLines={1}>{place.address}</Text>
-                        <Text style={{ color: COLORS.accent, fontSize: 12 }}>
-                          {place.distance < 1000 ? `${Math.round(place.distance)}m` : `${(place.distance / 1000).toFixed(1)}km`} de distância
-                        </Text>
-                      </View>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              )}
-            </ScrollView>
-          ) : (
-            <View style={{ alignItems: 'center', padding: 18 }}>
-              <Text style={{ color: COLORS.textSecondary, fontSize: 15 }}>Nenhum resultado encontrado.</Text>
-            </View>
-          )}
-        </View>
-      )}
+      <MapSearchPanel
+        searchText={searchText}
+        setSearchText={setSearchText}
+        searchResults={searchResults}
+        setSearchResults={setSearchResults}
+        isSearching={isSearching}
+        autoCompleteLoading={autoCompleteLoading}
+        showSearchHistory={showSearchHistory}
+        setShowSearchHistory={setShowSearchHistory}
+        searchHistory={searchHistory}
+        clearSearchHistory={clearSearchHistory}
+        nearbyPlaces={nearbyPlaces}
+        selectPlace={selectPlace}
+        selectHistoryItem={selectHistoryItem}
+        searchPlaces={searchPlaces}
+        searchInputRef={searchInputRef}
+        isSearchFocused={isSearchFocused}
+        setIsSearchFocused={setIsSearchFocused}
+      />
       {/* Mapa */}
       <MapView
         ref={mapRef}
@@ -765,91 +686,22 @@ const MapScreen = () => {
       )}
       {/* Painel flutuante de informações do local acessível */}
       {selectedLocation && (
-        <TouchableOpacity
-          activeOpacity={1}
-          onPress={() => setSelectedLocation(null)}
-          style={{
-            position: 'absolute',
-            left: 0,
-            right: 0,
-            bottom: 0,
-            top: 0,
-            backgroundColor: 'rgba(0,0,0,0.18)',
-            zIndex: 200,
-            justifyContent: 'flex-end',
+        <AccessibleLocationDetailPanel
+          location={selectedLocation}
+          onClose={() => setSelectedLocation(null)}
+          onViewDetails={() => {
+            setSelectedLocation(null);
+            navigation.navigate('LocationDetail', { locationId: selectedLocation.id });
           }}
-        >
-          <TouchableOpacity
-            activeOpacity={1}
-            style={{
-              backgroundColor: '#fff',
-              borderTopLeftRadius: 24,
-              borderTopRightRadius: 24,
-              padding: 22,
-              marginHorizontal: 0,
-              shadowColor: '#000',
-              shadowOffset: { width: 0, height: -4 },
-              shadowOpacity: 0.18,
-              shadowRadius: 12,
-              elevation: 16,
-              minHeight: 180,
-            }}
-            onPress={e => e.stopPropagation && e.stopPropagation()}
-          >
-            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
-              <Text style={{ fontSize: 18, fontWeight: 'bold', color: COLORS.primary, flex: 1 }} numberOfLines={2}>{selectedLocation.name}</Text>
-              <TouchableOpacity onPress={() => setSelectedLocation(null)} style={{ marginLeft: 8 }} accessibilityLabel="Fechar">
-                <Ionicons name="close" size={24} color={COLORS.textSecondary} />
-              </TouchableOpacity>
-            </View>
-            <Text style={{ color: COLORS.textSecondary, fontSize: 14, marginBottom: 6 }}>{selectedLocation.address}</Text>
-            {/* Pontuação geral */}
-            {selectedLocation.rating > 0 && (
-              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
-                <Ionicons name="star" size={18} color="#FFD700" />
-                <Text style={{ fontWeight: 'bold', color: '#333', fontSize: 15, marginLeft: 4 }}>{selectedLocation.rating.toFixed(1)}</Text>
-                <Text style={{ color: COLORS.textSecondary, fontSize: 13, marginLeft: 8 }}>({selectedLocation.reviewCount || 0} avaliações)</Text>
-              </View>
-            )}
-            {/* Acessibilidades oferecidas */}
-            {selectedLocation.accessibilityFeatures && selectedLocation.accessibilityFeatures.length > 0 && (
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 8 }}>
-                {selectedLocation.accessibilityFeatures.map((feature, idx) => {
-                  // Definir ícone e cor conforme filterOptions
-                  const filterOptions = [
-                    { key: 'wheelchair', label: 'Cadeirante', icon: 'walk', color: '#4CAF50' },
-                    { key: 'blind', label: 'Deficiência Visual', icon: 'eye-off', color: '#FF9800' },
-                    { key: 'deaf', label: 'Deficiência Auditiva', icon: 'ear', color: '#9C27B0' },
-                    { key: 'elevator', label: 'Elevador', icon: 'swap-vertical', color: '#2196F3' },
-                    { key: 'parking', label: 'Estacionamento', icon: 'car', color: '#795548' },
-                    { key: 'restroom', label: 'Banheiro Adaptado', icon: 'body', color: '#607D8B' },
-                    { key: 'ramp', label: 'Rampa', icon: 'enter', color: '#F44336' },
-                  ];
-                  const featureData = filterOptions.find(f => f.key === feature);
-                  const featureRating = selectedLocation.featureRatings?.[feature] || 0;
-                  return (
-                    <View key={idx} style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: (featureData?.color || '#1976d2') + '18', borderRadius: 14, paddingVertical: 6, paddingHorizontal: 12, marginRight: 8 }}>
-                      <Ionicons name={featureData?.icon || 'help-circle'} size={16} color={featureData?.color || COLORS.primary} style={{ marginRight: 6 }} />
-                      <Text style={{ color: featureData?.color || COLORS.primary, fontWeight: 'bold', fontSize: 13 }}>{featureData?.label || feature}</Text>
-                      {featureRating > 0 && (
-                        <Text style={{ color: featureData?.color || COLORS.primary, fontWeight: 'bold', fontSize: 13, marginLeft: 4 }}>{featureRating.toFixed(1)}</Text>
-                      )}
-                    </View>
-                  );
-                })}
-              </ScrollView>
-            )}
-            <TouchableOpacity
-              style={{ marginTop: 8, backgroundColor: COLORS.primary, borderRadius: 12, paddingVertical: 10, alignItems: 'center' }}
-              onPress={() => {
-                setSelectedLocation(null);
-                navigation.navigate('LocationDetail', { locationId: selectedLocation.id });
-              }}
-            >
-              <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 15 }}>Ver detalhes</Text>
-            </TouchableOpacity>
-          </TouchableOpacity>
-        </TouchableOpacity>
+          userLocation={location}
+          onStartRoute={handleStartRoute}
+          loadingRoute={loadingRoute}
+          routeInfo={info}
+          onShare={handleShare}
+          isFavorite={isFavorite}
+          onToggleFavorite={() => setIsFavorite(fav => !fav)}
+          reviews={selectedLocationReviews}
+        />
       )}
     </View>
   );

@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
-export const NavigationPanel = ({ 
+const NavigationPanel = ({ 
   onStartNavigation, 
   onCancelNavigation,
   distance,
@@ -47,6 +47,8 @@ export const NavigationPanel = ({
     </View>
   );
 };
+
+export default NavigationPanel;
 
 const styles = StyleSheet.create({
   container: {
