@@ -18,6 +18,7 @@ import SelectLocationMapScreen from '../screens/SelectLocationMapScreen';
 import UserProfileScreen from '../screens/UserProfileScreen';
 import { useAuth } from '../contexts/AuthContext';
 import RegisterScreen from '../screens/auth/RegisterScreen';
+import AddLocationScreen from '../screens/AddLocationScreen';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -149,7 +150,12 @@ export const AppNavigator = () => {
           <Stack.Screen
             name="SelectLocationMap"
             component={SelectLocationMapScreen}
-            options={{ title: 'Selecionar Local' }}
+            options={{ headerShown: false }}
+          />
+          <Stack.Screen
+            name="AddLocation"
+            component={AddLocationScreen}
+            options={{ headerShown: false }}
           />
         </>
       )}

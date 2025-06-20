@@ -19,9 +19,8 @@ import {
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { fetchLocations } from '../services/firebase/locations';
 import { Ionicons } from '@expo/vector-icons';
-import AddLocationModal from '../components/AddLocationModal';
 import { db, storage, auth } from '../services/firebase/config';
-import { collection, addDoc, serverTimestamp, deleteDoc, doc } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp, deleteDoc, doc, runTransaction } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { THEME } from '../config/constants';
 import { useTheme } from '../contexts/ThemeContext';
@@ -30,13 +29,11 @@ import AppHeader from '../components/common/AppHeader';
 
 export default function LocationsListScreen() {
   // State management
-  const [addModalVisible, setAddModalVisible] = useState(false);
   const [locations, setLocations] = useState([]);
   const [displayedLocations, setDisplayedLocations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
-  const [selectedLocation, setSelectedLocation] = useState(null);
   const [sortBy, setSortBy] = useState('newest'); // newest, rating, name, distance
   const [filterBy, setFilterBy] = useState('all'); // all, wheelchair, blind, deaf, etc.
   const [viewMode, setViewMode] = useState('grid'); // grid, list
@@ -120,28 +117,6 @@ export default function LocationsListScreen() {
   useEffect(() => {
     loadLocations();
   }, [loadLocations]);
-
-  useEffect(() => {
-    const unsubscribe = navigation.addListener('focus', () => {
-      const route = navigation.getState().routes.find(r => r.name === 'LocationsList');
-      if (route?.params?.selectedLat && route?.params?.selectedLng) {
-        setSelectedLocation({
-          latitude: route.params.selectedLat,
-          longitude: route.params.selectedLng,
-          address: route.params.selectedAddress || ''
-        });
-        
-        navigation.setParams({
-          selectedLat: undefined,
-          selectedLng: undefined,
-          selectedAddress: undefined
-        });
-        
-        setAddModalVisible(true);
-      }
-    });
-    return unsubscribe;
-  }, [navigation]);
 
   // Handle back button in selection mode
   useFocusEffect(
@@ -354,7 +329,7 @@ export default function LocationsListScreen() {
         </Text>
         <TouchableOpacity
           style={styles.addFirstButton}
-          onPress={() => setAddModalVisible(true)}
+          onPress={() => navigation.navigate('SelectLocationMap')}
         >
           <Ionicons name="add" size={24} color="white" />
           <Text style={styles.addFirstButtonText}>Adicionar Local</Text>
@@ -408,58 +383,11 @@ export default function LocationsListScreen() {
       {/* Floating Action Button */}
         <TouchableOpacity
           style={[styles.fab, { backgroundColor: theme.colors.primary }]}
-          onPress={() => setAddModalVisible(true)}
+          onPress={() => navigation.navigate('SelectLocationMap')}
           activeOpacity={0.8}
         >
           <Ionicons name="add" size={28} color="white" />
         </TouchableOpacity>
-
-      {/* Add Location Modal */}
-      <AddLocationModal
-        visible={addModalVisible}
-        onClose={() => {
-          setAddModalVisible(false);
-          setSelectedLocation(null);
-        }}
-        navigation={navigation}
-        selectedLocation={selectedLocation}
-        onSubmit={async ({ name, address, latitude, longitude, accessibility, image, authorId }) => {
-          try {
-            let imageUrl = '';
-            if (image && image.uri) {
-              const timestamp = new Date().getTime();
-              const safeFileName = `${authorId}_${timestamp}_${name.replace(/[^a-zA-Z0-9]/g, '_').toLowerCase()}.jpg`;
-              const storageRef = ref(storage, `location_images/${safeFileName}`);
-              
-              const response = await fetch(image.uri);
-              const blob = await response.blob();
-              
-              await uploadBytes(storageRef, blob);
-              imageUrl = await getDownloadURL(storageRef);
-            }
-
-            await addDoc(collection(db, 'accessibleLocations'), {
-              name,
-              address,
-              latitude: parseFloat(latitude),
-              longitude: parseFloat(longitude),
-              accessibilityFeatures: accessibility,
-              imageUrl,
-              rating: 0,
-              reviewCount: 0,
-              authorId,
-              createdAt: serverTimestamp(),
-            });
-
-            loadLocations();
-            setAddModalVisible(false);
-            setSelectedLocation(null);
-          } catch (e) {
-            console.error('Error adding location:', e);
-            Alert.alert('Erro', 'Não foi possível adicionar o local. Tente novamente.');
-          }
-        }}
-      />
     </View>
   );
 }

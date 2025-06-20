@@ -34,11 +34,13 @@ import {
   where,
   getDocs,
   orderBy,
-  limit
+  limit,
+  runTransaction
 } from 'firebase/firestore';
 import * as Location from 'expo-location';
 import MapView, { Marker } from 'react-native-maps';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useAuth } from '../contexts/AuthContext';
 
 // Constantes de cores e estilo
 const COLORS = {
@@ -100,7 +102,8 @@ export default function LocationDetailScreen() {
   const [mapModalVisible, setMapModalVisible] = useState(false);
   const [isFavorite, setIsFavorite] = useState(false);
   const [distance, setDistance] = useState(null);
-
+  const { currentUser } = useAuth();
+  
   // Função para carregar dados
   const loadData = useCallback(async () => {
     try {
@@ -122,7 +125,7 @@ export default function LocationDetailScreen() {
       setRefreshing(false);
     }
   }, [locationId]);
-
+  
   // Função para obter localização do usuário e calcular distância
   const getUserLocation = useCallback(async () => {
     if (!location?.latitude) return;
@@ -134,18 +137,18 @@ export default function LocationDetailScreen() {
       }
       
       let userLoc = await Location.getCurrentPositionAsync({});
-      const dist = calculateDistance(
-        userLoc.coords.latitude,
-        userLoc.coords.longitude,
-        location.latitude,
-        location.longitude
-      );
-      setDistance(dist);
+        const dist = calculateDistance(
+          userLoc.coords.latitude,
+          userLoc.coords.longitude,
+          location.latitude,
+          location.longitude
+        );
+        setDistance(dist);
     } catch (error) {
       console.log('Erro ao obter localização:', error);
     }
   }, [location]);
-
+  
   useEffect(() => {
     if (locationId) {
       loadData();
@@ -171,7 +174,7 @@ export default function LocationDetailScreen() {
       Alert.alert('Erro', 'Não foi possível compartilhar o local.');
     }
   };
-
+  
   const openInMaps = () => {
     const scheme = Platform.select({ ios: 'maps:0,0?q=', android: 'geo:0,0?q=' });
     const latLng = `${location.latitude},${location.longitude}`;
@@ -181,8 +184,59 @@ export default function LocationDetailScreen() {
     });
     Linking.openURL(url);
   };
-
+  
   const toggleFavorite = () => setIsFavorite(!isFavorite);
+
+  const handleReviewSubmit = async ({ rating, comment, featureRatings }) => {
+    if (!currentUser) {
+        Alert.alert("Erro", "Você precisa estar logado para avaliar um local.");
+        return;
+    }
+
+    const locationRef = doc(db, 'locations', locationId);
+    const reviewsCollectionRef = collection(db, 'locations', locationId, 'reviews');
+    
+    try {
+        await runTransaction(db, async (transaction) => {
+            const locationDoc = await transaction.get(locationRef);
+            if (!locationDoc.exists()) {
+                throw new Error("Local não encontrado!");
+            }
+
+            // 1. Adicionar a nova avaliação na subcoleção
+            const newReviewRef = doc(reviewsCollectionRef); // Cria uma referência com ID único
+            transaction.set(newReviewRef, {
+                rating,
+                comment,
+                featureRatings,
+                createdAt: serverTimestamp(),
+                user: {
+                    id: currentUser.uid,
+                    name: currentUser.displayName || 'Anônimo',
+                    photoURL: currentUser.photoURL || null,
+                },
+            });
+
+            // 2. Atualizar a avaliação média e a contagem no documento do local
+            const oldRating = locationDoc.data().rating || 0;
+            const reviewCount = locationDoc.data().reviewCount || 0;
+            const newReviewCount = reviewCount + 1;
+            const newRating = ((oldRating * reviewCount) + rating) / newReviewCount;
+
+            transaction.update(locationRef, {
+                rating: newRating,
+                reviewCount: increment(1),
+            });
+        });
+
+        Alert.alert("Sucesso", "Sua avaliação foi enviada!");
+        setReviewModalVisible(false);
+        onRefresh(); // Recarrega os dados para mostrar a nova avaliação
+    } catch (error) {
+        console.error("Erro ao enviar avaliação: ", error);
+        Alert.alert("Erro", "Não foi possível enviar sua avaliação. Por favor, tente novamente.");
+    }
+  };
 
   // Funções de renderização de UI
   const renderStars = (rating = 0, size = 18) => {
@@ -196,7 +250,7 @@ export default function LocationDetailScreen() {
       </View>
     );
   };
-
+  
   const getFeatureData = (featureKey) => {
     const featureMap = {
       'wheelchair': { icon: 'walk-outline', name: 'Cadeirante' },
@@ -217,7 +271,7 @@ export default function LocationDetailScreen() {
     };
     return featureMap[featureKey] || { icon: 'help-circle-outline', name: featureKey };
   };
-
+  
   if (loading) {
     return (
       <View style={styles.centered}>
@@ -226,7 +280,7 @@ export default function LocationDetailScreen() {
       </View>
     );
   }
-
+  
   if (error) {
     return (
       <View style={styles.centered}>
@@ -238,11 +292,11 @@ export default function LocationDetailScreen() {
       </View>
     );
   }
-
+  
   if (!location) return null;
-
+  
   const { emoji, text: emojiText } = getLocationEmoji(location.rating);
-
+  
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor={COLORS.primaryDark} />
@@ -255,7 +309,7 @@ export default function LocationDetailScreen() {
         <View style={{flexDirection: 'row'}}>
           <TouchableOpacity onPress={handleShare} style={styles.headerButton}>
             <Ionicons name="share-social-outline" size={24} color="#fff" />
-          </TouchableOpacity>
+        </TouchableOpacity>
           <TouchableOpacity onPress={toggleFavorite} style={styles.headerButton}>
             <Ionicons name={isFavorite ? "heart" : "heart-outline"} size={24} color={isFavorite ? COLORS.error : "#fff"} />
           </TouchableOpacity>
@@ -278,7 +332,7 @@ export default function LocationDetailScreen() {
               <View style={styles.distanceContainer}>
                 <Ionicons name="location-outline" size={16} color={COLORS.primary} />
                 <Text style={styles.distanceText}>{distance.toFixed(1)} km de distância</Text>
-              </View>
+          </View>
             )}
           </View>
           
@@ -289,12 +343,12 @@ export default function LocationDetailScreen() {
               ) : (
                 <View style={styles.authorPhotoPlaceholder}>
                   <Ionicons name="person-outline" size={18} color="#666" />
-                </View>
+            </View>
               )}
               <Text style={styles.authorText}>
                 Adicionado por <Text style={{fontWeight: 'bold'}}>{location.author.name || 'um usuário'}</Text>
               </Text>
-            </View>
+          </View>
           )}
           
           <View style={styles.card}>
@@ -304,9 +358,9 @@ export default function LocationDetailScreen() {
               <View>
                 {renderStars(location.rating, 24)}
                 <Text style={styles.reviewCount}>
-                  {location.reviewCount ? `${location.reviewCount} avaliações` : 'Sem avaliações'}
-                </Text>
-              </View>
+                    {location.reviewCount ? `${location.reviewCount} avaliações` : 'Sem avaliações'}
+                  </Text>
+                </View>
               <View style={[styles.emojiTag, { backgroundColor: getRatingColor(location.rating) }]}>
                 <Text style={styles.emojiText}>{emoji}</Text>
                 <Text style={styles.emojiTagText}>{emojiText}</Text>
@@ -316,7 +370,7 @@ export default function LocationDetailScreen() {
               <Text style={styles.description}>{location.description}</Text>
             )}
           </View>
-
+          
           <View style={styles.actionButtonsGrid}>
             <TouchableOpacity style={styles.gridButton} onPress={() => setReviewModalVisible(true)}>
               <LinearGradient colors={[COLORS.primary, COLORS.primaryLight]} style={styles.gridButtonGradient}>
@@ -329,9 +383,9 @@ export default function LocationDetailScreen() {
                 <Ionicons name="map-outline" size={24} color="#fff" />
                 <Text style={styles.gridButtonText}>Navegar</Text>
               </LinearGradient>
-            </TouchableOpacity>
+              </TouchableOpacity>
           </View>
-
+          
           {location.accessibilityFeatures?.length > 0 && (
             <View style={styles.card}>
               <Text style={styles.sectionTitle}>Recursos de Acessibilidade</Text>
@@ -348,14 +402,14 @@ export default function LocationDetailScreen() {
                         <Text style={[styles.featureRatingText, { color: ratingColor }]}>{avgRating.toFixed(1)}</Text>
                       ) : (
                         <Text style={[styles.featureRatingText, { color: COLORS.textSecondary }]}>N/A</Text>
-                      )}
-                    </View>
+              )}
+            </View>
                   );
                 })}
               </View>
             </View>
           )}
-
+          
           <View style={styles.card}>
             <Text style={styles.sectionTitle}>Avaliações ({reviews.length})</Text>
             {reviews.length > 0 ? (
@@ -367,13 +421,13 @@ export default function LocationDetailScreen() {
                     ) : (
                       <View style={styles.reviewerPhotoPlaceholder}>
                          <Ionicons name="person-outline" size={18} color="#666" />
-                      </View>
-                    )}
+                </View>
+              )}
                     <View style={styles.reviewHeaderText}>
                       <Text style={styles.reviewUser}>{item.userName || 'Anônimo'}</Text>
                       {renderStars(item.rating, 16)}
-                    </View>
-                  </View>
+              </View>
+            </View>
                   {item.comment && <Text style={styles.reviewComment}>{item.comment}</Text>}
                   
                   {item.featureRatings && Object.keys(item.featureRatings).length > 0 && (
@@ -385,33 +439,30 @@ export default function LocationDetailScreen() {
                              <Ionicons name={featureData.icon} size={16} color={getRatingColor(rating)} />
                              <Text style={styles.detailedRatingText}>{featureData.name}:</Text>
                              {renderStars(rating, 14)}
-                           </View>
+                </View>
                          );
                        })}
-                     </View>
-                  )}
+              </View>
+            )}
 
                   <Text style={styles.reviewDate}>
                     {item.createdAt?.toDate?.().toLocaleDateString?.('pt-BR') || ''}
-                  </Text>
-                </View>
+              </Text>
+                      </View>
               ))
             ) : (
               <Text style={styles.noReviewsText}>Nenhuma avaliação ainda.</Text>
             )}
-          </View>
-        </View>
+                    </View>
+            </View>
       </ScrollView>
 
-      <ReviewModal
-        visible={reviewModalVisible}
+      <ReviewModal 
+        visible={reviewModalVisible} 
         onClose={() => setReviewModalVisible(false)}
-        locationId={locationId}
-        locationFeatures={location?.accessibilityFeatures || []}
-        onSubmitSuccess={() => {
-          setReviewModalVisible(false);
-          onRefresh();
-        }}
+        onSubmit={handleReviewSubmit}
+        locationName={location.name}
+        features={location.accessibilityFeatures || []}
       />
       
       <Modal visible={mapModalVisible} animationType="slide" onRequestClose={() => setMapModalVisible(false)}>
@@ -425,17 +476,17 @@ export default function LocationDetailScreen() {
               <Ionicons name="open-outline" size={24} color="#fff" />
             </TouchableOpacity>
           </LinearGradient>
-          <MapView
-            style={styles.map}
-            initialRegion={{
-              latitude: location.latitude,
-              longitude: location.longitude,
-              latitudeDelta: 0.01,
-              longitudeDelta: 0.01,
-            }}
-          >
+            <MapView
+              style={styles.map}
+              initialRegion={{
+                latitude: location.latitude,
+                longitude: location.longitude,
+                latitudeDelta: 0.01,
+                longitudeDelta: 0.01,
+              }}
+            >
             <Marker coordinate={location} title={location.name} />
-          </MapView>
+            </MapView>
         </View>
       </Modal>
     </View>
