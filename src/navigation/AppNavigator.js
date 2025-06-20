@@ -108,7 +108,7 @@ export const AppNavigator = () => {
           <Stack.Screen
             name="MapScreen"
             component={MapScreen}
-            options={{ title: 'Mapa' }}
+            options={{ headerShown: false }}
           />
           <Stack.Screen
             name="SocialScreen"

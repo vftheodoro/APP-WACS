@@ -60,6 +60,8 @@ export default function AddLocationScreen() {
   const [featureRatings, setFeatureRatings] = useState({});
   const [image, setImage] = useState(null);
   const [submitting, setSubmitting] = useState(false);
+  const [comment, setComment] = useState('');
+  const maxCommentLength = 300;
 
   useEffect(() => {
     if (photoUrl) {
@@ -121,7 +123,7 @@ export default function AddLocationScreen() {
         const avgRating = sum / ratings.length;
         reviewData = {
             rating: avgRating,
-            comment: '',
+            comment: comment.trim(),
             featureRatings,
         };
     }
@@ -194,6 +196,26 @@ export default function AddLocationScreen() {
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <Text style={styles.sectionTitle}>Avalie os recursos (opcional)</Text>
         {accessibilityFeatures.map(key => { const { icon, name: featureName } = getFeatureData(key); return ( <View key={key} style={styles.featureRow}><View style={styles.featureInfo}><Ionicons name={icon} size={24} color={COLORS.primary} /><Text style={styles.featureLabel}>{featureName}</Text></View>{renderStars(featureRatings[key] || 0, (value) => setFeatureRatings(prev => ({...prev, [key]: value})))}</View> ); })}
+        <View style={styles.commentContainer}>
+          <Text style={styles.commentLabel}>Comentário (opcional)</Text>
+          <View style={styles.commentInputWrapper}>
+            <TextInput
+              style={styles.commentInput}
+              placeholder="Compartilhe sua experiência..."
+              placeholderTextColor={COLORS.textSecondary}
+              value={comment}
+              onChangeText={text => text.length <= maxCommentLength ? setComment(text) : null}
+              multiline
+              maxLength={maxCommentLength}
+            />
+            {comment.length > 0 && (
+              <TouchableOpacity onPress={() => setComment('')} style={styles.clearCommentButton}>
+                <Ionicons name="close-circle" size={20} color={COLORS.border} />
+              </TouchableOpacity>
+            )}
+          </View>
+          <Text style={styles.commentCounter}>{comment.length}/{maxCommentLength}</Text>
+        </View>
       </ScrollView>
       <View style={styles.footer}>
         <TouchableOpacity style={[styles.submitBtn, { marginBottom: 10 }]} onPress={() => handleSubmit(true)} disabled={submitting}>{submitting ? <ActivityIndicator color="#fff" /> : <Text style={styles.submitText}>Salvar com Avaliação</Text>}</TouchableOpacity>
@@ -245,4 +267,10 @@ const styles = StyleSheet.create({
   featureLabel: { fontSize: 16, color: COLORS.text },
   secondaryButton: { paddingVertical: 14, alignItems: 'center' },
   secondaryButtonText: { fontSize: 16, fontWeight: '600', color: COLORS.primary },
+  commentContainer: { marginTop: 18, marginBottom: 8 },
+  commentLabel: { fontSize: 15, color: COLORS.text, fontWeight: '600', marginBottom: 6 },
+  commentInputWrapper: { position: 'relative', backgroundColor: COLORS.surface, borderRadius: 10, borderWidth: 1, borderColor: COLORS.border, minHeight: 60, paddingRight: 32 },
+  commentInput: { minHeight: 60, maxHeight: 120, fontSize: 15, color: COLORS.text, padding: 12, paddingRight: 32 },
+  clearCommentButton: { position: 'absolute', right: 6, top: 6, padding: 4 },
+  commentCounter: { alignSelf: 'flex-end', fontSize: 12, color: COLORS.textSecondary, marginTop: 2 },
 });

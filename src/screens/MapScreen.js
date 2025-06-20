@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Platform, Alert, Dimensions, TextInput, FlatList, ScrollView, Image } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Platform, Alert, Dimensions, TextInput, FlatList, ScrollView, Image, StatusBar } from 'react-native';
 import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
 import * as Location from 'expo-location';
 import { Ionicons, MaterialIcons, FontAwesome5 } from '@expo/vector-icons';
@@ -7,9 +7,24 @@ import Constants from 'expo-constants';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { fetchLocations } from '../services/firebase/locations';
 import { useNavigation } from '@react-navigation/native';
+import { LinearGradient } from 'expo-linear-gradient';
+import AppHeader from '../components/common/AppHeader';
+import SearchBar from '../components/SearchBar';
 
 const GOOGLE_MAPS_APIKEY = Constants.expoConfig.extra.GOOGLE_MAPS_API_KEY;
 const { width, height } = Dimensions.get('window');
+
+const COLORS = {
+  primary: '#1976d2',
+  gradientStart: '#1976d2',
+  gradientEnd: '#2196f3',
+  background: '#f8fafc',
+  surface: '#fff',
+  text: '#333',
+  textSecondary: '#666',
+  border: '#e0e0e0',
+  accent: '#43e97b',
+};
 
 const MapScreen = () => {
   const [location, setLocation] = useState(null);
@@ -34,6 +49,13 @@ const MapScreen = () => {
   const locationWatcher = useRef(null);
   const navigationInterval = useRef(null);
   const searchInputRef = useRef(null);
+
+  // Novo estado para foco e loading do autocomplete
+  const [isSearchFocused, setIsSearchFocused] = useState(false);
+  const [autoCompleteLoading, setAutoCompleteLoading] = useState(false);
+
+  // Adicionar no início do componente:
+  const [selectedLocation, setSelectedLocation] = useState(null);
 
   // Buscar locais acessíveis do Firestore ao montar
   useEffect(() => {
@@ -177,10 +199,9 @@ const MapScreen = () => {
   // Função para buscar locais pelo texto de pesquisa
   const searchPlaces = async () => {
     if (!searchText || searchText.trim().length < 2 || !location) return;
-    
     setIsSearching(true);
+    setAutoCompleteLoading(true);
     setShowSearchHistory(false);
-    
     try {
       // Adicionar bias de localização para priorizar resultados próximos
       const url = `https://maps.googleapis.com/maps/api/place/textsearch/json?query=${encodeURIComponent(searchText)}&location=${location.latitude},${location.longitude}&radius=50000&key=${GOOGLE_MAPS_APIKEY}&language=pt-BR`;
@@ -217,6 +238,7 @@ const MapScreen = () => {
       setSearchResults([]);
     }
     setIsSearching(false);
+    setAutoCompleteLoading(false);
   };
 
   // Função para buscar rota na Google Directions API
@@ -454,250 +476,261 @@ const MapScreen = () => {
   const navigation = useNavigation();
 
   return (
-    <View style={{ flex: 1 }}>
-      {location ? (
-          <MapView
-          ref={mapRef}
-          style={styles.map}
-          customMapStyle={mapCustomStyle}
-            provider={PROVIDER_GOOGLE}
-          initialRegion={{
-            latitude: location.latitude,
-            longitude: location.longitude,
-            latitudeDelta: 0.01,
-            longitudeDelta: 0.01,
+    <View style={{ flex: 1, backgroundColor: COLORS.background }}>
+      <StatusBar barStyle="dark-content" backgroundColor={COLORS.background} />
+      <AppHeader
+        title="Mapa"
+        onBack={() => navigation.goBack()}
+        gradientColors={[COLORS.gradientStart, COLORS.gradientEnd]}
+        style={{ elevation: 10 }}
+      />
+      {/* Barra de pesquisa customizada */}
+      <View style={{ position: 'absolute', top: 70, width: '92%', alignSelf: 'center', zIndex: 99 }}>
+        <SearchBar
+          value={searchText}
+          onChangeText={text => {
+            setSearchText(text);
+            if (text.length > 1) {
+              searchPlaces();
+            } else if (text.length === 0) {
+              setShowSearchHistory(true);
+            }
           }}
-          showsUserLocation
-          showsMyLocationButton={false}
-          onLongPress={handleLongPress}
-        >
-          <Marker
-            coordinate={{ latitude: location.latitude, longitude: location.longitude }}
-            title="Você"
-            pinColor="#007bff"
-          />
-          {destination && (
-            <Marker
-              coordinate={destination}
-              title="Destino"
-              pinColor="#FF0000"
-            />
-          )}
-
-          {/* Marcadores dos pontos acessíveis do Firestore */}
-          {accessibleLocations && accessibleLocations
-            .map((loc) => {
-              let latitude = loc.latitude;
-              let longitude = loc.longitude;
-              // Se vier como objeto location
-              if (loc.location && typeof loc.location === 'object') {
-                if (typeof loc.location.latitude === 'number' && typeof loc.location.longitude === 'number') {
-                  latitude = loc.location.latitude;
-                  longitude = loc.location.longitude;
-                }
-              }
-              // Se vier como string '[24.499485° S, 47.848334° W]'
-              if (!latitude || !longitude) {
-                if (typeof loc.location === 'string') {
-                  const match = loc.location.match(/([\d.]+)[^\d-]*([S|N]),\s*([\d.]+)[^\d-]*([W|E])/i);
-                  if (match) {
-                    let lat = parseFloat(match[1]);
-                    let lng = parseFloat(match[3]);
-                    if (match[2].toUpperCase() === 'S') lat = -lat;
-                    if (match[4].toUpperCase() === 'W') lng = -lng;
-                    latitude = lat;
-                    longitude = lng;
-                  }
-                }
-              }
-              if (typeof latitude === 'number' && typeof longitude === 'number' && !isNaN(latitude) && !isNaN(longitude)) {
-                return (
-                  <Marker
-                    key={loc.id}
-                    coordinate={{ latitude, longitude }}
-                    title={loc.name}
-                    description={loc.address}
-                    pinColor="#2ecc40"
-                  >
-                    <View style={{ backgroundColor: '#2ecc40', borderRadius: 20, padding: 4, borderWidth: 2, borderColor: '#fff' }}>
-                      <FontAwesome5 name="universal-access" size={20} color="#fff" />
-                    </View>
-                  </Marker>
-                );
-              }
-              return null;
-            })}
-
-          {routeCoords.length > 0 && (
-            <Polyline
-              coordinates={routeCoords}
-              strokeWidth={6}
-              strokeColor="#007bff"
-            />
-          )}
-          
-          {/* Mostrar polyline para o passo atual da navegação com destaque */}
-          {isNavigating && navigationSteps.length > 0 && currentStepIndex < navigationSteps.length && (
-            <Polyline
-              coordinates={navigationSteps[currentStepIndex].polyline}
-              strokeWidth={8}
-              strokeColor="#4CAF50"
-            />
-          )}
-          </MapView>
-      ) : (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#007bff" />
-          <Text style={{ marginTop: 10 }}>{errorMsg || 'Carregando localização...'}</Text>
-        </View>
-      )}
-
-      {/* Barra de pesquisa melhorada */}
-      <View style={styles.searchContainer}>
-            <TouchableOpacity 
-          style={styles.searchInputContainer}
-          onPress={focusSearchBar}
-          activeOpacity={1}
-        >
-          <MaterialIcons name="search" size={24} color="#666" style={styles.searchIcon} />
-          <TextInput
-            ref={searchInputRef}
-            style={styles.searchInput}
-            value={searchText}
-            onChangeText={(text) => {
-              setSearchText(text);
-              if (text.length > 1) {
-                searchPlaces();
-              } else if (text.length === 0) {
-                setShowSearchHistory(true);
-              }
-            }}
-            placeholder="Pesquisar local..."
-            placeholderTextColor="#999"
-            returnKeyType="search"
-            onSubmitEditing={searchPlaces}
-            onFocus={() => setShowSearchHistory(true)}
-          />
-          {searchText.length > 0 && (
-            <TouchableOpacity onPress={() => {
+          placeholder="Pesquisar local..."
+          onFocus={() => {
+            setShowSearchHistory(true);
+            setIsSearchFocused(true);
+          }}
+          onBlur={() => setIsSearchFocused(false)}
+        />
+        {searchText.length > 0 && (
+          <TouchableOpacity
+            onPress={() => {
               setSearchText('');
               setShowSearchHistory(true);
               setSearchResults([]);
-            }}>
-              <MaterialIcons name="close" size={24} color="#666" />
-            </TouchableOpacity>
-          )}
-            </TouchableOpacity>
-
-        {/* Resultados da pesquisa */}
-        {searchResults.length > 0 && (
-          <View style={styles.searchResultsList}>
-            {searchResults.map(place => (
-            <TouchableOpacity 
-                key={place.id}
-                style={styles.searchResultItem}
-                onPress={() => selectPlace(place)}
-              >
-                <MaterialIcons name="location-on" size={20} color="#007bff" style={styles.resultIcon} />
-                <View style={styles.resultTextContainer}>
-                  <Text style={styles.resultTitle} numberOfLines={1}>{place.name}</Text>
-                  <Text style={styles.resultAddress} numberOfLines={1}>{place.address}</Text>
-                  {place.distance && (
-                    <Text style={styles.resultDistance}>
-                      {place.distance < 1000 
-                        ? `${Math.round(place.distance)}m` 
-                        : `${(place.distance / 1000).toFixed(1)}km`} de distância
-                    </Text>
-                  )}
-                </View>
-            </TouchableOpacity>
-            ))}
-          </View>
-        )}
-        
-        {/* Histórico de pesquisa */}
-        {showSearchHistory && searchText.length === 0 && searchHistory.length > 0 && (
-          <View style={styles.searchResultsList}>
-            <View style={styles.historyHeader}>
-              <Text style={styles.historyTitle}>Histórico de pesquisa</Text>
-              <TouchableOpacity onPress={clearSearchHistory}>
-                <Text style={styles.clearHistoryText}>Limpar</Text>
-            </TouchableOpacity>
-            </View>
-
-            {searchHistory.map(item => (
-            <TouchableOpacity 
-                key={item.id}
-                style={styles.searchResultItem}
-                onPress={() => selectHistoryItem(item)}
-              >
-                <MaterialIcons name="history" size={20} color="#666" style={styles.resultIcon} />
-                <View style={styles.resultTextContainer}>
-                  <Text style={styles.resultTitle} numberOfLines={1}>{item.name}</Text>
-                  <Text style={styles.resultAddress} numberOfLines={1}>{item.address}</Text>
-                </View>
-            </TouchableOpacity>
-            ))}
-          </View>
-        )}
-        
-        {/* Locais próximos */}
-        {showSearchHistory && searchText.length === 0 && nearbyPlaces.length > 0 && (
-          <View style={[styles.searchResultsList, { marginTop: searchHistory.length > 0 ? 10 : 5 }]}>
-            <View style={styles.historyHeader}>
-              <Text style={styles.historyTitle}>Lugares próximos</Text>
-            </View>
-            
-            {nearbyPlaces.map(place => (
-            <TouchableOpacity 
-                key={place.id}
-                style={styles.searchResultItem}
-                onPress={() => selectPlace(place)}
-              >
-                <MaterialIcons name="near-me" size={20} color="#4CAF50" style={styles.resultIcon} />
-                <View style={styles.resultTextContainer}>
-                  <Text style={styles.resultTitle} numberOfLines={1}>{place.name}</Text>
-                  <Text style={styles.resultAddress} numberOfLines={1}>{place.address}</Text>
-                  <Text style={styles.resultDistance}>
-                    {place.distance < 1000 
-                      ? `${Math.round(place.distance)}m` 
-                      : `${(place.distance / 1000).toFixed(1)}km`} de distância
-                  </Text>
-                </View>
-            </TouchableOpacity>
-            ))}
-          </View>
-        )}
-        
-        {/* Indicador de carregamento da pesquisa */}
-        {isSearching && (
-          <View style={[styles.searchResultsList, styles.searchLoadingContainer]}>
-            <ActivityIndicator size="small" color="#007bff" />
-            <Text style={styles.searchLoadingText}>Buscando locais...</Text>
-          </View>
+            }}
+            style={{ position: 'absolute', right: 18, top: 12, zIndex: 10 }}
+            accessibilityLabel="Limpar busca"
+          >
+            <Ionicons name="close-circle" size={22} color={COLORS.border} />
+          </TouchableOpacity>
         )}
       </View>
-
-      {/* Botão centralizar */}
-      <TouchableOpacity style={styles.centerButton} onPress={centerOnUser}>
-        <Ionicons name="locate" size={28} color="#fff" />
+      {/* Autocomplete aprimorado */}
+      {(searchResults.length > 0 || autoCompleteLoading || (showSearchHistory && searchText.length === 0 && (searchHistory.length > 0 || nearbyPlaces.length > 0))) && (
+        <View style={{
+          position: 'absolute',
+          top: 120,
+          left: 0,
+          right: 0,
+          backgroundColor: '#fff',
+          borderRadius: 18,
+          marginHorizontal: 16,
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: 4 },
+          shadowOpacity: 0.13,
+          shadowRadius: 12,
+          elevation: 8,
+          zIndex: 100,
+          maxHeight: height * 0.45,
+        }}>
+          {autoCompleteLoading ? (
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', padding: 18 }}>
+              <ActivityIndicator size="small" color={COLORS.primary} />
+              <Text style={{ marginLeft: 10, color: COLORS.textSecondary }}>Buscando locais...</Text>
+            </View>
+          ) : searchResults.length > 0 ? (
+            <FlatList
+              data={searchResults}
+              keyExtractor={item => item.id}
+              renderItem={({ item }) => (
+                <TouchableOpacity style={{ flexDirection: 'row', alignItems: 'center', padding: 14, borderBottomWidth: 1, borderBottomColor: '#f0f0f0' }} onPress={() => selectPlace(item)}>
+                  <MaterialIcons name="location-on" size={22} color={COLORS.primary} style={{ marginRight: 10 }} />
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ fontWeight: 'bold', color: '#333', fontSize: 15 }} numberOfLines={1}>
+                      {/* Destacar termo buscado */}
+                      {item.name.split(new RegExp(`(${searchText})`, 'gi')).map((part, i) =>
+                        part.toLowerCase() === searchText.toLowerCase() ? <Text key={i} style={{ backgroundColor: '#e3f2fd', color: COLORS.primary }}>{part}</Text> : part
+                      )}
+                    </Text>
+                    <Text style={{ color: '#666', fontSize: 13 }} numberOfLines={1}>{item.address}</Text>
+                    {item.distance && (
+                      <Text style={{ color: COLORS.accent, fontSize: 12 }}>
+                        {item.distance < 1000 ? `${Math.round(item.distance)}m` : `${(item.distance / 1000).toFixed(1)}km`} de distância
+                      </Text>
+                    )}
+                  </View>
+                </TouchableOpacity>
+              )}
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator={false}
+            />
+          ) : showSearchHistory && searchText.length === 0 && (searchHistory.length > 0 || nearbyPlaces.length > 0) ? (
+            <ScrollView keyboardShouldPersistTaps="handled">
+              {searchHistory.length > 0 && (
+                <View>
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 12, backgroundColor: '#f8f9fa', borderBottomWidth: 1, borderBottomColor: '#eee' }}>
+                    <Text style={{ fontWeight: 'bold', color: '#333', fontSize: 14 }}>Histórico de pesquisa</Text>
+                    <TouchableOpacity onPress={clearSearchHistory}><Text style={{ color: '#007bff', fontSize: 13 }}>Limpar</Text></TouchableOpacity>
+                  </View>
+                  {searchHistory.map(item => (
+                    <TouchableOpacity key={item.id} style={{ flexDirection: 'row', alignItems: 'center', padding: 14, borderBottomWidth: 1, borderBottomColor: '#f0f0f0' }} onPress={() => selectHistoryItem(item)}>
+                      <MaterialIcons name="history" size={20} color={COLORS.textSecondary} style={{ marginRight: 10 }} />
+                      <View style={{ flex: 1 }}>
+                        <Text style={{ fontWeight: 'bold', color: '#333', fontSize: 15 }} numberOfLines={1}>{item.name}</Text>
+                        <Text style={{ color: '#666', fontSize: 13 }} numberOfLines={1}>{item.address}</Text>
+                      </View>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              )}
+              {nearbyPlaces.length > 0 && (
+                <View>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', padding: 12, backgroundColor: '#f8f9fa', borderBottomWidth: 1, borderBottomColor: '#eee' }}>
+                    <Text style={{ fontWeight: 'bold', color: '#333', fontSize: 14 }}>Lugares próximos</Text>
+                  </View>
+                  {nearbyPlaces.map(place => (
+                    <TouchableOpacity key={place.id} style={{ flexDirection: 'row', alignItems: 'center', padding: 14, borderBottomWidth: 1, borderBottomColor: '#f0f0f0' }} onPress={() => selectPlace(place)}>
+                      <MaterialIcons name="near-me" size={20} color={COLORS.accent} style={{ marginRight: 10 }} />
+                      <View style={{ flex: 1 }}>
+                        <Text style={{ fontWeight: 'bold', color: '#333', fontSize: 15 }} numberOfLines={1}>{place.name}</Text>
+                        <Text style={{ color: '#666', fontSize: 13 }} numberOfLines={1}>{place.address}</Text>
+                        <Text style={{ color: COLORS.accent, fontSize: 12 }}>
+                          {place.distance < 1000 ? `${Math.round(place.distance)}m` : `${(place.distance / 1000).toFixed(1)}km`} de distância
+                        </Text>
+                      </View>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              )}
+            </ScrollView>
+          ) : (
+            <View style={{ alignItems: 'center', padding: 18 }}>
+              <Text style={{ color: COLORS.textSecondary, fontSize: 15 }}>Nenhum resultado encontrado.</Text>
+            </View>
+          )}
+        </View>
+      )}
+      {/* Mapa */}
+      <MapView
+        ref={mapRef}
+        style={styles.map}
+        customMapStyle={mapCustomStyle}
+        provider={PROVIDER_GOOGLE}
+        initialRegion={location ? {
+          latitude: location.latitude,
+          longitude: location.longitude,
+          latitudeDelta: 0.01,
+          longitudeDelta: 0.01,
+        } : undefined}
+        region={location ? {
+          latitude: location.latitude,
+          longitude: location.longitude,
+          latitudeDelta: 0.01,
+          longitudeDelta: 0.01,
+        } : undefined}
+        showsUserLocation
+        showsMyLocationButton={false}
+        onLongPress={handleLongPress}
+      >
+        {location && (
+          <Marker
+            coordinate={{ latitude: location.latitude, longitude: location.longitude }}
+            title="Você"
+            pinColor={COLORS.primary}
+          />
+        )}
+        {destination && (
+          <Marker
+            coordinate={destination}
+            title="Destino"
+            pinColor="#FF0000"
+          />
+        )}
+        {/* Marcadores dos pontos acessíveis do Firestore */}
+        {accessibleLocations && accessibleLocations
+          .map((loc) => {
+            let latitude = loc.latitude;
+            let longitude = loc.longitude;
+            if (loc.location && typeof loc.location === 'object') {
+              if (typeof loc.location.latitude === 'number' && typeof loc.location.longitude === 'number') {
+                latitude = loc.location.latitude;
+                longitude = loc.location.longitude;
+              }
+            }
+            if (!latitude || !longitude) {
+              if (typeof loc.location === 'string') {
+                const match = loc.location.match(/([\d.]+)[^\d-]*([S|N]),\s*([\d.]+)[^\d-]*([W|E])/i);
+                if (match) {
+                  let lat = parseFloat(match[1]);
+                  let lng = parseFloat(match[3]);
+                  if (match[2].toUpperCase() === 'S') lat = -lat;
+                  if (match[4].toUpperCase() === 'W') lng = -lng;
+                  latitude = lat;
+                  longitude = lng;
+                }
+              }
+            }
+            if (typeof latitude === 'number' && typeof longitude === 'number' && !isNaN(latitude) && !isNaN(longitude)) {
+              return (
+                <Marker
+                  key={loc.id}
+                  coordinate={{ latitude, longitude }}
+                  onPress={() => setSelectedLocation(loc)}
+                >
+                  <View style={{ backgroundColor: COLORS.accent, borderRadius: 20, padding: 4, borderWidth: 2, borderColor: '#fff' }}>
+                    <FontAwesome5 name="universal-access" size={20} color="#fff" />
+                  </View>
+                </Marker>
+              );
+            }
+            return null;
+          })}
+        {routeCoords.length > 0 && (
+          <Polyline
+            coordinates={routeCoords}
+            strokeWidth={6}
+            strokeColor={COLORS.primary}
+          />
+        )}
+        {isNavigating && navigationSteps.length > 0 && currentStepIndex < navigationSteps.length && (
+          <Polyline
+            coordinates={navigationSteps[currentStepIndex].polyline}
+            strokeWidth={8}
+            strokeColor={COLORS.accent}
+          />
+        )}
+      </MapView>
+      {/* Botão flutuante de centralizar */}
+      <TouchableOpacity style={styles.centerButton} onPress={centerOnUser} activeOpacity={0.8}>
+        <LinearGradient colors={[COLORS.gradientStart, COLORS.gradientEnd]} style={styles.fabInnerCenter}>
+          <Ionicons name="locate" size={28} color="#fff" />
+        </LinearGradient>
       </TouchableOpacity>
-      
+      {/* Botão flutuante de adicionar local */}
+      <TouchableOpacity
+        style={styles.addFab}
+        onPress={() => navigation && navigation.navigate('Locais', { addModalVisible: true })}
+        activeOpacity={0.8}
+      >
+        <LinearGradient colors={[COLORS.accent, COLORS.gradientEnd]} style={styles.fabInnerAdd}>
+          <Ionicons name="add" size={36} color="#fff" />
+        </LinearGradient>
+      </TouchableOpacity>
       {/* Painel de navegação */}
       {destination && routeCoords.length > 0 && (
         <View style={styles.navigationPanel}>
           <View style={styles.navigationHeader}>
             <Text style={styles.navigationTitle}>Navegação</Text>
           </View>
-
           <Text style={styles.routeText}>Distância: {info.distance} | Tempo: {info.duration}</Text>
-          
           {isNavigating && navigationSteps.length > 0 && currentStepIndex < navigationSteps.length && (
             <View style={styles.stepContainer}>
               <FontAwesome5 
                 name={getManeuverIcon(navigationSteps[currentStepIndex].maneuver)} 
-                    size={24}
-                color="#007bff" 
+                size={24}
+                color={COLORS.primary} 
                 style={styles.maneuverIcon}
               />
               <Text style={styles.stepInstruction}>
@@ -705,7 +738,6 @@ const MapScreen = () => {
               </Text>
             </View>
           )}
-
           <View style={styles.navigationButtonsContainer}>
             {!isNavigating ? (
               <TouchableOpacity 
@@ -716,7 +748,7 @@ const MapScreen = () => {
                 <Text style={{ color: '#fff', marginLeft: 8 }}>Iniciar</Text>
               </TouchableOpacity>
             ) : (
-                  <TouchableOpacity
+              <TouchableOpacity
                 style={styles.stopButton} 
                 onPress={stopNavigation}
               >
@@ -724,43 +756,101 @@ const MapScreen = () => {
                 <Text style={{ color: '#fff', marginLeft: 8 }}>Pausar</Text>
               </TouchableOpacity>
             )}
-            
             <TouchableOpacity style={styles.cancelButton} onPress={cancelNavigation}>
               <Ionicons name="close" size={20} color="#fff" />
               <Text style={{ color: '#fff', marginLeft: 8 }}>Cancelar</Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-            )}
-      
-      {/* Dica de uso */}
-      {!destination && !showSearchHistory && searchResults.length === 0 && (
-        <View style={styles.tipPanel}>
-          <Text style={styles.tipText}>Toque longo no mapa para definir o destino</Text>
+            </TouchableOpacity>
+          </View>
         </View>
       )}
-
-      {/* Botão flutuante para adicionar local */}
-      <TouchableOpacity
-        style={styles.addFab}
-        onPress={() => navigation && navigation.navigate('Locais', { addModalVisible: true })}
-        activeOpacity={0.7}
-      >
-        <View style={styles.fabInnerAdd}>
-          <Ionicons name="add" style={styles.fabIcon} />
-        </View>
-      </TouchableOpacity>
-
-      {/* Botão de centralizar usuário */}
-      <TouchableOpacity
-        style={styles.centerButton}
-        onPress={centerOnUser}
-        activeOpacity={0.7}
-      >
-        <View style={styles.fabInnerCenter}>
-          <Ionicons name="locate" style={styles.fabIcon} />
-        </View>
-      </TouchableOpacity>
+      {/* Painel flutuante de informações do local acessível */}
+      {selectedLocation && (
+        <TouchableOpacity
+          activeOpacity={1}
+          onPress={() => setSelectedLocation(null)}
+          style={{
+            position: 'absolute',
+            left: 0,
+            right: 0,
+            bottom: 0,
+            top: 0,
+            backgroundColor: 'rgba(0,0,0,0.18)',
+            zIndex: 200,
+            justifyContent: 'flex-end',
+          }}
+        >
+          <TouchableOpacity
+            activeOpacity={1}
+            style={{
+              backgroundColor: '#fff',
+              borderTopLeftRadius: 24,
+              borderTopRightRadius: 24,
+              padding: 22,
+              marginHorizontal: 0,
+              shadowColor: '#000',
+              shadowOffset: { width: 0, height: -4 },
+              shadowOpacity: 0.18,
+              shadowRadius: 12,
+              elevation: 16,
+              minHeight: 180,
+            }}
+            onPress={e => e.stopPropagation && e.stopPropagation()}
+          >
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+              <Text style={{ fontSize: 18, fontWeight: 'bold', color: COLORS.primary, flex: 1 }} numberOfLines={2}>{selectedLocation.name}</Text>
+              <TouchableOpacity onPress={() => setSelectedLocation(null)} style={{ marginLeft: 8 }} accessibilityLabel="Fechar">
+                <Ionicons name="close" size={24} color={COLORS.textSecondary} />
+              </TouchableOpacity>
+            </View>
+            <Text style={{ color: COLORS.textSecondary, fontSize: 14, marginBottom: 6 }}>{selectedLocation.address}</Text>
+            {/* Pontuação geral */}
+            {selectedLocation.rating > 0 && (
+              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+                <Ionicons name="star" size={18} color="#FFD700" />
+                <Text style={{ fontWeight: 'bold', color: '#333', fontSize: 15, marginLeft: 4 }}>{selectedLocation.rating.toFixed(1)}</Text>
+                <Text style={{ color: COLORS.textSecondary, fontSize: 13, marginLeft: 8 }}>({selectedLocation.reviewCount || 0} avaliações)</Text>
+              </View>
+            )}
+            {/* Acessibilidades oferecidas */}
+            {selectedLocation.accessibilityFeatures && selectedLocation.accessibilityFeatures.length > 0 && (
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 8 }}>
+                {selectedLocation.accessibilityFeatures.map((feature, idx) => {
+                  // Definir ícone e cor conforme filterOptions
+                  const filterOptions = [
+                    { key: 'wheelchair', label: 'Cadeirante', icon: 'walk', color: '#4CAF50' },
+                    { key: 'blind', label: 'Deficiência Visual', icon: 'eye-off', color: '#FF9800' },
+                    { key: 'deaf', label: 'Deficiência Auditiva', icon: 'ear', color: '#9C27B0' },
+                    { key: 'elevator', label: 'Elevador', icon: 'swap-vertical', color: '#2196F3' },
+                    { key: 'parking', label: 'Estacionamento', icon: 'car', color: '#795548' },
+                    { key: 'restroom', label: 'Banheiro Adaptado', icon: 'body', color: '#607D8B' },
+                    { key: 'ramp', label: 'Rampa', icon: 'enter', color: '#F44336' },
+                  ];
+                  const featureData = filterOptions.find(f => f.key === feature);
+                  const featureRating = selectedLocation.featureRatings?.[feature] || 0;
+                  return (
+                    <View key={idx} style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: (featureData?.color || '#1976d2') + '18', borderRadius: 14, paddingVertical: 6, paddingHorizontal: 12, marginRight: 8 }}>
+                      <Ionicons name={featureData?.icon || 'help-circle'} size={16} color={featureData?.color || COLORS.primary} style={{ marginRight: 6 }} />
+                      <Text style={{ color: featureData?.color || COLORS.primary, fontWeight: 'bold', fontSize: 13 }}>{featureData?.label || feature}</Text>
+                      {featureRating > 0 && (
+                        <Text style={{ color: featureData?.color || COLORS.primary, fontWeight: 'bold', fontSize: 13, marginLeft: 4 }}>{featureRating.toFixed(1)}</Text>
+                      )}
+                    </View>
+                  );
+                })}
+              </ScrollView>
+            )}
+            <TouchableOpacity
+              style={{ marginTop: 8, backgroundColor: COLORS.primary, borderRadius: 12, paddingVertical: 10, alignItems: 'center' }}
+              onPress={() => {
+                setSelectedLocation(null);
+                navigation.navigate('LocationDetail', { locationId: selectedLocation.id });
+              }}
+            >
+              <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 15 }}>Ver detalhes</Text>
+            </TouchableOpacity>
+          </TouchableOpacity>
+        </TouchableOpacity>
+      )}
     </View>
   );
 };
@@ -1065,6 +1155,50 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.08,
     shadowOffset: { width: 0, height: 1 },
     shadowRadius: 4,
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 10,
+  },
+  headerBack: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  headerTitle: {
+    flex: 1,
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#fff',
+    textAlign: 'center',
+  },
+  resultsListContainer: {
+    backgroundColor: '#fff',
+    borderRadius: 8,
+    marginTop: 5,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3,
+    maxHeight: height * 0.4,
+  },
+  resultItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
+  },
+  clearButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });
 

@@ -190,9 +190,9 @@ export default function LocationDetailScreen() {
   const handleReviewSubmit = async ({ rating, comment, featureRatings }) => {
     if (!currentUser) {
         Alert.alert("Erro", "Você precisa estar logado para avaliar um local.");
-        return;
+      return;
     }
-
+    
     const locationRef = doc(db, 'locations', locationId);
     const reviewsCollectionRef = collection(db, 'locations', locationId, 'reviews');
     
@@ -201,7 +201,7 @@ export default function LocationDetailScreen() {
             const locationDoc = await transaction.get(locationRef);
             if (!locationDoc.exists()) {
                 throw new Error("Local não encontrado!");
-            }
+    }
 
             // 1. Adicionar a nova avaliação na subcoleção
             const newReviewRef = doc(reviewsCollectionRef); // Cria uma referência com ID único
@@ -237,7 +237,7 @@ export default function LocationDetailScreen() {
         Alert.alert("Erro", "Não foi possível enviar sua avaliação. Por favor, tente novamente.");
     }
   };
-
+  
   // Funções de renderização de UI
   const renderStars = (rating = 0, size = 18) => {
     const stars = Array(5).fill(0);
@@ -418,7 +418,7 @@ export default function LocationDetailScreen() {
                   <View style={styles.reviewHeader}>
                     {item.photoURL ? (
                       <Image source={{uri: item.photoURL}} style={styles.reviewerPhoto} />
-                    ) : (
+              ) : (
                       <View style={styles.reviewerPhotoPlaceholder}>
                          <Ionicons name="person-outline" size={18} color="#666" />
                 </View>
