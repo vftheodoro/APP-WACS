@@ -600,9 +600,27 @@ const MapScreen = () => {
                   coordinate={{ latitude, longitude }}
                   onPress={() => setSelectedLocation(loc)}
                 >
-                  <View style={{ backgroundColor: COLORS.accent, borderRadius: 20, padding: 4, borderWidth: 2, borderColor: '#fff' }}>
-                    <FontAwesome5 name="universal-access" size={20} color="#fff" />
-                  </View>
+                  <LinearGradient
+                    colors={["#43e97b", "#1976d2"]}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={{
+                      width: 54,
+                      height: 54,
+                      borderRadius: 27,
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      borderWidth: 4,
+                      borderColor: '#fff',
+                      shadowColor: '#1976d2',
+                      shadowOffset: { width: 0, height: 4 },
+                      shadowOpacity: 0.18,
+                      shadowRadius: 8,
+                      elevation: 8,
+                    }}
+                  >
+                    <FontAwesome5 name="universal-access" size={28} color="#fff" accessibilityLabel="Local acessível" />
+                  </LinearGradient>
                 </Marker>
               );
             }

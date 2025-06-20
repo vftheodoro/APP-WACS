@@ -19,7 +19,7 @@ import {
 } from 'react-native';
 import { useRoute, useNavigation } from '@react-navigation/native';
 import { fetchLocationById, fetchReviewsForLocation } from '../services/firebase/locations';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, FontAwesome5, MaterialCommunityIcons } from '@expo/vector-icons';
 import ReviewModal from '../components/ReviewModal';
 import { db } from '../services/firebase/config';
 import { 
@@ -85,6 +85,58 @@ const getRatingColor = (rating) => {
   if (rating >= 3.5) return COLORS.warning;
   if (rating >= 2.0) return '#FFC107'; // Amarelo
   return COLORS.error;
+};
+
+const PLACE_TYPE_ICONS = {
+  restaurant: <MaterialCommunityIcons name="silverware-fork-knife" size={20} color="#1976d2" />,
+  school: <Ionicons name="school-outline" size={20} color="#1976d2" />,
+  hospital: <MaterialCommunityIcons name="hospital-building" size={20} color="#1976d2" />,
+  store: <FontAwesome5 name="store" size={20} color="#1976d2" />,
+  hotel: <FontAwesome5 name="hotel" size={20} color="#1976d2" />,
+  gym: <MaterialCommunityIcons name="dumbbell" size={20} color="#1976d2" />,
+  station: <MaterialCommunityIcons name="train" size={20} color="#1976d2" />,
+  park: <MaterialCommunityIcons name="tree" size={20} color="#1976d2" />,
+  church: <MaterialCommunityIcons name="church" size={20} color="#1976d2" />,
+  pharmacy: <MaterialCommunityIcons name="pharmacy" size={20} color="#1976d2" />,
+  supermarket: <MaterialCommunityIcons name="cart" size={20} color="#1976d2" />,
+  shopping_mall: <MaterialCommunityIcons name="shopping" size={20} color="#1976d2" />,
+  bank: <FontAwesome5 name="university" size={20} color="#1976d2" />,
+  post_office: <MaterialCommunityIcons name="email" size={20} color="#1976d2" />,
+  pet_store: <MaterialCommunityIcons name="dog" size={20} color="#1976d2" />,
+  bar: <MaterialCommunityIcons name="glass-cocktail" size={20} color="#1976d2" />,
+  bakery: <MaterialCommunityIcons name="bread-slice" size={20} color="#1976d2" />,
+  gas_station: <MaterialCommunityIcons name="gas-station" size={20} color="#1976d2" />,
+  clinic: <MaterialCommunityIcons name="stethoscope" size={20} color="#1976d2" />,
+  theater: <MaterialCommunityIcons name="theater" size={20} color="#1976d2" />,
+  cinema: <MaterialCommunityIcons name="movie" size={20} color="#1976d2" />,
+  custom: <Ionicons name="create-outline" size={20} color="#1976d2" />,
+  other: <Ionicons name="ellipsis-horizontal" size={20} color="#1976d2" />,
+};
+
+const PLACE_TYPE_LABELS = {
+  restaurant: 'Restaurante',
+  school: 'Escola',
+  hospital: 'Hospital',
+  store: 'Loja',
+  hotel: 'Hotel',
+  gym: 'Academia',
+  station: 'Estação',
+  park: 'Parque',
+  church: 'Igreja',
+  pharmacy: 'Farmácia',
+  supermarket: 'Supermercado',
+  shopping_mall: 'Shopping',
+  bank: 'Banco',
+  post_office: 'Correios',
+  pet_store: 'Petshop',
+  bar: 'Bar',
+  bakery: 'Padaria',
+  gas_station: 'Posto de Gasolina',
+  clinic: 'Clínica',
+  theater: 'Teatro',
+  cinema: 'Cinema',
+  custom: '',
+  other: 'Outros',
 };
 
 export default function LocationDetailScreen() {
@@ -328,6 +380,14 @@ export default function LocationDetailScreen() {
         <View style={styles.mainContent}>
           <View style={styles.titleSection}>
             <Text style={styles.locationName}>{location.name}</Text>
+            {location.placeType && (
+              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+                {PLACE_TYPE_ICONS[location.placeType] || PLACE_TYPE_ICONS['other']}
+                <Text style={{ marginLeft: 8, fontSize: 16, color: '#1976d2', fontWeight: 'bold' }}>
+                  {PLACE_TYPE_LABELS[location.placeType] || location.placeType}
+                </Text>
+              </View>
+            )}
             {distance !== null && (
               <View style={styles.distanceContainer}>
                 <Ionicons name="location-outline" size={16} color={COLORS.primary} />

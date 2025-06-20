@@ -12,13 +12,15 @@ import {
   Platform,
   StatusBar
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, FontAwesome5, MaterialCommunityIcons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import * as Haptics from 'expo-haptics';
 import { useRoute, useNavigation } from '@react-navigation/native';
 import { db, storage, auth } from '../services/firebase/config';
 import { collection, addDoc, serverTimestamp, runTransaction, doc } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { Picker } from '@react-native-picker/picker';
+import Constants from 'expo-constants';
 
 const COLORS = {
   primary: '#1976d2',
@@ -48,6 +50,39 @@ const getFeatureData = (featureKey) => {
 
 const ACCESSIBILITY_OPTIONS = Object.keys(getFeatureData());
 
+// Tipos principais de estabelecimento
+const MAIN_PLACE_TYPES = [
+  { key: 'restaurant', label: 'Restaurante', icon: <MaterialCommunityIcons name="silverware-fork-knife" size={20} color="#1976d2" /> },
+  { key: 'school', label: 'Escola', icon: <Ionicons name="school-outline" size={20} color="#1976d2" /> },
+  { key: 'hospital', label: 'Hospital', icon: <MaterialCommunityIcons name="hospital-building" size={20} color="#1976d2" /> },
+  { key: 'store', label: 'Loja', icon: <FontAwesome5 name="store" size={20} color="#1976d2" /> },
+  { key: 'hotel', label: 'Hotel', icon: <FontAwesome5 name="hotel" size={20} color="#1976d2" /> },
+  { key: 'gym', label: 'Academia', icon: <MaterialCommunityIcons name="dumbbell" size={20} color="#1976d2" /> },
+  { key: 'station', label: 'Estação', icon: <MaterialCommunityIcons name="train" size={20} color="#1976d2" /> },
+  { key: 'park', label: 'Parque', icon: <MaterialCommunityIcons name="tree" size={20} color="#1976d2" /> },
+  { key: 'church', label: 'Igreja', icon: <MaterialCommunityIcons name="church" size={20} color="#1976d2" /> },
+  { key: 'pharmacy', label: 'Farmácia', icon: <MaterialCommunityIcons name="pharmacy" size={20} color="#1976d2" /> },
+  { key: 'supermarket', label: 'Supermercado', icon: <MaterialCommunityIcons name="cart" size={20} color="#1976d2" /> },
+  { key: 'shopping_mall', label: 'Shopping', icon: <MaterialCommunityIcons name="shopping" size={20} color="#1976d2" /> },
+  { key: 'bank', label: 'Banco', icon: <FontAwesome5 name="university" size={20} color="#1976d2" /> },
+  { key: 'post_office', label: 'Correios', icon: <MaterialCommunityIcons name="email" size={20} color="#1976d2" /> },
+  { key: 'other', label: 'Outros', icon: <Ionicons name="ellipsis-horizontal" size={20} color="#1976d2" /> },
+];
+
+// Tipos expandidos para "Outros"
+const EXTRA_PLACE_TYPES = [
+  { key: 'pet_store', label: 'Petshop', icon: <MaterialCommunityIcons name="dog" size={20} color="#1976d2" /> },
+  { key: 'bar', label: 'Bar', icon: <MaterialCommunityIcons name="glass-cocktail" size={20} color="#1976d2" /> },
+  { key: 'bakery', label: 'Padaria', icon: <MaterialCommunityIcons name="bread-slice" size={20} color="#1976d2" /> },
+  { key: 'gas_station', label: 'Posto de Gasolina', icon: <MaterialCommunityIcons name="gas-station" size={20} color="#1976d2" /> },
+  { key: 'clinic', label: 'Clínica', icon: <MaterialCommunityIcons name="stethoscope" size={20} color="#1976d2" /> },
+  { key: 'theater', label: 'Teatro', icon: <MaterialCommunityIcons name="theater" size={20} color="#1976d2" /> },
+  { key: 'cinema', label: 'Cinema', icon: <MaterialCommunityIcons name="movie" size={20} color="#1976d2" /> },
+  { key: 'custom', label: 'Outro (especificar)', icon: <Ionicons name="create-outline" size={20} color="#1976d2" /> },
+];
+
+const GOOGLE_MAPS_APIKEY = Constants.expoConfig?.extra?.GOOGLE_MAPS_API_KEY;
+
 export default function AddLocationScreen() {
   const navigation = useNavigation();
   const route = useRoute();
@@ -62,12 +97,62 @@ export default function AddLocationScreen() {
   const [submitting, setSubmitting] = useState(false);
   const [comment, setComment] = useState('');
   const maxCommentLength = 300;
+  const [placeType, setPlaceType] = useState('');
+  const [showExtraTypes, setShowExtraTypes] = useState(false);
+  const [customType, setCustomType] = useState('');
 
   useEffect(() => {
     if (photoUrl) {
       setImage({ uri: photoUrl });
     }
   }, [photoUrl]);
+
+  useEffect(() => {
+    async function suggestPlaceType() {
+      if (!name || !latitude || !longitude || !GOOGLE_MAPS_APIKEY) return;
+      try {
+        const url = `https://maps.googleapis.com/maps/api/place/nearbysearch/json?location=${latitude},${longitude}&radius=50&keyword=${encodeURIComponent(name)}&key=${GOOGLE_MAPS_APIKEY}&language=pt-BR`;
+        const response = await fetch(url);
+        const data = await response.json();
+        if (data.results && data.results.length > 0) {
+          const types = data.results[0].types || [];
+          // Mapeamento Google -> nossos tipos
+          const typeMap = {
+            restaurant: 'restaurant',
+            school: 'school',
+            hospital: 'hospital',
+            store: 'store',
+            hotel: 'hotel',
+            gym: 'gym',
+            train_station: 'station',
+            park: 'park',
+            church: 'church',
+            pharmacy: 'pharmacy',
+            supermarket: 'supermarket',
+            shopping_mall: 'shopping_mall',
+            bank: 'bank',
+            post_office: 'post_office',
+            bar: 'bar',
+            bakery: 'bakery',
+            gas_station: 'gas_station',
+            veterinary_care: 'pet_store',
+            movie_theater: 'cinema',
+            theater: 'theater',
+            clinic: 'clinic',
+          };
+          const found = types.map(t => typeMap[t]).find(Boolean);
+          if (found) {
+            setPlaceType(found);
+            setShowExtraTypes(found === 'other');
+          }
+        }
+      } catch (e) {
+        // Silencioso
+      }
+    }
+    suggestPlaceType();
+    // eslint-disable-next-line
+  }, [name, latitude, longitude]);
 
   const handleSelectOption = (key) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -88,6 +173,7 @@ export default function AddLocationScreen() {
   
   const validateStep1 = () => {
     if (!name.trim()) return "O nome do local é obrigatório.";
+    if (!placeType || (placeType === 'custom' && !customType.trim())) return "Selecione o tipo de estabelecimento.";
     if (accessibilityFeatures.length === 0) return "Selecione pelo menos um recurso de acessibilidade.";
     if (!image) return "Uma imagem do local é obrigatória.";
     return null;
@@ -150,6 +236,7 @@ export default function AddLocationScreen() {
           author: { id: currentUser.uid, name: currentUser.displayName, photoURL: currentUser.photoURL },
           rating: reviewData ? reviewData.rating : 0,
           reviewCount: reviewData ? 1 : 0,
+          placeType: placeType === 'custom' ? customType.trim() : placeType,
         };
         transaction.set(newLocationRef, locationPayload);
         if (reviewData) {
@@ -183,6 +270,58 @@ export default function AddLocationScreen() {
             <Text style={styles.addressText} numberOfLines={2}>{address}</Text>
         </View>
         <FormField placeholder="Nome do Local (Ex: Restaurante Acessível)" value={name} onChangeText={setName} iconName="text-outline" />
+        <View style={{ marginBottom: 16 }}>
+          <Text style={styles.sectionTitle}>Tipo de Estabelecimento</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flexDirection: 'row', marginBottom: 8 }}>
+            {MAIN_PLACE_TYPES.map(opt => (
+              <TouchableOpacity
+                key={opt.key}
+                style={[styles.typeOption, placeType === opt.key && styles.typeOptionSelected]}
+                onPress={() => {
+                  setPlaceType(opt.key);
+                  setShowExtraTypes(opt.key === 'other');
+                  if (opt.key !== 'custom') setCustomType('');
+                }}
+              >
+                {opt.icon}
+                <Text style={[styles.typeOptionLabel, placeType === opt.key && { color: COLORS.primary }]}>{opt.label}</Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+          {showExtraTypes && (
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flexDirection: 'row', marginBottom: 8 }}>
+              {EXTRA_PLACE_TYPES.map(opt => (
+                <TouchableOpacity
+                  key={opt.key}
+                  style={[styles.typeOption, placeType === opt.key && styles.typeOptionSelected]}
+                  onPress={() => {
+                    setPlaceType(opt.key);
+                    if (opt.key === 'custom') setCustomType('');
+                  }}
+                >
+                  {opt.icon}
+                  <Text style={[styles.typeOptionLabel, placeType === opt.key && { color: COLORS.primary }]}>{opt.label}</Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          )}
+          {placeType === 'custom' && (
+            <TextInput
+              style={styles.input}
+              placeholder="Digite o tipo de estabelecimento"
+              value={customType}
+              onChangeText={setCustomType}
+            />
+          )}
+        </View>
+        {placeType && (
+          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+            <Ionicons name="bulb-outline" size={18} color={COLORS.primary} style={{ marginRight: 6 }} />
+            <Text style={{ color: COLORS.primary, fontSize: 13 }}>
+              Sugestão automática: {MAIN_PLACE_TYPES.concat(EXTRA_PLACE_TYPES).find(opt => opt.key === placeType)?.label || customType}
+            </Text>
+          </View>
+        )}
         <Text style={styles.sectionTitle}>Recursos de Acessibilidade</Text>
         <View style={styles.optionsGrid}>{ACCESSIBILITY_OPTIONS.map(key => { const { icon, name: featureName } = getFeatureData(key); const isSelected = accessibilityFeatures.includes(key); return ( <TouchableOpacity key={key} style={[styles.option, isSelected && styles.optionSelected]} onPress={() => handleSelectOption(key)}><Ionicons name={icon} size={22} color={isSelected ? COLORS.primary : COLORS.textSecondary} /><Text style={[styles.optionLabel, isSelected && {color: COLORS.primary}]}>{featureName}</Text></TouchableOpacity> ); })}</View>
         <TouchableOpacity style={styles.imagePicker} onPress={handlePickImage}>{image ? (<Image source={{ uri: image.uri }} style={styles.imagePreview} />) : (<><Ionicons name="camera-outline" size={32} color={COLORS.textSecondary} /><Text style={styles.imagePickerText}>Adicionar Foto do Local</Text><Text style={styles.imagePickerSubtext}>Obrigatório</Text></>)}</TouchableOpacity>
@@ -273,4 +412,25 @@ const styles = StyleSheet.create({
   commentInput: { minHeight: 60, maxHeight: 120, fontSize: 15, color: COLORS.text, padding: 12, paddingRight: 32 },
   clearCommentButton: { position: 'absolute', right: 6, top: 6, padding: 4 },
   commentCounter: { alignSelf: 'flex-end', fontSize: 12, color: COLORS.textSecondary, marginTop: 2 },
+  typeOption: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 10,
+    marginRight: 10,
+    borderRadius: 12,
+    backgroundColor: '#f1f5f9',
+    borderWidth: 2,
+    borderColor: '#e0e0e0',
+    minWidth: 80,
+  },
+  typeOptionSelected: {
+    backgroundColor: '#e3f2fd',
+    borderColor: COLORS.primary,
+  },
+  typeOptionLabel: {
+    fontSize: 13,
+    marginTop: 4,
+    color: COLORS.textSecondary,
+    textAlign: 'center',
+  },
 });

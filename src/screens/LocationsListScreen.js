@@ -14,11 +14,12 @@ import {
   Platform,
   BackHandler,
   Modal,
-  TouchableWithoutFeedback
+  TouchableWithoutFeedback,
+  ScrollView
 } from 'react-native';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { fetchLocations } from '../services/firebase/locations';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, FontAwesome5, MaterialCommunityIcons } from '@expo/vector-icons';
 import { db, storage, auth } from '../services/firebase/config';
 import { collection, addDoc, serverTimestamp, deleteDoc, doc, runTransaction } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
@@ -26,6 +27,7 @@ import { THEME } from '../config/constants';
 import { useTheme } from '../contexts/ThemeContext';
 import { LinearGradient } from 'expo-linear-gradient';
 import AppHeader from '../components/common/AppHeader';
+import * as Location from 'expo-location';
 
 export default function LocationsListScreen() {
   // State management
@@ -34,34 +36,164 @@ export default function LocationsListScreen() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
-  const [sortBy, setSortBy] = useState('newest'); // newest, rating, name, distance
-  const [filterBy, setFilterBy] = useState('all'); // all, wheelchair, blind, deaf, etc.
   const [viewMode, setViewMode] = useState('grid'); // grid, list
+  const [placeTypeFilter, setPlaceTypeFilter] = useState('all');
+  const [accessibilityFilters, setAccessibilityFilters] = useState([]);
   const [filterModalVisible, setFilterModalVisible] = useState(false);
-  const [sortModalVisible, setSortModalVisible] = useState(false);
+  const [typeFilterModalVisible, setTypeFilterModalVisible] = useState(false);
+  const [tempTypeFilter, setTempTypeFilter] = useState(placeTypeFilter);
+  const [sortBy, setSortBy] = useState('distance'); // 'distance', 'rating', 'recent'
+  const [userLocation, setUserLocation] = useState(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchFocused, setSearchFocused] = useState(false);
+  const [showSuggestions, setShowSuggestions] = useState(false);
 
   const { theme } = useTheme();
   const navigation = useNavigation();
 
-  // Enhanced sort options
-  const sortOptions = [
-    { key: 'newest', label: 'Mais Recentes', icon: 'time-outline' },
-    { key: 'rating', label: 'Melhor Avaliados', icon: 'star' },
-    { key: 'name', label: 'Nome A-Z', icon: 'text' },
-    { key: 'distance', label: 'Distância', icon: 'location' }
+  // Adicionar tipos principais para filtro
+  const MAIN_PLACE_TYPES = [
+    { key: 'all', label: 'Todos', icon: <Ionicons name="apps" size={18} color="#1976d2" /> },
+    { key: 'restaurant', label: 'Restaurante', icon: <MaterialCommunityIcons name="silverware-fork-knife" size={18} color="#1976d2" /> },
+    { key: 'school', label: 'Escola', icon: <Ionicons name="school-outline" size={18} color="#1976d2" /> },
+    { key: 'hospital', label: 'Hospital', icon: <MaterialCommunityIcons name="hospital-building" size={18} color="#1976d2" /> },
+    { key: 'store', label: 'Loja', icon: <FontAwesome5 name="store" size={18} color="#1976d2" /> },
+    { key: 'hotel', label: 'Hotel', icon: <FontAwesome5 name="hotel" size={18} color="#1976d2" /> },
+    { key: 'park', label: 'Parque', icon: <MaterialCommunityIcons name="tree" size={18} color="#1976d2" /> },
+    { key: 'other', label: 'Outros', icon: <Ionicons name="ellipsis-horizontal" size={18} color="#1976d2" /> },
   ];
 
-  // Enhanced filter options
-  const filterOptions = [
-    { key: 'all', label: 'Todos', icon: 'apps', color: theme.colors.primary },
-    { key: 'wheelchair', label: 'Cadeirante', icon: 'walk', color: '#4CAF50' },
-    { key: 'blind', label: 'Deficiência Visual', icon: 'eye-off', color: '#FF9800' },
-    { key: 'deaf', label: 'Deficiência Auditiva', icon: 'ear', color: '#9C27B0' },
-    { key: 'elevator', label: 'Elevador', icon: 'swap-vertical', color: '#2196F3' },
-    { key: 'parking', label: 'Estacionamento', icon: 'car', color: '#795548' },
-    { key: 'restroom', label: 'Banheiro Adaptado', icon: 'body', color: '#607D8B' },
-    { key: 'ramp', label: 'Rampa', icon: 'enter', color: '#F44336' }
+  const PLACE_TYPE_ICONS = {
+    restaurant: <MaterialCommunityIcons name="silverware-fork-knife" size={16} color="#1976d2" />,
+    school: <Ionicons name="school-outline" size={16} color="#1976d2" />,
+    hospital: <MaterialCommunityIcons name="hospital-building" size={16} color="#1976d2" />,
+    store: <FontAwesome5 name="store" size={16} color="#1976d2" />,
+    hotel: <FontAwesome5 name="hotel" size={16} color="#1976d2" />,
+    gym: <MaterialCommunityIcons name="dumbbell" size={16} color="#1976d2" />,
+    station: <MaterialCommunityIcons name="train" size={16} color="#1976d2" />,
+    park: <MaterialCommunityIcons name="tree" size={16} color="#1976d2" />,
+    church: <MaterialCommunityIcons name="church" size={16} color="#1976d2" />,
+    pharmacy: <MaterialCommunityIcons name="pharmacy" size={16} color="#1976d2" />,
+    supermarket: <MaterialCommunityIcons name="cart" size={16} color="#1976d2" />,
+    shopping_mall: <MaterialCommunityIcons name="shopping" size={16} color="#1976d2" />,
+    bank: <FontAwesome5 name="university" size={16} color="#1976d2" />,
+    post_office: <MaterialCommunityIcons name="email" size={16} color="#1976d2" />,
+    pet_store: <MaterialCommunityIcons name="dog" size={16} color="#1976d2" />,
+    bar: <MaterialCommunityIcons name="glass-cocktail" size={16} color="#1976d2" />,
+    bakery: <MaterialCommunityIcons name="bread-slice" size={16} color="#1976d2" />,
+    gas_station: <MaterialCommunityIcons name="gas-station" size={16} color="#1976d2" />,
+    clinic: <MaterialCommunityIcons name="stethoscope" size={16} color="#1976d2" />,
+    theater: <MaterialCommunityIcons name="theater" size={16} color="#1976d2" />,
+    cinema: <MaterialCommunityIcons name="movie" size={16} color="#1976d2" />,
+    custom: <Ionicons name="create-outline" size={16} color="#1976d2" />,
+    other: <Ionicons name="ellipsis-horizontal" size={16} color="#1976d2" />,
+  };
+
+  const PLACE_TYPE_LABELS = {
+    restaurant: 'Restaurante',
+    school: 'Escola',
+    hospital: 'Hospital',
+    store: 'Loja',
+    hotel: 'Hotel',
+    gym: 'Academia',
+    station: 'Estação',
+    park: 'Parque',
+    church: 'Igreja',
+    pharmacy: 'Farmácia',
+    supermarket: 'Supermercado',
+    shopping_mall: 'Shopping',
+    bank: 'Banco',
+    post_office: 'Correios',
+    pet_store: 'Petshop',
+    bar: 'Bar',
+    bakery: 'Padaria',
+    gas_station: 'Posto de Gasolina',
+    clinic: 'Clínica',
+    theater: 'Teatro',
+    cinema: 'Cinema',
+    custom: '',
+    other: 'Outros',
+  };
+
+  // Adicione as opções de acessibilidade para filtro
+  const ACCESSIBILITY_FILTERS = [
+    { key: 'ramp', label: 'Rampas', icon: <MaterialCommunityIcons name="stairs" size={16} color="#1976d2" /> },
+    { key: 'bathroom', label: 'Banheiro adaptado', icon: <MaterialCommunityIcons name="toilet" size={16} color="#1976d2" /> },
+    { key: 'elevator', label: 'Elevador', icon: <MaterialCommunityIcons name="elevator" size={16} color="#1976d2" /> },
+    { key: 'reserved_parking', label: 'Vagas reservadas', icon: <MaterialCommunityIcons name="parking" size={16} color="#1976d2" /> },
+    { key: 'braille', label: 'Braille', icon: <MaterialCommunityIcons name="braille" size={16} color="#1976d2" /> },
+    { key: 'guide_dog', label: 'Cão-guia', icon: <MaterialCommunityIcons name="dog-service" size={16} color="#1976d2" /> },
+    { key: 'sign_language', label: 'Libras', icon: <MaterialCommunityIcons name="hand-peace" size={16} color="#1976d2" /> },
   ];
+
+  // Função auxiliar para mapear features para nome/ícone
+  const FEATURE_MAP = {
+    'wheelchair': { icon: <Ionicons name="walk-outline" size={20} color="#1976d2" />, label: 'Cadeirante' },
+    'blind': { icon: <Ionicons name="eye-off-outline" size={20} color="#1976d2" />, label: 'Def. Visual' },
+    'deaf': { icon: <Ionicons name="ear-outline" size={20} color="#1976d2" />, label: 'Def. Auditiva' },
+    'elevator': { icon: <MaterialCommunityIcons name="elevator" size={20} color="#1976d2" />, label: 'Elevador' },
+    'parking': { icon: <MaterialCommunityIcons name="parking" size={20} color="#1976d2" />, label: 'Estacionamento' },
+    'restroom': { icon: <MaterialCommunityIcons name="toilet" size={20} color="#1976d2" />, label: 'Banheiro Adapt.' },
+    'ramp': { icon: <MaterialCommunityIcons name="stairs" size={20} color="#1976d2" />, label: 'Rampa' },
+    'braille': { icon: <MaterialCommunityIcons name="braille" size={20} color="#1976d2" />, label: 'Braille' },
+    'guide_dog': { icon: <MaterialCommunityIcons name="dog-service" size={20} color="#1976d2" />, label: 'Cão-guia' },
+    'sign_language': { icon: <MaterialCommunityIcons name="hand-peace" size={20} color="#1976d2" />, label: 'Libras' },
+    // fallback
+  };
+
+  // Gerar lista dinâmica de features presentes nos locais
+  const featureCounts = React.useMemo(() => {
+    const counts = {};
+    locations.forEach(loc => {
+      (loc.accessibilityFeatures || []).forEach(f => {
+        counts[f] = (counts[f] || 0) + 1;
+      });
+    });
+    return counts;
+  }, [locations]);
+
+  const dynamicFeatures = Object.keys(featureCounts).map(f => ({
+    key: f,
+    label: FEATURE_MAP[f]?.label || f,
+    icon: FEATURE_MAP[f]?.icon || <Ionicons name="help-circle-outline" size={20} color="#1976d2" />,
+    count: featureCounts[f],
+  }));
+
+  // Gerar lista dinâmica de tipos presentes nos locais
+  const typeCounts = React.useMemo(() => {
+    const counts = {};
+    locations.forEach(loc => {
+      if (loc.placeType) {
+        counts[loc.placeType] = (counts[loc.placeType] || 0) + 1;
+      }
+    });
+    return counts;
+  }, [locations]);
+
+  const dynamicTypes = Object.keys(typeCounts).map(type => ({
+    key: type,
+    label: PLACE_TYPE_LABELS[type] || type,
+    icon: PLACE_TYPE_ICONS[type] || PLACE_TYPE_ICONS['other'],
+    count: typeCounts[type],
+  }));
+
+  // Função para calcular distância
+  function calculateDistance(lat1, lon1, lat2, lon2) {
+    lat1 = Number(lat1);
+    lon1 = Number(lon1);
+    lat2 = Number(lat2);
+    lon2 = Number(lon2);
+    if ([lat1, lon1, lat2, lon2].some(v => isNaN(v))) {
+      return NaN;
+    }
+    const R = 6371; // km
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const a = Math.sin(dLat/2) * Math.sin(dLat/2) + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLon/2) * Math.sin(dLon/2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    const dist = R * c;
+    return dist;
+  }
 
   // Load locations with enhanced error handling
   const loadLocations = useCallback(async () => {
@@ -82,36 +214,60 @@ export default function LocationsListScreen() {
     }
   }, [refreshing]);
 
-  // Novo useEffect para filtrar/ordenar localmente
+  // Solicitar localização do usuário ao abrir tela ou ao ordenar por distância
+  useEffect(() => {
+    if (sortBy === 'distance' && !userLocation) {
+      (async () => {
+        let { status } = await Location.requestForegroundPermissionsAsync();
+        if (status === 'granted') {
+          let loc = await Location.getCurrentPositionAsync({});
+          setUserLocation({ latitude: loc.coords.latitude, longitude: loc.coords.longitude });
+        } else {
+          Alert.alert('Permissão negada', 'Não foi possível obter sua localização.');
+        }
+      })();
+    }
+  }, [sortBy, userLocation]);
+
+  // Atualize o filtro de exibição e ordenação
   useEffect(() => {
     let filtered = [...locations];
-
-    // Aplicar filtros
-    if (filterBy !== 'all') {
-      filtered = filtered.filter(location =>
-        location.accessibilityFeatures && location.accessibilityFeatures.includes(filterBy)
+    if (searchQuery.trim()) {
+      const q = searchQuery.trim().toLowerCase();
+      filtered = filtered.filter(loc =>
+        (loc.name && loc.name.toLowerCase().includes(q)) ||
+        (loc.address && loc.address.toLowerCase().includes(q))
       );
     }
-
-    // Aplicar ordenação
-    switch (sortBy) {
-      case 'rating':
-        filtered.sort((a, b) => (b.rating || 0) - (a.rating || 0));
-        break;
-      case 'name':
-        filtered.sort((a, b) => a.name.localeCompare(b.name));
-        break;
-      case 'distance':
-        filtered.sort((a, b) => Math.random() - 0.5);
-        break;
-      case 'newest':
-      default:
-        // Manter a ordem original para "newest"
-        break;
+    if (placeTypeFilter !== 'all') {
+      filtered = filtered.filter(loc => loc.placeType === placeTypeFilter);
     }
-
+    if (accessibilityFilters.length > 0) {
+      filtered = filtered.filter(loc =>
+        accessibilityFilters.every(f => loc.accessibilityFeatures?.includes(f))
+      );
+    }
+    // Ordenação
+    if (sortBy === 'distance' && userLocation) {
+      filtered.forEach(loc => {
+        if (loc.latitude && loc.longitude) {
+          loc._distance = calculateDistance(userLocation.latitude, userLocation.longitude, loc.latitude, loc.longitude);
+        } else {
+          loc._distance = Infinity;
+        }
+      });
+      filtered.sort((a, b) => (a._distance || Infinity) - (b._distance || Infinity));
+    } else if (sortBy === 'rating') {
+        filtered.sort((a, b) => (b.rating || 0) - (a.rating || 0));
+    } else if (sortBy === 'recent') {
+      filtered.sort((a, b) => {
+        const aDate = a.createdAt?.toDate ? a.createdAt.toDate() : new Date(a.createdAt);
+        const bDate = b.createdAt?.toDate ? b.createdAt.toDate() : new Date(b.createdAt);
+        return bDate - aDate;
+      });
+    }
     setDisplayedLocations(filtered);
-  }, [locations, sortBy, filterBy]);
+  }, [locations, searchQuery, placeTypeFilter, accessibilityFilters, sortBy, userLocation]);
 
   // Effects
   useEffect(() => {
@@ -134,13 +290,13 @@ export default function LocationsListScreen() {
   const headerActions = [
     {
       icon: 'filter',
-      label: filterOptions.find(f => f.key === filterBy)?.label || 'Filtro',
-      onPress: () => setFilterModalVisible(true),
+      label: 'Filtro',
+      onPress: () => setViewMode(viewMode === 'grid' ? 'list' : 'grid'),
     },
     {
       icon: 'swap-vertical',
-      label: sortOptions.find(s => s.key === sortBy)?.label || 'Ordenar',
-      onPress: () => setSortModalVisible(true),
+      label: 'Ordenar',
+      onPress: () => setViewMode(viewMode === 'grid' ? 'list' : 'grid'),
     },
     {
       icon: viewMode === 'grid' ? 'list' : 'grid',
@@ -173,24 +329,76 @@ export default function LocationsListScreen() {
     ];
   }
 
+  // Função para cor do ícone de acessibilidade
+  function getFeatureRatingColor(rating) {
+    if (typeof rating !== 'number' || isNaN(rating) || rating === 0) return '#b0b0b0'; // cinza
+    if (rating >= 4.5) return '#4CAF50'; // verde
+    if (rating >= 3.5) return '#FF9800'; // laranja
+    if (rating >= 2) return '#FFC107'; // amarelo
+    return '#F44336'; // vermelho
+  }
+
+  // Função utilitária para extrair latitude/longitude do campo location ou dos campos separados
+  function getLatLngFromLocationField(item) {
+    // Se já existem os campos latitude/longitude
+    if (typeof item.latitude === 'number' && typeof item.longitude === 'number') {
+      return { latitude: item.latitude, longitude: item.longitude };
+    }
+    // Se location é um objeto {latitude, longitude}
+    if (item.location && typeof item.location === 'object' && !Array.isArray(item.location)) {
+      if (typeof item.location.latitude === 'number' && typeof item.location.longitude === 'number') {
+        return { latitude: item.location.latitude, longitude: item.location.longitude };
+      }
+    }
+    // Se location é array [lat, lng] (números ou strings)
+    if (Array.isArray(item.location) && item.location.length === 2) {
+      let lat = item.location[0];
+      let lng = item.location[1];
+      if (typeof lat === 'string') lat = parseLatLngString(lat, true);
+      if (typeof lng === 'string') lng = parseLatLngString(lng, false);
+      if (typeof lat === 'number' && typeof lng === 'number' && !isNaN(lat) && !isNaN(lng)) {
+        return { latitude: lat, longitude: lng };
+      }
+    }
+    // Se location é string tipo "[24.499485° S, 47.848334° W]" ou "24.499485° S, 47.848334° W"
+    if (typeof item.location === 'string') {
+      let str = item.location.replace(/\[|\]/g, '').trim();
+      const parts = str.split(',');
+      if (parts.length === 2) {
+        const lat = parseLatLngString(parts[0], true);
+        const lng = parseLatLngString(parts[1], false);
+        if (typeof lat === 'number' && typeof lng === 'number' && !isNaN(lat) && !isNaN(lng)) {
+          return { latitude: lat, longitude: lng };
+        }
+      }
+    }
+    return null;
+  }
+
+  function parseLatLngString(str, isLat) {
+    if (typeof str !== 'string') return NaN;
+    const match = str.match(/([\d.\-]+)[^\d\-]*([NSLOEW])?/i);
+    if (!match) return NaN;
+    let value = parseFloat(match[1]);
+    if (isNaN(value)) return NaN;
+    if (/S|O|W/i.test(str)) value = -Math.abs(value);
+    else value = Math.abs(value);
+    return value;
+  }
+
   function renderLocation({ item }) {
     const getLocationEmoji = (rating) => {
-      if (!rating) return { emoji: '🆕', text: 'Novo local' };
-      if (rating >= 4.5) return { emoji: '⭐', text: 'Excelente' };
-      if (rating >= 3.5) return { emoji: '👍', text: 'Bom' };
-      if (rating >= 2) return { emoji: '😐', text: 'Regular' };
-      return { emoji: '👎', text: 'Precisa melhorar' };
+      if (!rating) return { emoji: '🆕' };
+      if (rating >= 4.5) return { emoji: '😃' }; // Excelente
+      if (rating >= 3.5) return { emoji: '🙂' }; // Bom
+      if (rating >= 2) return { emoji: '😐' }; // Regular
+      return { emoji: '😞' }; // Precisa melhorar
     };
 
-    const getFeatureRatingColor = (rating) => {
-      if (!rating) return '#9E9E9E';
-      if (rating >= 4.5) return '#4CAF50';
-      if (rating >= 3.5) return '#FF9800';
-      if (rating >= 2) return '#FFC107';
-      return '#F44336';
-    };
+    const { emoji } = getLocationEmoji(item.rating);
 
-    const { emoji, text } = getLocationEmoji(item.rating);
+    // Extrair latitude/longitude do campo location
+    const latLng = getLatLngFromLocationField(item);
 
     return (
       <TouchableOpacity
@@ -215,18 +423,20 @@ export default function LocationsListScreen() {
             </View>
           )}
           
-          {/* Emoji Rating Badge */}
-          <View style={[styles.emojiRating, { backgroundColor: getFeatureRatingColor(item.rating) }]}>
+          {/* Badge de status apenas com emoji */}
+          <View style={styles.emojiRating}>
             <Text style={styles.emojiText}>{emoji}</Text>
-            <Text style={styles.emojiLabel}>{text}</Text>
           </View>
 
-          {/* Quick Rating */}
-          {item.rating > 0 && (
-          <View style={styles.quickRating}>
-            <Ionicons name="star" size={12} color="#FFD700" />
-              <Text style={[styles.quickRatingText, { color: '#fff' }]}>
-                {item.rating.toFixed(1)}
+          {/* Tag de distância usando latLng - canto inferior direito */}
+          {latLng && userLocation && (
+            <View style={styles.distanceBadge}>
+              <Ionicons name="navigate" size={14} color="#fff" style={{ marginRight: 4 }} />
+              <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 13 }}>
+                {(() => {
+                  const d = calculateDistance(userLocation.latitude, userLocation.longitude, latLng.latitude, latLng.longitude);
+                  return isNaN(d) ? '--' : `${d.toFixed(1)} km`;
+                })()}
             </Text>
           </View>
           )}
@@ -255,30 +465,25 @@ export default function LocationsListScreen() {
           <Text style={styles.locationName} numberOfLines={2}>{item.name}</Text>
           <Text style={styles.locationAddress} numberOfLines={1}>{item.address}</Text>
 
+          {/* Classificação por estrelas abaixo do endereço */}
+          {item.rating > 0 && (
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6, marginTop: 2 }}>
+              <Ionicons name="star" size={15} color="#FFD700" style={{ marginRight: 2 }} />
+              <Text style={{ fontWeight: 'bold', color: '#222', fontSize: 14 }}>{item.rating.toFixed(1)}</Text>
+            </View>
+          )}
+
           {/* Accessibility Features with Ratings */}
           {item.accessibilityFeatures && item.accessibilityFeatures.length > 0 && (
             <View style={styles.accessibilityContainer}>
               {item.accessibilityFeatures.slice(0, 3).map((feature, index) => {
-                const featureData = filterOptions.find(f => f.key === feature);
-                const featureRating = item.featureRatings?.[feature] || 0;
+                const featureData = FEATURE_MAP[feature] || { icon: <Ionicons name="help-circle-outline" size={16} color="#b0b0b0" />, label: feature };
+                const featureRating = item.featureRatings?.[feature];
+                const iconColor = getFeatureRatingColor(featureRating);
+                const iconWithColor = React.cloneElement(featureData.icon, { color: iconColor });
                 return (
-                  <View 
-                    key={index}
-        style={[
-                      styles.accessibilityTag,
-                      { backgroundColor: getFeatureRatingColor(featureRating) + '20' }
-                ]}
-              >
-                <Ionicons
-                      name={featureData?.icon || 'help-circle'} 
-                      size={14} 
-                      color={getFeatureRatingColor(featureRating)} 
-                />
-                    {featureRating > 0 && (
-                      <Text style={[styles.featureRating, { color: getFeatureRatingColor(featureRating) }]}>
-                        {featureRating.toFixed(1)}
-                </Text>
-            )}
+                  <View key={index} style={styles.accessibilityTag}>
+                    {iconWithColor}
         </View>
                 );
               })}
@@ -289,10 +494,29 @@ export default function LocationsListScreen() {
               )}
     </View>
           )}
+
+          {item.placeType && (
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4, marginTop: 2 }}>
+              {PLACE_TYPE_ICONS[item.placeType] || PLACE_TYPE_ICONS['other']}
+              <Text style={{ marginLeft: 6, fontSize: 13, color: '#1976d2', fontWeight: 'bold' }}>
+                {PLACE_TYPE_LABELS[item.placeType] || item.placeType}
+              </Text>
+            </View>
+          )}
         </View>
       </TouchableOpacity>
     );
   }
+
+  // Sugestões de autocomplete
+  const searchSuggestions = React.useMemo(() => {
+    if (!searchQuery.trim()) return [];
+    const q = searchQuery.trim().toLowerCase();
+    return locations.filter(loc =>
+      (loc.name && loc.name.toLowerCase().includes(q)) ||
+      (loc.address && loc.address.toLowerCase().includes(q))
+    ).slice(0, 6);
+  }, [searchQuery, locations]);
 
   // Loading state - Só mostrar durante o carregamento inicial ou refresh
   if (loading && !refreshing && locations.length === 0) {
@@ -339,17 +563,251 @@ export default function LocationsListScreen() {
   }
 
   return (
-    <View style={[styles.container]}>
-      <StatusBar barStyle="dark-content" backgroundColor="#f8fafc" />
-      
+    <View style={{ flex: 1, backgroundColor: '#f8fafc' }}>
       <AppHeader
         title="Locais Acessíveis"
         onBack={() => navigation.goBack()}
-        actions={headerActions}
+        actions={[
+          {
+            icon: 'options',
+            label: 'Acessibilidade',
+            onPress: () => setFilterModalVisible(true),
+            badge: accessibilityFilters.length > 0 ? accessibilityFilters.length : undefined,
+          },
+          {
+            icon: 'filter',
+            label: 'Tipo',
+            onPress: () => {
+              setTempTypeFilter(placeTypeFilter);
+              setTypeFilterModalVisible(true);
+            },
+            badge: placeTypeFilter !== 'all' ? 1 : undefined,
+          },
+        ]}
+      />
+      {/* Barra de pesquisa moderna */}
+      <View style={{ paddingHorizontal: 16, paddingTop: 10, paddingBottom: 6, backgroundColor: '#f8fafc', zIndex: 20 }}>
+        <View style={{
+          flexDirection: 'row',
+          alignItems: 'center',
+          backgroundColor: '#f1f5f9',
+          borderRadius: 14,
+          paddingHorizontal: 12,
+          paddingVertical: 0,
+          borderWidth: searchFocused ? 1.5 : 1,
+          borderColor: searchFocused ? '#1976d2' : '#e0e0e0',
+        }}>
+          <Ionicons name="search" size={20} color={searchFocused ? '#1976d2' : '#b0b0b0'} style={{ marginRight: 6 }} />
+          <TextInput
+            style={{ flex: 1, height: 40, fontSize: 16, color: '#222', backgroundColor: 'transparent' }}
+            placeholder="Buscar por local ou cidade..."
+            placeholderTextColor="#b0b0b0"
+            value={searchQuery}
+            onChangeText={text => { setSearchQuery(text); setShowSuggestions(true); }}
+            onFocus={() => { setSearchFocused(true); setShowSuggestions(true); }}
+            onBlur={() => setSearchFocused(false)}
+            returnKeyType="search"
+            autoCorrect={false}
+          />
+          {searchQuery.length > 0 && (
+            <TouchableOpacity onPress={() => { setSearchQuery(''); setShowSuggestions(false); }} style={{ marginLeft: 4 }}>
+              <Ionicons name="close-circle" size={20} color="#b0b0b0" />
+            </TouchableOpacity>
+          )}
+        </View>
+        {/* Dropdown de sugestões */}
+        {showSuggestions && searchQuery.length > 0 && (
+          <View style={{
+            backgroundColor: '#fff',
+            borderRadius: 14,
+            marginTop: 2,
+            shadowColor: '#000',
+            shadowOpacity: 0.10,
+            shadowRadius: 8,
+            elevation: 6,
+            maxHeight: 220,
+            overflow: 'hidden',
+            borderWidth: 1,
+            borderColor: '#e0e0e0',
+            zIndex: 30,
+          }}>
+            {searchSuggestions.length > 0 ? (
+              searchSuggestions.map(sug => (
+                <TouchableOpacity
+                  key={sug.id}
+                  style={{ flexDirection: 'row', alignItems: 'center', padding: 14, borderBottomWidth: 1, borderBottomColor: '#f0f0f0' }}
+                  onPress={() => { setSearchQuery(sug.name); setShowSuggestions(false); }}
+                >
+                  <Ionicons name="location" size={18} color="#1976d2" style={{ marginRight: 10 }} />
+                  <View>
+                    <Text style={{ fontSize: 15, color: '#222', fontWeight: 'bold' }}>{sug.name}</Text>
+                    <Text style={{ fontSize: 13, color: '#666' }}>{sug.address}</Text>
+                  </View>
+                </TouchableOpacity>
+              ))
+            ) : (
+              <TouchableOpacity
+                style={{ flexDirection: 'row', alignItems: 'center', padding: 16, justifyContent: 'center' }}
+                onPress={() => {
+                  setShowSuggestions(false);
+                  navigation.navigate('SelectLocationMap', { prefillName: searchQuery });
+                }}
+              >
+                <Ionicons name="add-circle-outline" size={20} color="#1976d2" style={{ marginRight: 8 }} />
+                <Text style={{ color: '#1976d2', fontWeight: 'bold', fontSize: 15 }}>
+                  Não encontrou o local? <Text style={{ textDecorationLine: 'underline' }}>Adicione ao sistema!</Text>
+                </Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        )}
+      </View>
+      {/* Modais de filtro */}
+      {/* Modal de filtro de tipo de local */}
+      <Modal
+        visible={typeFilterModalVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setTypeFilterModalVisible(false)}
       >
-      </AppHeader>
-
-      <View style={[styles.listContainer, { opacity: 1 }]}>
+        <TouchableOpacity style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.25)' }} activeOpacity={1} onPress={() => setTypeFilterModalVisible(false)} />
+        <View style={{
+          position: 'absolute',
+          top: 90,
+          left: 0,
+          right: 0,
+          backgroundColor: '#fff',
+          borderTopLeftRadius: 24,
+          borderTopRightRadius: 24,
+          borderBottomLeftRadius: 24,
+          borderBottomRightRadius: 24,
+          padding: 24,
+          elevation: 16,
+          shadowColor: '#000',
+          shadowOpacity: 0.15,
+          shadowRadius: 24,
+          shadowOffset: { width: 0, height: 8 },
+          minHeight: 180,
+          alignItems: 'center',
+        }}>
+          {/* Handle visual */}
+          <View style={{ width: 48, height: 5, borderRadius: 3, backgroundColor: '#e0e0e0', marginBottom: 16 }} />
+          <Text style={{ fontSize: 18, fontWeight: 'bold', color: '#1976d2', marginBottom: 18 }}>Filtrar por tipo de local</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 18, alignSelf: 'stretch' }}>
+            {MAIN_PLACE_TYPES.map(type => {
+              const count = type.key === 'all' ? locations.length : (typeCounts[type.key] || 0);
+              const isSelected = tempTypeFilter === type.key;
+              return (
+                <TouchableOpacity
+                  key={type.key}
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    backgroundColor: isSelected ? '#e3f2fd' : '#f5f5f5',
+                    borderRadius: 18,
+                    paddingHorizontal: 16,
+                    paddingVertical: 10,
+                    marginRight: 10,
+                    borderWidth: isSelected ? 2 : 0,
+                    borderColor: '#1976d2',
+                    elevation: isSelected ? 2 : 0,
+                    opacity: type.key === 'all' ? 1 : (locations.length === 0 ? 0.5 : 1),
+                  }}
+                  onPress={() => setTempTypeFilter(type.key)}
+                  disabled={locations.length === 0 && type.key !== 'all'}
+                >
+                  {type.icon}
+                  <Text style={{ marginLeft: 8, color: '#1976d2', fontWeight: 'bold', fontSize: 15 }}>{type.label}</Text>
+                  <View style={{ backgroundColor: '#1976d2', borderRadius: 10, marginLeft: 8, paddingHorizontal: 6, paddingVertical: 2 }}>
+                    <Text style={{ color: '#fff', fontSize: 12, fontWeight: 'bold' }}>{count}</Text>
+                  </View>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+          <View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: 12, alignSelf: 'stretch' }}>
+            <TouchableOpacity onPress={() => { setTempTypeFilter('all'); setPlaceTypeFilter('all'); setTypeFilterModalVisible(false); }} style={{ padding: 10, borderRadius: 12, backgroundColor: '#f5f5f5', marginRight: 8 }}>
+              <Text style={{ color: '#1976d2', fontWeight: 'bold' }}>Limpar</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => { setPlaceTypeFilter(tempTypeFilter); setTypeFilterModalVisible(false); }} style={{ padding: 10, borderRadius: 12, backgroundColor: '#1976d2' }}>
+              <Text style={{ color: '#fff', fontWeight: 'bold' }}>Aplicar</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+      {/* Modal de filtro de acessibilidade */}
+      <Modal
+        visible={filterModalVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setFilterModalVisible(false)}
+      >
+        <TouchableOpacity style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.25)' }} activeOpacity={1} onPress={() => setFilterModalVisible(false)} />
+        <View style={{
+          position: 'absolute',
+          top: 90,
+          left: 0,
+          right: 0,
+          backgroundColor: '#fff',
+          borderTopLeftRadius: 24,
+          borderTopRightRadius: 24,
+          borderBottomLeftRadius: 24,
+          borderBottomRightRadius: 24,
+          padding: 24,
+          elevation: 16,
+          shadowColor: '#000',
+          shadowOpacity: 0.15,
+          shadowRadius: 24,
+          shadowOffset: { width: 0, height: 8 },
+          minHeight: 180,
+          alignItems: 'center',
+        }}>
+          {/* Handle visual */}
+          <View style={{ width: 48, height: 5, borderRadius: 3, backgroundColor: '#e0e0e0', marginBottom: 16 }} />
+          <Text style={{ fontSize: 18, fontWeight: 'bold', color: '#1976d2', marginBottom: 18 }}>Filtrar por acessibilidade</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 18, alignSelf: 'stretch' }}>
+            {dynamicFeatures.map(feature => {
+              const selected = accessibilityFilters.includes(feature.key);
+              return (
+                <TouchableOpacity
+                  key={feature.key}
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    backgroundColor: selected ? '#e3f2fd' : '#f5f5f5',
+                    borderRadius: 18,
+                    paddingHorizontal: 16,
+                    paddingVertical: 10,
+                    marginRight: 10,
+                    borderWidth: selected ? 2 : 0,
+                    borderColor: '#1976d2',
+                    elevation: selected ? 2 : 0,
+                  }}
+                  onPress={() => {
+                    setAccessibilityFilters(selected
+                      ? accessibilityFilters.filter(f => f !== feature.key)
+                      : [...accessibilityFilters, feature.key]);
+                  }}
+                >
+                  {feature.icon}
+                  <Text style={{ marginLeft: 8, color: '#1976d2', fontWeight: 'bold', fontSize: 15 }}>{feature.label}</Text>
+                  <View style={{ backgroundColor: '#1976d2', borderRadius: 10, marginLeft: 8, paddingHorizontal: 6, paddingVertical: 2 }}>
+                    <Text style={{ color: '#fff', fontSize: 12, fontWeight: 'bold' }}>{feature.count}</Text>
+                  </View>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+          <View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: 12, alignSelf: 'stretch' }}>
+            <TouchableOpacity onPress={() => setAccessibilityFilters([])} style={{ padding: 10, borderRadius: 12, backgroundColor: '#f5f5f5', marginRight: 8 }}>
+              <Text style={{ color: '#1976d2', fontWeight: 'bold' }}>Limpar</Text>
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => setFilterModalVisible(false)} style={{ padding: 10, borderRadius: 12, backgroundColor: '#1976d2' }}>
+              <Text style={{ color: '#fff', fontWeight: 'bold' }}>Aplicar</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
         <FlatList
           data={displayedLocations}
           keyExtractor={item => item.id}
@@ -378,8 +836,6 @@ export default function LocationsListScreen() {
             </View>
           )}
         />
-      </View>
-
       {/* Floating Action Button */}
         <TouchableOpacity
           style={[styles.fab, { backgroundColor: theme.colors.primary }]}
@@ -528,49 +984,66 @@ const styles = StyleSheet.create({
   gridCard: {
     flex: 1,
     backgroundColor: '#fff',
-    margin: 4,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    margin: 8,
+    borderRadius: 22,
+    shadowColor: '#1976d2',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.10,
+    shadowRadius: 16,
+    elevation: 6,
+    borderWidth: 0,
     overflow: 'hidden',
+    // Glow sutil para status
   },
   gridImageContainer: {
     width: '100%',
     height: 120,
     position: 'relative',
+    borderTopLeftRadius: 22,
+    borderTopRightRadius: 22,
+    overflow: 'hidden',
   },
   gridImage: {
     width: '100%',
     height: '100%',
+    borderTopLeftRadius: 22,
+    borderTopRightRadius: 22,
   },
   // List Card Styles
   listCard: {
     backgroundColor: '#fff',
-    marginBottom: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    marginBottom: 16,
+    borderRadius: 22,
+    shadowColor: '#1976d2',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.10,
+    shadowRadius: 16,
+    elevation: 6,
     flexDirection: 'row',
+    borderWidth: 0,
     overflow: 'hidden',
   },
   listImageContainer: {
-    width: 100,
-    height: 100,
+    width: 110,
+    height: 110,
     position: 'relative',
+    borderTopLeftRadius: 22,
+    borderBottomLeftRadius: 22,
+    overflow: 'hidden',
   },
   listImage: {
     width: '100%',
     height: '100%',
+    borderTopLeftRadius: 22,
+    borderBottomLeftRadius: 22,
   },
   placeholderImage: {
     flex: 1,
     backgroundColor: '#F5F5F5',
     justifyContent: 'center',
     alignItems: 'center',
+    borderTopLeftRadius: 22,
+    borderTopRightRadius: 22,
   },
   placeholderText: {
     fontSize: 12,
@@ -591,36 +1064,24 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: 'bold',
   },
-  quickRating: {
-    position: 'absolute',
-    bottom: 8,
-    left: 8,
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(0,0,0,0.7)',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  quickRatingText: {
-    fontSize: 12,
-    fontWeight: 'bold',
-    marginLeft: 4,
-  },
   cardContent: {
     flex: 1,
-    padding: 12,
+    padding: 16,
+    paddingTop: 12,
+    paddingBottom: 10,
   },
   locationName: {
-    fontSize: 16,
+    fontSize: 17,
     fontWeight: 'bold',
-    color: '#333',
+    color: '#222',
     marginBottom: 4,
+    letterSpacing: 0.1,
   },
   locationAddress: {
-    fontSize: 13,
+    fontSize: 14,
     color: '#666',
-    marginBottom: 6,
+    marginBottom: 8,
+    fontWeight: '400',
   },
   locationDescription: {
     fontSize: 12,
@@ -648,15 +1109,21 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     alignItems: 'center',
+    marginTop: 2,
+    marginBottom: 2,
+    gap: 2,
   },
   accessibilityTag: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 4,
-    marginBottom: 4,
+    marginBottom: 2,
+    backgroundColor: '#f1f5f9',
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
   },
   moreTag: {
     backgroundColor: '#E0E0E0',
@@ -761,7 +1228,7 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: THEME.colors.primary,
+    backgroundColor: '#1976d2',
     justifyContent: 'center',
     alignItems: 'center',
     shadowColor: '#000',
@@ -866,26 +1333,53 @@ const styles = StyleSheet.create({
   },
   emojiRating: {
     position: 'absolute',
-    top: 8,
-    right: 8,
+    top: 12,
+    left: 12,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    backgroundColor: 'rgba(0,0,0,0.10)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.10,
+    shadowRadius: 6,
+    elevation: 2,
+    zIndex: 20,
   },
   emojiText: {
-    fontSize: 14,
-    marginRight: 4,
+    fontSize: 16,
+    marginRight: 6,
   },
   emojiLabel: {
     color: '#fff',
-    fontSize: 10,
+    fontSize: 12,
     fontWeight: 'bold',
+    textShadowColor: 'rgba(0,0,0,0.18)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
   },
   featureRating: {
     fontSize: 10,
     fontWeight: 'bold',
     marginLeft: 4,
+  },
+  distanceBadge: {
+    position: 'absolute',
+    bottom: 12,
+    right: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(25, 118, 210, 0.95)', // Azul sólido com opacidade
+    borderRadius: 16,
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    shadowColor: '#1976d2',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.18,
+    shadowRadius: 8,
+    elevation: 4,
+    zIndex: 20,
   },
 });
