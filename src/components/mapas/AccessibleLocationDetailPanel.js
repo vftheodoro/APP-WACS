@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, Image, ActivityIndicator, Modal, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, Image, ActivityIndicator, Modal, StyleSheet, Alert } from 'react-native';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 
 const COLORS = {
@@ -48,6 +48,13 @@ function getAccessibilityBorderColor(rating) {
   return '#F44336'; // vermelho
 }
 
+function getAccessibilityIconColor(rating) {
+  if (typeof rating !== 'number' || isNaN(rating) || rating === 0) return '#b0b0b0'; // cinza
+  if (rating >= 4) return '#43e97b'; // verde
+  if (rating >= 2.5) return '#FFEB3B'; // amarelo
+  return '#F44336'; // vermelho
+}
+
 export default function AccessibleLocationDetailPanel({
   location,
   onClose,
@@ -58,8 +65,10 @@ export default function AccessibleLocationDetailPanel({
   routeInfo,
   isFavorite,
   onToggleFavorite,
+  openInMaps,
 }) {
   const [showRouteModal, setShowRouteModal] = useState(false);
+  const [routeError, setRouteError] = useState(null);
 
   if (!location) return null;
   const { emoji, text: emojiText } = getLocationEmoji(location.rating);
@@ -70,6 +79,19 @@ export default function AccessibleLocationDetailPanel({
           Math.pow(userLocation.longitude - location.longitude, 2)
         ) * 111.32 * 1000
       ) / 1000).toFixed(2) : null;
+
+  const handleTryRouteAgain = () => {
+    setRouteError(null);
+    if (onStartRoute) onStartRoute(true); // true = forçar recálculo
+  };
+
+  const handleOpenInMaps = () => {
+    if (typeof openInMaps === 'function') {
+      openInMaps(location);
+    } else {
+      Alert.alert('Ação não disponível', 'Função de abrir no Google Maps não implementada.');
+    }
+  };
 
   return (
     <TouchableOpacity
@@ -127,27 +149,37 @@ export default function AccessibleLocationDetailPanel({
           </TouchableOpacity>
         </View>
         <Text style={styles.reviewCount}>{location.reviewCount ? `${location.reviewCount} avaliações` : 'Sem avaliações'}</Text>
-        {/* Recursos de acessibilidade - grade destacada */}
+        {/* Recursos de acessibilidade - linha compacta de ícones com tooltip */}
         {location.accessibilityFeatures && location.accessibilityFeatures.length > 0 && (
-          <View style={styles.accessibilityGrid}>
-            {location.accessibilityFeatures.map((feature, idx) => {
+          <View style={{ flexDirection: 'row', alignItems: 'center', marginVertical: 8 }}>
+            {location.accessibilityFeatures.slice(0, 4).map((feature, idx) => {
               const featureData = filterOptions.find(f => f.key === feature);
-              const featureRating = location.featureRatings?.[feature] || 0;
-              const borderColor = getAccessibilityBorderColor(featureRating);
+              const featureRating = location.featureRatings?.[feature];
+              const bgColor = getAccessibilityIconColor(featureRating) + '33'; // cor com transparência
               return (
-                <View key={idx} style={[styles.accessibilityItem, { borderColor }] }>
-                  <View style={[styles.accessibilityIconCircle, { backgroundColor: (featureData?.color || COLORS.primary) + '22' }] }>
-                    <Ionicons name={featureData?.icon || 'help-circle'} size={32} color={featureData?.color || COLORS.primary} />
+                <TouchableOpacity
+                  key={idx}
+                  style={{ marginRight: 10, alignItems: 'center' }}
+                  onPress={() => Alert.alert(featureData?.label || feature, `Recurso de acessibilidade: ${featureData?.label || feature}`)}
+                >
+                  <View style={{
+                    width: 38,
+                    height: 38,
+                    borderRadius: 19,
+                    backgroundColor: bgColor,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}>
+                    <Ionicons name={featureData?.icon || 'help-circle'} size={22} color={'#222'} />
                   </View>
-                  <Text style={[styles.accessibilityLabel, { color: featureData?.color || COLORS.primary }]}>{featureData?.label || feature}</Text>
-                  <View style={{ marginTop: 2 }}>
-                    {featureRating > 0
-                      ? renderStars(featureRating, 14, borderColor)
-                      : <Ionicons name="star-outline" size={14} color="#b0b0b0" />}
-                  </View>
-                </View>
+                </TouchableOpacity>
               );
             })}
+            {location.accessibilityFeatures.length > 4 && (
+              <View style={{ justifyContent: 'center', alignItems: 'center' }}>
+                <Text style={{ color: COLORS.primary, fontWeight: 'bold', fontSize: 15 }}>+{location.accessibilityFeatures.length - 4}</Text>
+              </View>
+            )}
           </View>
         )}
         {/* Botões de ação */}
@@ -157,8 +189,17 @@ export default function AccessibleLocationDetailPanel({
             <Text style={styles.actionButtonText}>Ver detalhes</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.routeButton} onPress={() => setShowRouteModal(true)}>
-            <MaterialIcons name="directions-walk" size={22} color="#fff" />
-            <Text style={styles.routeButtonText}>Traçar rota</Text>
+            <Ionicons name="navigate" size={22} color="#fff" />
+            <Text style={styles.routeButtonText}>Traçar rota no app</Text>
+          </TouchableOpacity>
+        </View>
+        <View style={{ flexDirection: 'row', justifyContent: 'center', marginTop: 6 }}>
+          <TouchableOpacity
+            style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', borderRadius: 8, paddingVertical: 8, paddingHorizontal: 16, borderWidth: 1, borderColor: '#e0e0e0', elevation: 1 }}
+            onPress={handleOpenInMaps}
+          >
+            <Ionicons name="logo-google" size={20} color="#4285F4" style={{ marginRight: 6 }} />
+            <Text style={{ color: '#4285F4', fontWeight: 'bold', fontSize: 15 }}>Abrir no Google Maps</Text>
           </TouchableOpacity>
         </View>
         {/* Modal de confirmação de rota */}
@@ -167,19 +208,39 @@ export default function AccessibleLocationDetailPanel({
             <View style={styles.routeModalContent}>
               <Text style={styles.sectionTitle}>Resumo da viagem</Text>
               {loadingRoute ? (
-                <ActivityIndicator size="large" color={COLORS.primary} />
-              ) : routeInfo && routeInfo.distance ? (
+                <View style={{ alignItems: 'center', justifyContent: 'center', padding: 18 }}>
+                  <ActivityIndicator size="large" color={COLORS.primary} />
+                  <Text style={{ marginTop: 12, color: COLORS.primary, fontWeight: 'bold', fontSize: 16 }}>Calculando rota...</Text>
+                </View>
+              ) : routeInfo && routeInfo.distance && !routeError ? (
                 <>
-                  <Text style={styles.routeInfoText}>Distância: <Text style={{ fontWeight: 'bold' }}>{routeInfo.distance}</Text></Text>
-                  <Text style={styles.routeInfoText}>Tempo estimado: <Text style={{ fontWeight: 'bold' }}>{routeInfo.duration}</Text></Text>
-                  <Text style={styles.routeInfoText}>Instrução inicial: <Text style={{ fontWeight: 'bold' }}>{routeInfo.instruction}</Text></Text>
-                  <TouchableOpacity style={styles.confirmRouteButton} onPress={() => { setShowRouteModal(false); onStartRoute && onStartRoute(); }}>
+                  <View style={{ alignItems: 'center', marginBottom: 10 }}>
+                    <Ionicons name="checkmark-circle" size={38} color={COLORS.accent} style={{ marginBottom: 6 }} />
+                    <Text style={styles.routeInfoText}>Distância: <Text style={{ fontWeight: 'bold' }}>{routeInfo.distance}</Text></Text>
+                    <Text style={styles.routeInfoText}>Tempo estimado: <Text style={{ fontWeight: 'bold' }}>{routeInfo.duration}</Text></Text>
+                    <Text style={styles.routeInfoText}>Instrução inicial: <Text style={{ fontWeight: 'bold' }}>{routeInfo.instruction}</Text></Text>
+                  </View>
+                  <TouchableOpacity
+                    style={[styles.confirmRouteButton, loadingRoute && { opacity: 0.6 }]}
+                    onPress={() => {
+                      setShowRouteModal(false);
+                      setTimeout(() => { onStartRoute && onStartRoute(); }, 300);
+                    }}
+                    disabled={loadingRoute}
+                  >
                     <MaterialIcons name="play-arrow" size={22} color="#fff" />
                     <Text style={styles.confirmRouteButtonText}>Iniciar trajeto</Text>
                   </TouchableOpacity>
                 </>
               ) : (
-                <Text style={{ color: COLORS.error }}>Não foi possível obter a rota.</Text>
+                <View style={{ alignItems: 'center', justifyContent: 'center', padding: 18 }}>
+                  <Ionicons name="close-circle" size={38} color={COLORS.error} style={{ marginBottom: 6 }} />
+                  <Text style={{ color: COLORS.error, fontWeight: 'bold', fontSize: 16, marginBottom: 8 }}>Não foi possível obter a rota.</Text>
+                  <TouchableOpacity style={[styles.confirmRouteButton, { backgroundColor: COLORS.error }]} onPress={handleTryRouteAgain}>
+                    <Ionicons name="refresh" size={20} color="#fff" />
+                    <Text style={styles.confirmRouteButtonText}>Tentar novamente</Text>
+                  </TouchableOpacity>
+                </View>
               )}
             </View>
           </TouchableOpacity>

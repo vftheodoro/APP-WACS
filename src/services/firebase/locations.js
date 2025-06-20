@@ -1,5 +1,5 @@
 import { db } from './config';
-import { collection, getDocs, doc, getDoc, query, orderBy, where } from 'firebase/firestore';
+import { collection, getDocs, doc, getDoc, query, orderBy, where, deleteDoc, updateDoc } from 'firebase/firestore';
 
 // Fetch all accessible locations, ordered by most recent (if timestamp exists)
 export async function fetchLocations(filter = 'recent') {
@@ -144,4 +144,37 @@ export async function fetchReviewsForLocation(locationId) {
   }
   
   return reviewsWithUsers;
+}
+
+// Deletar local pelo ID
+export async function deleteLocationById(locationId) {
+  try {
+    await deleteDoc(doc(db, 'accessibleLocations', locationId));
+    return true;
+  } catch (error) {
+    console.error('Erro ao deletar local:', error);
+    throw error;
+  }
+}
+
+// Deletar avaliação pelo ID
+export async function deleteReviewById(reviewId) {
+  try {
+    await deleteDoc(doc(db, 'reviews', reviewId));
+    return true;
+  } catch (error) {
+    console.error('Erro ao deletar avaliação:', error);
+    throw error;
+  }
+}
+
+// Atualizar avaliação pelo ID
+export async function updateReviewById(reviewId, data) {
+  try {
+    await updateDoc(doc(db, 'reviews', reviewId), data);
+    return true;
+  } catch (error) {
+    console.error('Erro ao atualizar avaliação:', error);
+    throw error;
+  }
 }

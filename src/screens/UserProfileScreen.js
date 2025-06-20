@@ -14,15 +14,24 @@ import {
   Dimensions,
   Animated,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { useAuth } from '../contexts/AuthContext';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useNavigation } from '@react-navigation/native';
 import ProfileForm from '../components/common/ProfileForm';
+import { fetchLocations, fetchReviewsForLocation, deleteLocationById, deleteReviewById, updateReviewById } from '../services/firebase/locations';
 
 const { width } = Dimensions.get('window');
+
+// Função utilitária para cor da badge de nota
+function getRatingColor(rating) {
+  if (typeof rating !== 'number' || isNaN(rating) || rating === 0) return '#b0b0b0'; // cinza
+  if (rating >= 4) return '#43e97b'; // verde
+  if (rating >= 2.5) return '#FFEB3B'; // amarelo
+  return '#F44336'; // vermelho
+}
 
 export default function UserProfileScreen() {
   const { user, updateUser, updateProfilePicture, logout, isUploading, changePassword } = useAuth();
@@ -44,6 +53,10 @@ export default function UserProfileScreen() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [passwordError, setPasswordError] = useState('');
   const [passwordSuccess, setPasswordSuccess] = useState(false);
+
+  const [userLocations, setUserLocations] = useState([]);
+  const [userReviews, setUserReviews] = useState([]);
+  const [loadingUserData, setLoadingUserData] = useState(true);
 
   useEffect(() => {
     if (user) {
@@ -71,6 +84,32 @@ export default function UserProfileScreen() {
       headerShown: false,
     });
   }, [navigation]);
+
+  useEffect(() => {
+    if (!user) return;
+    setLoadingUserData(true);
+    // Buscar locais do usuário
+    fetchLocations().then(locations => {
+      setUserLocations(locations.filter(l => l.userId === user.id));
+    });
+    // Buscar avaliações do usuário
+    fetchAllUserReviews(user.id).then(reviews => {
+      setUserReviews(reviews);
+      setLoadingUserData(false);
+    });
+  }, [user]);
+
+  // Função para buscar todas as avaliações do usuário
+  async function fetchAllUserReviews(userId) {
+    // Busca todas as avaliações de todos os locais e filtra pelo userId
+    const locations = await fetchLocations();
+    let allReviews = [];
+    for (const loc of locations) {
+      const reviews = await fetchReviewsForLocation(loc.id);
+      allReviews = allReviews.concat(reviews.filter(r => r.userId === userId));
+    }
+    return allReviews;
+  }
 
   const handlePickImage = async () => {
     try {
@@ -167,6 +206,57 @@ export default function UserProfileScreen() {
       console.error('Erro ao alterar senha:', error);
       setPasswordError(error.message || 'Erro ao alterar senha');
     }
+  };
+
+  // Função para deletar local e suas avaliações
+  const handleDeleteLocation = async (locationId, locationName) => {
+    Alert.alert(
+      'Remover local',
+      `Tem certeza que deseja remover o local "${locationName}"? Todas as avaliações associadas também serão removidas.`,
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        { text: 'Remover', style: 'destructive', onPress: async () => {
+          try {
+            setLoadingUserData(true);
+            const reviews = await fetchReviewsForLocation(locationId);
+            for (const review of reviews) {
+              await deleteReviewById(review.id);
+            }
+            await deleteLocationById(locationId);
+            setUserLocations(prev => prev.filter(l => l.id !== locationId));
+            setUserReviews(prev => prev.filter(r => r.locationId !== locationId));
+            Alert.alert('Sucesso', 'Local e avaliações removidos.');
+          } catch (error) {
+            Alert.alert('Erro', 'Não foi possível remover o local.');
+          } finally {
+            setLoadingUserData(false);
+          }
+        }},
+      ]
+    );
+  };
+
+  // Função para deletar avaliação
+  const handleDeleteReview = async (reviewId, locationName) => {
+    Alert.alert(
+      'Remover avaliação',
+      `Tem certeza que deseja remover sua avaliação para "${locationName}"?`,
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        { text: 'Remover', style: 'destructive', onPress: async () => {
+          try {
+            setLoadingUserData(true);
+            await deleteReviewById(reviewId);
+            setUserReviews(prev => prev.filter(r => r.id !== reviewId));
+            Alert.alert('Sucesso', 'Avaliação removida.');
+          } catch (error) {
+            Alert.alert('Erro', 'Não foi possível remover a avaliação.');
+          } finally {
+            setLoadingUserData(false);
+          }
+        }},
+      ]
+    );
   };
 
   if (!user) {
@@ -445,6 +535,89 @@ export default function UserProfileScreen() {
             </View>
           </View>
         </Modal>
+
+        {/* Seção Locais adicionados pelo usuário */}
+        <View style={styles.sectionCard}>
+          <Text style={styles.sectionTitle}>Locais adicionados</Text>
+          {loadingUserData ? <ActivityIndicator size="small" color="#1976d2" /> : null}
+          {userLocations.length === 0 && !loadingUserData && (
+            <Text style={styles.sectionEmpty}>Você ainda não adicionou locais.</Text>
+          )}
+          {userLocations.map(loc => (
+            <View key={loc.id} style={styles.itemCard}>
+              <View style={styles.itemCardLeft}>
+                {loc.imageUrl ? (
+                  <Image source={{ uri: loc.imageUrl }} style={styles.itemImage} />
+                ) : (
+                  <View style={styles.itemImagePlaceholder}>
+                    <Ionicons name="business" size={28} color="#b0b0b0" />
+                  </View>
+                )}
+              </View>
+              <View style={styles.itemCardBody}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 2 }}>
+                  <Ionicons name="location" size={18} color="#1976d2" style={{ marginRight: 6 }} />
+                  <Text style={styles.itemTitle}>{loc.name}</Text>
+                </View>
+                <Text style={styles.itemSubtitle}>{loc.address}</Text>
+                {loc.createdAt && (
+                  <Text style={styles.itemMeta}>Adicionado em: {loc.createdAt.toDate ? loc.createdAt.toDate().toLocaleDateString('pt-BR') : '-'}</Text>
+                )}
+                <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}>
+                  <View style={[styles.ratingBadge, { backgroundColor: getRatingColor(loc.rating) }]}>
+                    <Ionicons name="star" size={14} color="#fff" />
+                    <Text style={styles.ratingBadgeText}>{typeof loc.rating === 'number' && loc.rating > 0 ? loc.rating.toFixed(1) : '-'}</Text>
+                  </View>
+                  <Text style={styles.itemMeta}>{loc.reviewCount > 0 ? `${loc.reviewCount} avaliações` : 'Sem avaliações'}</Text>
+                </View>
+              </View>
+              <View style={styles.itemCardActions}>
+                <TouchableOpacity onPress={() => handleDeleteLocation(loc.id, loc.name)} style={styles.deleteBtn} accessibilityLabel="Remover local" onLongPress={() => Alert.alert('Remover local', 'Remove este local e todas as avaliações associadas.') }>
+                  <Ionicons name="trash" size={22} color="#f44336" />
+                </TouchableOpacity>
+              </View>
+            </View>
+          ))}
+        </View>
+        {/* Seção Avaliações feitas pelo usuário */}
+        <View style={styles.sectionCard}>
+          <Text style={styles.sectionTitle}>Avaliações feitas</Text>
+          {loadingUserData ? <ActivityIndicator size="small" color="#1976d2" /> : null}
+          {userReviews.length === 0 && !loadingUserData && (
+            <Text style={styles.sectionEmpty}>Você ainda não avaliou nenhum local.</Text>
+          )}
+          {userReviews.map(review => (
+            <View key={review.id} style={[styles.itemCard, { backgroundColor: '#f8fafc' }] }>
+              <View style={styles.itemCardLeft}>
+                <View style={[styles.ratingBadge, { backgroundColor: getRatingColor(review.rating), marginBottom: 6 }] }>
+                  <Ionicons name="star" size={14} color="#fff" />
+                  <Text style={styles.ratingBadgeText}>{typeof review.rating === 'number' ? review.rating.toFixed(1) : '-'}</Text>
+                </View>
+                <MaterialIcons name="rate-review" size={28} color="#1976d2" />
+              </View>
+              <View style={styles.itemCardBody}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 2 }}>
+                  <Ionicons name="location" size={16} color="#1976d2" style={{ marginRight: 6 }} />
+                  <Text style={styles.itemTitle}>{review.locationName || review.locationId}</Text>
+                </View>
+                {review.createdAt && (
+                  <Text style={styles.itemMeta}>Avaliado em: {review.createdAt.toDate ? review.createdAt.toDate().toLocaleDateString('pt-BR') : '-'}</Text>
+                )}
+                {review.comment && (
+                  <Text style={styles.itemSubtitle} numberOfLines={2}>{review.comment}</Text>
+                )}
+              </View>
+              <View style={styles.itemCardActions}>
+                <TouchableOpacity onPress={() => handleDeleteReview(review.id, review.locationName || review.locationId)} style={styles.deleteBtn} accessibilityLabel="Remover avaliação" onLongPress={() => Alert.alert('Remover avaliação', 'Remove esta avaliação do sistema.') }>
+                  <Ionicons name="trash" size={22} color="#f44336" />
+                </TouchableOpacity>
+                <TouchableOpacity onPress={() => {/* abrir modal de edição futura */}} style={styles.editBtn} accessibilityLabel="Editar avaliação" onLongPress={() => Alert.alert('Editar avaliação', 'Permite editar o comentário e nota desta avaliação.') }>
+                  <Ionicons name="create-outline" size={22} color="#1976d2" />
+                </TouchableOpacity>
+              </View>
+            </View>
+          ))}
+        </View>
       </ScrollView>
     </View>
   );
@@ -793,6 +966,95 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 15,
     fontWeight: '700',
+  },
+  sectionCard: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.10,
+    shadowRadius: 10,
+    elevation: 8,
+    width: '100%',
+    maxWidth: 370,
+    alignSelf: 'center',
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#222B45',
+    marginBottom: 10,
+  },
+  sectionEmpty: {
+    fontSize: 15,
+    color: '#7B8BB2',
+    textAlign: 'center',
+  },
+  itemCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0F2F7',
+    minHeight: 36,
+  },
+  itemCardLeft: {
+    flex: 1,
+  },
+  itemCardBody: {
+    flex: 1,
+  },
+  itemCardActions: {
+    padding: 5,
+  },
+  itemImage: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    marginRight: 10,
+  },
+  itemImagePlaceholder: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: '#e3f2fd',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  itemTitle: {
+    fontSize: 16,
+    color: '#222B45',
+    fontWeight: '700',
+    flexShrink: 1,
+  },
+  itemSubtitle: {
+    fontSize: 14,
+    color: '#7B8BB2',
+    flexShrink: 1,
+  },
+  itemMeta: {
+    fontSize: 12,
+    color: '#7B8BB2',
+    flexShrink: 1,
+  },
+  deleteBtn: {
+    padding: 5,
+  },
+  editBtn: {
+    padding: 5,
+  },
+  ratingBadge: {
+    backgroundColor: '#b0b0b0',
+    borderRadius: 8,
+    padding: 4,
+    marginRight: 6,
+  },
+  ratingBadgeText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: 'bold',
   },
 });
 

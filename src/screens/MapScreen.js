@@ -213,9 +213,56 @@ const MapScreen = () => {
     };
   }, []);
 
+  // Função utilitária para extrair latitude/longitude de qualquer formato de local
+  function extractLatLng(item) {
+    if (!item) return { latitude: null, longitude: null };
+    if (typeof item.latitude === 'number' && typeof item.longitude === 'number') {
+      return { latitude: item.latitude, longitude: item.longitude };
+    }
+    if (item.location && typeof item.location === 'object') {
+      if (typeof item.location.latitude === 'number' && typeof item.location.longitude === 'number') {
+        return { latitude: item.location.latitude, longitude: item.location.longitude };
+      }
+      // Array [lat, lng]
+      if (Array.isArray(item.location) && item.location.length === 2) {
+        return { latitude: Number(item.location[0]), longitude: Number(item.location[1]) };
+      }
+    }
+    // String "lat, lng"
+    if (typeof item.location === 'string') {
+      const match = item.location.match(/([\d.-]+)[^\d-]*([NSLOEW])?,?\s*([\d.-]+)[^\d-]*([NSLOEW])?/i);
+      if (match) {
+        let lat = parseFloat(match[1]);
+        let lng = parseFloat(match[3]);
+        if (match[2] && /S|O|W/i.test(match[2])) lat = -Math.abs(lat);
+        if (match[4] && /S|O|W/i.test(match[4])) lng = -Math.abs(lng);
+        return { latitude: lat, longitude: lng };
+      }
+    }
+    return { latitude: null, longitude: null };
+  }
+
   // Traçar rota ao definir destino
   useEffect(() => {
     if (location && destination) {
+      // LOG: Verificar valores antes de traçar rota
+      console.log('[ROTA] location:', location);
+      console.log('[ROTA] destination:', destination);
+      if (
+        typeof location.latitude !== 'number' ||
+        typeof location.longitude !== 'number' ||
+        typeof destination.latitude !== 'number' ||
+        typeof destination.longitude !== 'number' ||
+        isNaN(location.latitude) ||
+        isNaN(location.longitude) ||
+        isNaN(destination.latitude) ||
+        isNaN(destination.longitude)
+      ) {
+        Alert.alert('Erro', 'Latitude/longitude inválidos para traçar rota.');
+        setRouteCoords([]);
+        setInfo({ distance: '', duration: '', instruction: 'Coordenadas inválidas.' });
+        return;
+      }
       getRoute(location, destination);
     } else {
       setRouteCoords([]);
@@ -273,8 +320,13 @@ const MapScreen = () => {
     setLoadingRoute(true);
     try {
       const url = `https://maps.googleapis.com/maps/api/directions/json?origin=${origin.latitude},${origin.longitude}&destination=${dest.latitude},${dest.longitude}&key=${GOOGLE_MAPS_APIKEY}&language=pt-BR`;
+      console.log('[ROTA] URL:', url);
       const response = await fetch(url);
       const data = await response.json();
+      console.log('[ROTA] Resposta da API:', data);
+      if (data.error_message) {
+        Alert.alert('Erro na API', data.error_message);
+      }
       if (data.routes && data.routes.length > 0) {
         const points = decodePolyline(data.routes[0].overview_polyline.points);
         setRouteCoords(points);
@@ -309,12 +361,13 @@ const MapScreen = () => {
     }
       } else {
         setRouteCoords([]);
-        setInfo({ distance: '', duration: '', instruction: 'Rota não encontrada' });
+        setInfo({ distance: '', duration: '', instruction: data.status || 'Rota não encontrada' });
         setNavigationSteps([]);
       }
     } catch (e) {
       setErrorMsg('Erro ao buscar rota');
-      console.error('Erro ao buscar rota:', e);
+      console.error('[ROTA] Erro ao buscar rota:', e);
+      Alert.alert('Erro ao buscar rota', e.message || String(e));
     }
     setLoadingRoute(false);
   };
@@ -477,10 +530,18 @@ const MapScreen = () => {
     }
   }, [selectedLocation]);
 
+  // Refatorar handleStartRoute para usar extractLatLng
   const handleStartRoute = () => {
-    if (!selectedLocation) return;
-    setDestination({ latitude: selectedLocation.latitude, longitude: selectedLocation.longitude });
-    // getRoute será chamado pelo useEffect de destination
+    if (!selectedLocation) {
+      Alert.alert('Erro', 'Nenhum local selecionado.');
+      return;
+    }
+    const { latitude, longitude } = extractLatLng(selectedLocation);
+    if (typeof latitude !== 'number' || typeof longitude !== 'number' || isNaN(latitude) || isNaN(longitude)) {
+      Alert.alert('Erro', 'Coordenadas do destino inválidas.');
+      return;
+    }
+    setDestination({ latitude, longitude });
   };
 
   // Atualizar initialRegion ao receber params ou localização do usuário
@@ -797,9 +858,9 @@ const MapScreen = () => {
           location={selectedLocation}
           onClose={() => setSelectedLocation(null)}
           onViewDetails={() => {
-            setSelectedLocation(null);
-            navigation.navigate('LocationDetail', { locationId: selectedLocation.id });
-          }}
+                setSelectedLocation(null);
+                navigation.navigate('LocationDetail', { locationId: selectedLocation.id });
+              }}
           userLocation={location}
           onStartRoute={handleStartRoute}
           loadingRoute={loadingRoute}
