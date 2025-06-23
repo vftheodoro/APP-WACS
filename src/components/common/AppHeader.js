@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, Platform, Pressable, Modal, TouchableWithoutFeedback } from 'react-native';
+import { View, Text, StyleSheet, Platform, Pressable, Modal, TouchableWithoutFeedback, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 
@@ -12,6 +12,7 @@ import { LinearGradient } from 'expo-linear-gradient';
  *  children: ReactNode (opcional, para linha extra de ações)
  *  gradientColors: array de cores (opcional)
  *  style: estilos adicionais (opcional)
+ *  rightComponent: ReactNode (opcional, componente à direita do título)
  */
 const MAX_VISIBLE_ACTIONS = 3;
 
@@ -22,6 +23,7 @@ const AppHeader = ({
   children,
   gradientColors = ['#1976d2', '#2196f3'],
   style = {},
+  rightComponent,
 }) => {
   const [overflowVisible, setOverflowVisible] = useState(false);
   // Pesquisa é sempre o primeiro botão, se existir
@@ -65,6 +67,7 @@ const AppHeader = ({
         ) : (
           <View style={styles.backButtonPlaceholder} />
         )}
+        <View style={styles.right}>{rightComponent}</View>
       </View>
       {/* Linha inferior: outras ações */}
       {(visibleActions.length > 0 || overflowActions.length > 0) && (
@@ -264,6 +267,11 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: '#1976d2',
     fontWeight: '500',
+  },
+  right: {
+    minWidth: 36,
+    alignItems: 'flex-end',
+    justifyContent: 'center',
   },
 });
 

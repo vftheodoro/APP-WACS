@@ -22,6 +22,8 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useNavigation } from '@react-navigation/native';
 import ProfileForm from '../components/common/ProfileForm';
 import { fetchLocations, fetchReviewsForLocation, deleteLocationById, deleteReviewById, updateReviewById } from '../services/firebase/locations';
+import ReviewModal from '../components/ReviewModal';
+import { fetchLocationById } from '../services/firebase/locations';
 
 const { width } = Dimensions.get('window');
 
@@ -57,6 +59,16 @@ export default function UserProfileScreen() {
   const [userLocations, setUserLocations] = useState([]);
   const [userReviews, setUserReviews] = useState([]);
   const [loadingUserData, setLoadingUserData] = useState(true);
+
+  const [editReviewModalVisible, setEditReviewModalVisible] = useState(false);
+  const [reviewToEdit, setReviewToEdit] = useState(null);
+  const [editReviewFeatures, setEditReviewFeatures] = useState([]);
+  const [editReviewFeatureRatings, setEditReviewFeatureRatings] = useState({});
+  const [editReviewComment, setEditReviewComment] = useState('');
+  const [editReviewLocationName, setEditReviewLocationName] = useState('');
+  const [editReviewLoading, setEditReviewLoading] = useState(false);
+
+  const [showMoreInfo, setShowMoreInfo] = useState(false);
 
   useEffect(() => {
     if (user) {
@@ -137,11 +149,14 @@ export default function UserProfileScreen() {
       // Atualiza demais campos
       await updateUser({
         displayName: values.fullName,
+        name: values.fullName,
         birthdate: values.birthdate,
         cidade: values.cidade,
         mobilityType: values.mobilityType,
         comorbidades: values.comorbidades,
-        // outros campos customizados se necessário
+        acceptTerms: values.acceptTerms,
+        phoneNumber: values.phoneNumber,
+        instagram: values.instagram,
       });
       setEditMode(false);
       Alert.alert('Sucesso', 'Perfil atualizado com sucesso!');
@@ -259,6 +274,50 @@ export default function UserProfileScreen() {
     );
   };
 
+  const openEditReviewModal = async (review) => {
+    setEditReviewLoading(true);
+    setReviewToEdit(review);
+    setEditReviewComment(review.comment || '');
+    setEditReviewFeatureRatings(review.featureRatings || {});
+    try {
+      const location = await fetchLocationById(review.locationId);
+      setEditReviewFeatures(location.features || []);
+      setEditReviewLocationName(location.name || '');
+      setEditReviewModalVisible(true);
+    } catch (e) {
+      Alert.alert('Erro', 'Não foi possível carregar os dados do local para edição.');
+    } finally {
+      setEditReviewLoading(false);
+    }
+  };
+
+  const closeEditReviewModal = () => {
+    setEditReviewModalVisible(false);
+    setReviewToEdit(null);
+    setEditReviewFeatures([]);
+    setEditReviewFeatureRatings({});
+    setEditReviewComment('');
+    setEditReviewLocationName('');
+  };
+
+  const handleSaveEditedReview = async ({ rating, comment, featureRatings }) => {
+    if (!reviewToEdit) return;
+    try {
+      setEditReviewLoading(true);
+      await updateReviewById(reviewToEdit.id, {
+        rating,
+        comment,
+        featureRatings,
+      });
+      setUserReviews(prev => prev.map(r => r.id === reviewToEdit.id ? { ...r, rating, comment, featureRatings } : r));
+      closeEditReviewModal();
+    } catch (error) {
+      Alert.alert('Erro', 'Não foi possível atualizar a avaliação.');
+    } finally {
+      setEditReviewLoading(false);
+    }
+  };
+
   if (!user) {
     return (
       <View style={styles.loadingContainer}>
@@ -318,6 +377,8 @@ export default function UserProfileScreen() {
                 comorbidades: user.comorbidades || [],
                 profilePic: user.photoURL || null,
                 acceptTerms: user.acceptTerms || true,
+                phoneNumber: user.phoneNumber || '',
+                instagram: user.instagram || '',
               }}
               onSave={handleSaveProfileForm}
               onCancel={() => setEditMode(false)}
@@ -331,6 +392,7 @@ export default function UserProfileScreen() {
           <View style={styles.infoArea}>
             {/* Cartão de informações principais aprimorado */}
             <View style={styles.profileCard}>
+              {/* Principais */}
               <View style={styles.infoRow}>
                 <Ionicons name="person" size={22} color="#1976d2" style={styles.infoIcon} />
                 <Text style={styles.infoLabel}>Nome</Text>
@@ -341,13 +403,6 @@ export default function UserProfileScreen() {
                 <Text style={styles.infoLabel}>Email</Text>
                 <Text style={styles.infoValue}>{user.email}</Text>
               </View>
-              {user.birthdate && (
-                <View style={styles.infoRow}>
-                  <Ionicons name="calendar" size={22} color="#1976d2" style={styles.infoIcon} />
-                  <Text style={styles.infoLabel}>Nascimento</Text>
-                  <Text style={styles.infoValue}>{new Date(user.birthdate).toLocaleDateString('pt-BR')}</Text>
-                </View>
-              )}
               <View style={styles.infoRow}>
                 <Ionicons name="location" size={22} color="#1976d2" style={styles.infoIcon} />
                 <Text style={styles.infoLabel}>Cidade</Text>
@@ -358,7 +413,7 @@ export default function UserProfileScreen() {
                 <View style={styles.infoRow}>
                   <Ionicons name="walk" size={22} color="#1976d2" style={styles.infoIcon} />
                   <Text style={styles.infoLabel}>Mobilidade</Text>
-                  <Text style={styles.infoValue}>{user.mobilityType}</Text>
+                  <Text style={styles.infoValue}>{user.mobilityType.charAt(0).toUpperCase() + user.mobilityType.slice(1)}</Text>
                 </View>
               )}
               {user.comorbidades && user.comorbidades.length > 0 && (
@@ -366,6 +421,36 @@ export default function UserProfileScreen() {
                   <Ionicons name="medkit" size={22} color="#1976d2" style={styles.infoIcon} />
                   <Text style={styles.infoLabel}>Comorbidades</Text>
                   <Text style={styles.infoValue}>{user.comorbidades.map(c => c.charAt(0).toUpperCase() + c.slice(1)).join(', ')}</Text>
+                </View>
+              )}
+              {/* Botão ver mais/ver menos */}
+              <TouchableOpacity style={{ alignSelf: 'flex-end', marginTop: 6, marginBottom: 2 }} onPress={() => setShowMoreInfo(v => !v)}>
+                <Text style={{ color: '#1976d2', fontWeight: 'bold', fontSize: 15 }}>{showMoreInfo ? 'Ver menos' : 'Ver mais'}</Text>
+              </TouchableOpacity>
+              {/* Informações complementares (expandido) */}
+              {showMoreInfo && (
+                <View>
+                  {user.birthdate && (
+                    <View style={styles.infoRow}>
+                      <Ionicons name="calendar" size={22} color="#1976d2" style={styles.infoIcon} />
+                      <Text style={styles.infoLabel}>Nascimento</Text>
+                      <Text style={styles.infoValue}>{new Date(user.birthdate).toLocaleDateString('pt-BR')}</Text>
+                    </View>
+                  )}
+                  {user.phoneNumber && (
+                    <View style={styles.infoRow}>
+                      <Ionicons name="call" size={22} color="#1976d2" style={styles.infoIcon} />
+                      <Text style={styles.infoLabel}>Telefone</Text>
+                      <Text style={styles.infoValue}>{user.phoneNumber}</Text>
+                    </View>
+                  )}
+                  {user.instagram && (
+                    <View style={styles.infoRow}>
+                      <Ionicons name="logo-instagram" size={22} color="#1976d2" style={styles.infoIcon} />
+                      <Text style={styles.infoLabel}>Instagram</Text>
+                      <Text style={styles.infoValue}>{user.instagram.startsWith('@') ? user.instagram : `@${user.instagram}`}</Text>
+                    </View>
+                  )}
                 </View>
               )}
             </View>
@@ -545,12 +630,12 @@ export default function UserProfileScreen() {
           )}
           {userLocations.map(loc => (
             <View key={loc.id} style={styles.itemCard}>
-              <View style={styles.itemCardLeft}>
+              <View style={styles.itemCardLeftCentered}>
                 {loc.imageUrl ? (
-                  <Image source={{ uri: loc.imageUrl }} style={styles.itemImage} />
+                  <Image source={{ uri: loc.imageUrl }} style={styles.itemImageLarge} />
                 ) : (
-                  <View style={styles.itemImagePlaceholder}>
-                    <Ionicons name="business" size={28} color="#b0b0b0" />
+                  <View style={styles.itemImagePlaceholderLarge}>
+                    <Ionicons name="business" size={38} color="#b0b0b0" />
                   </View>
                 )}
               </View>
@@ -563,10 +648,10 @@ export default function UserProfileScreen() {
                 {loc.createdAt && (
                   <Text style={styles.itemMeta}>Adicionado em: {loc.createdAt.toDate ? loc.createdAt.toDate().toLocaleDateString('pt-BR') : '-'}</Text>
                 )}
-                <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}>
-                  <View style={[styles.ratingBadge, { backgroundColor: getRatingColor(loc.rating) }]}>
-                    <Ionicons name="star" size={14} color="#fff" />
-                    <Text style={styles.ratingBadgeText}>{typeof loc.rating === 'number' && loc.rating > 0 ? loc.rating.toFixed(1) : '-'}</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 8 }}>
+                  <View style={styles.ratingBadgeLarge}>
+                    <Ionicons name="star" size={20} color="#FFD700" />
+                    <Text style={styles.ratingBadgeTextLarge}>{typeof loc.rating === 'number' && loc.rating > 0 ? loc.rating.toFixed(1) : '-'}</Text>
                   </View>
                   <Text style={styles.itemMeta}>{loc.reviewCount > 0 ? `${loc.reviewCount} avaliações` : 'Sem avaliações'}</Text>
                 </View>
@@ -587,38 +672,51 @@ export default function UserProfileScreen() {
             <Text style={styles.sectionEmpty}>Você ainda não avaliou nenhum local.</Text>
           )}
           {userReviews.map(review => (
-            <View key={review.id} style={[styles.itemCard, { backgroundColor: '#f8fafc' }] }>
-              <View style={styles.itemCardLeft}>
-                <View style={[styles.ratingBadge, { backgroundColor: getRatingColor(review.rating), marginBottom: 6 }] }>
-                  <Ionicons name="star" size={14} color="#fff" />
-                  <Text style={styles.ratingBadgeText}>{typeof review.rating === 'number' ? review.rating.toFixed(1) : '-'}</Text>
+            <View key={review.id} style={styles.reviewCardModern}>
+              <View style={styles.reviewLeftColumn}>
+                <View style={styles.reviewRatingBadge}>
+                  <Ionicons name="star" size={16} color="#FFD700" />
+                  <Text style={styles.reviewRatingText}>{typeof review.rating === 'number' ? review.rating.toFixed(1) : '-'}</Text>
                 </View>
-                <MaterialIcons name="rate-review" size={28} color="#1976d2" />
+                <View style={styles.reviewIconCircle}>
+                  <MaterialIcons name="rate-review" size={22} color="#fff" />
+                </View>
               </View>
-              <View style={styles.itemCardBody}>
+              <View style={styles.reviewContentColumn}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 2 }}>
-                  <Ionicons name="location" size={16} color="#1976d2" style={{ marginRight: 6 }} />
-                  <Text style={styles.itemTitle}>{review.locationName || review.locationId}</Text>
+                  <Ionicons name="location" size={15} color="#1976d2" style={{ marginRight: 5 }} />
+                  <Text style={styles.reviewTitle}>{review.locationName || review.locationId}</Text>
                 </View>
                 {review.createdAt && (
-                  <Text style={styles.itemMeta}>Avaliado em: {review.createdAt.toDate ? review.createdAt.toDate().toLocaleDateString('pt-BR') : '-'}</Text>
+                  <Text style={styles.reviewMeta}>Avaliado em: {review.createdAt.toDate ? review.createdAt.toDate().toLocaleDateString('pt-BR') : '-'}</Text>
                 )}
                 {review.comment && (
-                  <Text style={styles.itemSubtitle} numberOfLines={2}>{review.comment}</Text>
+                  <Text style={styles.reviewComment} numberOfLines={2}>{review.comment}</Text>
                 )}
               </View>
-              <View style={styles.itemCardActions}>
-                <TouchableOpacity onPress={() => handleDeleteReview(review.id, review.locationName || review.locationId)} style={styles.deleteBtn} accessibilityLabel="Remover avaliação" onLongPress={() => Alert.alert('Remover avaliação', 'Remove esta avaliação do sistema.') }>
-                  <Ionicons name="trash" size={22} color="#f44336" />
+              <View style={styles.reviewActionsColumn}>
+                <TouchableOpacity onPress={() => handleDeleteReview(review.id, review.locationName || review.locationId)} style={styles.reviewActionBtn} accessibilityLabel="Remover avaliação" onLongPress={() => Alert.alert('Remover avaliação', 'Remove esta avaliação do sistema.') }>
+                  <Ionicons name="trash" size={20} color="#f44336" />
                 </TouchableOpacity>
-                <TouchableOpacity onPress={() => {/* abrir modal de edição futura */}} style={styles.editBtn} accessibilityLabel="Editar avaliação" onLongPress={() => Alert.alert('Editar avaliação', 'Permite editar o comentário e nota desta avaliação.') }>
-                  <Ionicons name="create-outline" size={22} color="#1976d2" />
+                <TouchableOpacity onPress={() => openEditReviewModal(review)} style={styles.reviewActionBtn} accessibilityLabel="Editar avaliação">
+                  <Ionicons name="create-outline" size={20} color="#1976d2" />
                 </TouchableOpacity>
               </View>
             </View>
           ))}
         </View>
       </ScrollView>
+      {/* Modal de edição de avaliação */}
+      <ReviewModal
+        visible={editReviewModalVisible}
+        onClose={closeEditReviewModal}
+        onSubmit={handleSaveEditedReview}
+        features={editReviewFeatures}
+        locationName={editReviewLocationName}
+        initialComment={editReviewComment}
+        initialFeatureRatings={editReviewFeatureRatings}
+        loading={editReviewLoading}
+      />
     </View>
   );
 }
@@ -1055,6 +1153,162 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 12,
     fontWeight: 'bold',
+  },
+  itemCardLeftCentered: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 16,
+    minWidth: 100,
+  },
+  itemImageLarge: {
+    width: 90,
+    height: 90,
+    borderRadius: 18,
+    marginBottom: 2,
+    backgroundColor: '#f7fafd',
+  },
+  itemImagePlaceholderLarge: {
+    width: 90,
+    height: 90,
+    borderRadius: 18,
+    backgroundColor: '#e3f2fd',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 2,
+  },
+  ratingBadgeLarge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#fffbe6',
+    borderRadius: 12,
+    paddingVertical: 6,
+    paddingHorizontal: 14,
+    marginRight: 10,
+    shadowColor: '#FFD700',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.12,
+    shadowRadius: 6,
+    elevation: 3,
+  },
+  ratingBadgeTextLarge: {
+    color: '#222B45',
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginLeft: 7,
+  },
+  reviewCardModern: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    paddingVertical: 18,
+    paddingHorizontal: 16,
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.07,
+    shadowRadius: 6,
+    elevation: 3,
+  },
+  reviewLeftColumn: {
+    alignItems: 'center',
+    marginRight: 14,
+    width: 44,
+  },
+  reviewRatingBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#fffbe6',
+    borderRadius: 8,
+    paddingVertical: 3,
+    paddingHorizontal: 8,
+    marginBottom: 10,
+    shadowColor: '#FFD700',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.10,
+    shadowRadius: 3,
+    elevation: 1,
+  },
+  reviewRatingText: {
+    color: '#222B45',
+    fontSize: 15,
+    fontWeight: 'bold',
+    marginLeft: 4,
+  },
+  reviewIconCircle: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#1976d2',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 2,
+  },
+  reviewContentColumn: {
+    flex: 1,
+    marginRight: 10,
+  },
+  reviewTitle: {
+    fontSize: 16,
+    color: '#222B45',
+    fontWeight: '700',
+    flexShrink: 1,
+  },
+  reviewMeta: {
+    fontSize: 12,
+    color: '#7B8BB2',
+    marginBottom: 2,
+  },
+  reviewComment: {
+    fontSize: 14,
+    color: '#444',
+    marginTop: 2,
+  },
+  reviewActionsColumn: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: 6,
+    gap: 8,
+  },
+  reviewActionBtn: {
+    padding: 6,
+  },
+  input: {
+    width: '100%',
+    backgroundColor: '#F0F2F7',
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 12,
+    fontSize: 15,
+    color: '#222B45',
+    borderWidth: 1,
+    borderColor: '#E4E9F2',
+  },
+  formCancelButtonCompact: {
+    borderRadius: 12,
+    overflow: 'hidden',
+    minHeight: 48,
+    backgroundColor: '#F0F2F7',
+    padding: 12,
+  },
+  formCancelButtonTextCompact: {
+    color: '#7B8BB2',
+    fontSize: 15,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+  formSaveButtonCompact: {
+    overflow: 'hidden',
+  },
+  formSaveButtonGradientCompact: {
+    padding: 14,
+    alignItems: 'center',
+    borderRadius: 12,
+  },
+  formSaveButtonTextCompact: {
+    color: '#fff',
+    fontSize: 15,
+    fontWeight: '700',
   },
 });
 

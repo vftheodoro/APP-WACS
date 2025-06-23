@@ -11,6 +11,7 @@ import { ChatProvider } from './src/contexts/ChatContext';
 import { BluetoothProvider } from './src/contexts/BluetoothContext';
 import * as SplashScreen from 'expo-splash-screen';
 import CustomSplashScreen from './src/screens/SplashScreen'; // Import your custom splash screen
+import { NavigationProvider } from './src/context/NavigationContext';
 
 // Keep the splash screen visible while we fetch resources
 SplashScreen.preventAutoHideAsync();
@@ -56,25 +57,27 @@ export default function App() {
   }
 
   return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
-      <SafeAreaProvider>
-        <AuthProvider>
-          <ThemeProvider>
-            <SearchHistoryProvider>
-              <ChatProvider>
-                <BluetoothProvider>
-                  <NavigationContainer>
-                    <StatusBar style="auto" />
-                    <SafeAreaView style={{ flex: 1 }} edges={['top', 'bottom', 'left', 'right']}>
-                      <AppNavigator />
-                    </SafeAreaView>
-                  </NavigationContainer>
-                </BluetoothProvider>
-              </ChatProvider>
-            </SearchHistoryProvider>
-          </ThemeProvider>
-        </AuthProvider>
-      </SafeAreaProvider>
-    </GestureHandlerRootView>
+    <NavigationProvider>
+      <GestureHandlerRootView style={{ flex: 1 }}>
+        <SafeAreaProvider>
+          <AuthProvider>
+            <ThemeProvider>
+              <SearchHistoryProvider>
+                <ChatProvider>
+                  <BluetoothProvider>
+                    <NavigationContainer>
+                      <StatusBar style="auto" />
+                      <SafeAreaView style={{ flex: 1 }} edges={['top', 'bottom', 'left', 'right']}>
+                        <AppNavigator />
+                      </SafeAreaView>
+                    </NavigationContainer>
+                  </BluetoothProvider>
+                </ChatProvider>
+              </SearchHistoryProvider>
+            </ThemeProvider>
+          </AuthProvider>
+        </SafeAreaProvider>
+      </GestureHandlerRootView>
+    </NavigationProvider>
   );
 }

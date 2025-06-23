@@ -69,9 +69,9 @@ const getRatingColor = (rating) => {
   return COLORS.error;
 };
 
-export default function ReviewModal({ visible, onClose, onSubmit, features = [], locationName = '', locationAddress = '' }) {
-  const [comment, setComment] = useState('');
-  const [featureRatings, setFeatureRatings] = useState({});
+export default function ReviewModal({ visible, onClose, onSubmit, features = [], locationName = '', locationAddress = '', initialComment = '', initialFeatureRatings = {}, loading = false }) {
+  const [comment, setComment] = useState(initialComment);
+  const [featureRatings, setFeatureRatings] = useState(initialFeatureRatings);
   const [submitting, setSubmitting] = useState(false);
 
   // Calcula a média das avaliações em tempo real
@@ -83,11 +83,14 @@ export default function ReviewModal({ visible, onClose, onSubmit, features = [],
   }, [featureRatings]);
 
   useEffect(() => {
-    if (!visible) {
+    if (visible) {
+      setComment(initialComment || '');
+      setFeatureRatings(initialFeatureRatings || {});
+    } else {
       setComment('');
       setFeatureRatings({});
     }
-  }, [visible]);
+  }, [visible, initialComment, initialFeatureRatings]);
 
   const handleRatingPress = (featureKey, value) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -99,7 +102,6 @@ export default function ReviewModal({ visible, onClose, onSubmit, features = [],
       Alert.alert('Avaliação Incompleta', 'Por favor, avalie todos os recursos de acessibilidade listados.');
       return;
     }
-    
     setSubmitting(true);
     try {
       await onSubmit({ rating: calculatedRating, comment, featureRatings });
@@ -107,7 +109,7 @@ export default function ReviewModal({ visible, onClose, onSubmit, features = [],
     } catch (error) {
       Alert.alert('Erro', 'Não foi possível enviar sua avaliação. Tente novamente.');
     } finally {
-    setSubmitting(false);
+      setSubmitting(false);
     }
   };
 
@@ -134,80 +136,86 @@ export default function ReviewModal({ visible, onClose, onSubmit, features = [],
                 </TouchableOpacity>
               </View>
 
-              <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
-                {features.length > 0 ? (
-                  <View style={styles.section}>
-                    <Text style={styles.sectionTitle}>Avalie cada recurso do local</Text>
-                    {features.map(featureKey => {
-                      const featureData = getFeatureData(featureKey);
-                      return (
-                        <View key={featureKey} style={styles.featureRow}>
-                          <View style={styles.featureInfo}>
-                            <Ionicons name={featureData.icon} size={24} color={COLORS.primary} />
-                            <Text style={styles.featureLabel}>{featureData.name}</Text>
+              {loading ? (
+                <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', minHeight: 200 }}>
+                  <ActivityIndicator size="large" color={COLORS.primary} />
+                </View>
+              ) : (
+                <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+                  {features.length > 0 ? (
+                    <View style={styles.section}>
+                      <Text style={styles.sectionTitle}>Avalie cada recurso do local</Text>
+                      {features.map(featureKey => {
+                        const featureData = getFeatureData(featureKey);
+                        return (
+                          <View key={featureKey} style={styles.featureRow}>
+                            <View style={styles.featureInfo}>
+                              <Ionicons name={featureData.icon} size={24} color={COLORS.primary} />
+                              <Text style={styles.featureLabel}>{featureData.name}</Text>
+                            </View>
+                            {renderStars(featureRatings[featureKey] || 0, (value) => handleRatingPress(featureKey, value))}
                           </View>
-                          {renderStars(featureRatings[featureKey] || 0, (value) => handleRatingPress(featureKey, value))}
-                        </View>
-                      );
-                    })}
-            </View>
-                ) : (
+                        );
+                      })}
+                    </View>
+                  ) : (
                     <Text style={styles.noFeaturesText}>Este local não possui recursos de acessibilidade cadastrados para avaliar.</Text>
-                )}
+                  )}
 
-                {/* Resultado da Avaliação */}
-                <View style={styles.section}>
+                  {/* Resultado da Avaliação */}
+                  <View style={styles.section}>
                     <Text style={styles.sectionTitle}>Resultado da sua avaliação</Text>
                     <View style={[styles.summaryContainer, {borderColor: getRatingColor(calculatedRating)}]}>
-                        <Text style={[styles.summaryRatingValue, {color: getRatingColor(calculatedRating)}]}>
-                            {calculatedRating > 0 ? calculatedRating.toFixed(1) : '-'}
-            </Text>
-                        <View style={styles.summaryDetails}>
-                            {renderStars(calculatedRating, () => {}, 24)}
-                            <View style={styles.summaryEmojiContainer}>
-                                <Text style={styles.summaryEmoji}>{getLocationEmoji(calculatedRating).emoji}</Text>
-                                <Text style={styles.summaryText}>{getLocationEmoji(calculatedRating).text}</Text>
-                            </View>
-          </View>
-                </View>
-                </View>
-
-                {/* Comentário */}
-                <View style={styles.section}>
-                  <Text style={styles.sectionTitle}>Comentário (opcional)</Text>
-                  <View style={styles.inputContainer}>
-          <TextInput
-            style={styles.input}
-                      placeholder="Compartilhe sua experiência no local..."
-            value={comment}
-            onChangeText={setComment}
-            multiline
-                      maxLength={MAX_COMMENT_LENGTH}
-                    />
-                    {comment.length > 0 && (
-                      <TouchableOpacity onPress={() => setComment('')} style={styles.clearInputButton}>
-                        <Ionicons name="close-circle" size={20} color={COLORS.textSecondary} />
-                      </TouchableOpacity>
-                    )}
+                      <Text style={[styles.summaryRatingValue, {color: getRatingColor(calculatedRating)}]}>
+                        {calculatedRating > 0 ? calculatedRating.toFixed(1) : '-'}
+                      </Text>
+                      <View style={styles.summaryDetails}>
+                        {renderStars(calculatedRating, () => {}, 24)}
+                        <View style={styles.summaryEmojiContainer}>
+                          <Text style={styles.summaryEmoji}>{getLocationEmoji(calculatedRating).emoji}</Text>
+                          <Text style={styles.summaryText}>{getLocationEmoji(calculatedRating).text}</Text>
+                        </View>
+                      </View>
+                    </View>
                   </View>
-                  <Text style={styles.charCounter}>{comment.length} / {MAX_COMMENT_LENGTH}</Text>
-                </View>
-              </ScrollView>
+
+                  {/* Comentário */}
+                  <View style={styles.section}>
+                    <Text style={styles.sectionTitle}>Comentário (opcional)</Text>
+                    <View style={styles.inputContainer}>
+                      <TextInput
+                        style={styles.input}
+                        placeholder="Compartilhe sua experiência no local..."
+                        value={comment}
+                        onChangeText={setComment}
+                        multiline
+                        maxLength={MAX_COMMENT_LENGTH}
+                      />
+                      {comment.length > 0 && (
+                        <TouchableOpacity onPress={() => setComment('')} style={styles.clearInputButton}>
+                          <Ionicons name="close-circle" size={20} color={COLORS.textSecondary} />
+                        </TouchableOpacity>
+                      )}
+                    </View>
+                    <Text style={styles.charCounter}>{comment.length} / {MAX_COMMENT_LENGTH}</Text>
+                  </View>
+                </ScrollView>
+              )}
 
               {/* Botões de Ação */}
-          <View style={styles.actionsRow}>
-                <TouchableOpacity style={styles.cancelButton} onPress={onClose} disabled={submitting}>
+              <View style={styles.actionsRow}>
+                <TouchableOpacity style={styles.cancelButton} onPress={onClose} disabled={submitting || loading}>
                   <Text style={styles.cancelButtonText}>Cancelar</Text>
-            </TouchableOpacity>
-                <TouchableOpacity style={styles.submitButton} onPress={handleSubmit} disabled={submitting}>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.submitButton} onPress={handleSubmit} disabled={submitting || loading}>
                   {submitting ? (
                     <ActivityIndicator color="#fff" size="small" />
                   ) : (
-                    <Text style={styles.submitButtonText}>Enviar Avaliação</Text>
+                    <Text style={styles.submitButtonText}>{initialComment || Object.keys(initialFeatureRatings).length > 0 ? 'Salvar' : 'Enviar Avaliação'}</Text>
                   )}
-            </TouchableOpacity>
-          </View>
-        </View>
+                </TouchableOpacity>
+              </View>
+            </View>
           </TouchableWithoutFeedback>
       </View>
       </TouchableWithoutFeedback>

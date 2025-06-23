@@ -89,6 +89,13 @@ export async function fetchLocationById(id) {
     }
   }
 
+  // Garantir que features esteja presente e correto
+  locationData.features =
+    locationData.features ||
+    locationData.accessibilityFeatures ||
+    locationData.acessibilidade ||
+    [];
+
   // Fetch reviews to calculate average feature ratings
   const reviewsRef = collection(db, 'reviews');
   const reviewsQuery = query(reviewsRef, where('locationId', '==', id));

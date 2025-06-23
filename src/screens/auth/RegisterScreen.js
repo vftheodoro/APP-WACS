@@ -19,6 +19,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import * as ImagePicker from 'expo-image-picker';
 import { useNavigation } from '@react-navigation/native';
 import DateTimePicker from '@react-native-community/datetimepicker';
+import { useAuth } from '../../contexts/AuthContext';
 
 const cidadesValeRibeira = [
   'Apiaí', 'Barra do Chapéu', 'Barra do Turvo', 'Cajati', 'Cananéia', 'Eldorado',
@@ -48,6 +49,7 @@ const comorbidadesOptions = [
 
 const RegisterScreen = () => {
   const navigation = useNavigation();
+  const { register, updateProfilePicture, isUploading } = useAuth();
   const [step, setStep] = useState(1);
   // Etapa 1
   const [username, setUsername] = useState('');
@@ -66,6 +68,8 @@ const RegisterScreen = () => {
   const [showComorbidadesDropdown, setShowComorbidadesDropdown] = useState(false);
   const [profilePic, setProfilePic] = useState(null);
   const [acceptTerms, setAcceptTerms] = useState(false);
+  const [phoneNumber, setPhoneNumber] = useState('');
+  const [instagram, setInstagram] = useState('');
   const [error, setError] = useState('');
   const cidadeInputRef = useRef();
   const [showDatePicker, setShowDatePicker] = useState(false);
@@ -131,6 +135,16 @@ const RegisterScreen = () => {
       setError('Preencha todos os campos obrigatórios da etapa 2.');
       return false;
     }
+    // Validação opcional de telefone
+    if (phoneNumber && phoneNumber.length < 8) {
+      setError('Telefone inválido.');
+      return false;
+    }
+    // Validação opcional de Instagram
+    if (instagram && !/^@?\w{1,30}$/.test(instagram)) {
+      setError('Instagram inválido.');
+      return false;
+    }
     setError('');
     return true;
   };
@@ -170,12 +184,31 @@ const RegisterScreen = () => {
   };
 
   // Simulação de registro
-  const handleRegister = () => {
+  const handleRegister = async () => {
     if (!validateStep2()) return;
-    // Simula registro
-    Alert.alert('Sucesso', 'Conta criada com sucesso! Você já pode fazer login.', [
-      { text: 'OK', onPress: () => navigation.navigate('Login') }
-    ]);
+    try {
+      let photoURL = null;
+      if (profilePic) {
+        // Upload da foto de perfil
+        photoURL = await updateProfilePicture({ uri: profilePic });
+      }
+      await register(email, password, fullName, {
+        birthdate,
+        cidade,
+        mobilityType,
+        comorbidades,
+        acceptTerms,
+        photoURL,
+        username,
+        phoneNumber,
+        instagram,
+      });
+      Alert.alert('Sucesso', 'Conta criada com sucesso! Você já pode fazer login.', [
+        { text: 'OK', onPress: () => navigation.navigate('Login') }
+      ]);
+    } catch (err) {
+      setError('Erro ao criar conta. Tente novamente.');
+    }
   };
 
   return (
@@ -503,6 +536,34 @@ const RegisterScreen = () => {
                       Li e aceito os <Text style={{ color: '#1976d2', textDecorationLine: 'underline' }}>Termos de Uso</Text> *
                     </Text>
                   </View>
+                </View>
+                {/* Telefone/Celular */}
+                <Text style={styles.sectionLabel}>Telefone/Celular</Text>
+                <View style={styles.inputGroupRow}>
+                  <MaterialIcons name="phone" size={22} color="#1976d2" style={styles.inputIcon} />
+                  <TextInput
+                    style={styles.input}
+                    placeholder="(XX) XXXXX-XXXX"
+                    value={phoneNumber}
+                    onChangeText={setPhoneNumber}
+                    keyboardType="phone-pad"
+                    maxLength={20}
+                    accessibilityLabel="Telefone"
+                  />
+                </View>
+                {/* Instagram */}
+                <Text style={styles.sectionLabel}>Instagram</Text>
+                <View style={styles.inputGroupRow}>
+                  <FontAwesome5 name="instagram" size={20} color="#1976d2" style={styles.inputIcon} />
+                  <TextInput
+                    style={styles.input}
+                    placeholder="@seuusuario"
+                    value={instagram}
+                    onChangeText={setInstagram}
+                    autoCapitalize="none"
+                    maxLength={32}
+                    accessibilityLabel="Instagram"
+                  />
                 </View>
                 <View style={{ alignItems: 'center', marginTop: 10 }}>
                   <TouchableOpacity style={[styles.button, { minWidth: 180, backgroundColor: 'transparent', shadowColor: 'transparent', elevation: 0 }]} onPress={handleRegister}>

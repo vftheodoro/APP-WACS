@@ -79,6 +79,8 @@ const ProfileForm = ({
   const [acceptTerms, setAcceptTerms] = useState(initialValues.acceptTerms || false);
   const [error, setError] = useState('');
   const [showDatePicker, setShowDatePicker] = useState(false);
+  const [phoneNumber, setPhoneNumber] = useState(initialValues.phoneNumber || '');
+  const [instagram, setInstagram] = useState(initialValues.instagram || '');
 
   // Autocomplete cidades
   const filteredCidades = cidadesValeRibeira.filter(c =>
@@ -120,6 +122,16 @@ const ProfileForm = ({
       setError('Preencha todos os campos obrigatórios.');
       return false;
     }
+    // Validação básica de telefone (opcional)
+    if (phoneNumber && phoneNumber.length < 8) {
+      setError('Telefone inválido.');
+      return false;
+    }
+    // Validação básica de Instagram (opcional)
+    if (instagram && !/^@?\w{1,30}$/.test(instagram)) {
+      setError('Instagram inválido.');
+      return false;
+    }
     setError('');
     return true;
   };
@@ -137,6 +149,8 @@ const ProfileForm = ({
       comorbidades,
       profilePic,
       acceptTerms,
+      phoneNumber,
+      instagram,
     });
   };
 
@@ -224,7 +238,7 @@ const ProfileForm = ({
             </View>
             <View style={{ flex: 1, position: 'relative', maxWidth: 200 }}>
               <TextInput
-                style={[styles.input, { minWidth: 0 }]}
+                style={[styles.input, { minWidth: 0, maxWidth: 180 }]}
                 placeholder="Digite sua cidade"
                 value={cidadeQuery}
                 onChangeText={text => {
@@ -365,6 +379,34 @@ const ProfileForm = ({
             </View>
           </View>
         )}
+        {/* Telefone/Celular */}
+        <Text style={styles.sectionLabel}>Telefone/Celular</Text>
+        <View style={styles.inputGroupRow}>
+          <MaterialIcons name="phone" size={22} color="#1976d2" style={styles.inputIcon} />
+          <TextInput
+            style={styles.input}
+            placeholder="(XX) XXXXX-XXXX"
+            value={phoneNumber}
+            onChangeText={setPhoneNumber}
+            keyboardType="phone-pad"
+            maxLength={20}
+            accessibilityLabel="Telefone"
+          />
+        </View>
+        {/* Instagram */}
+        <Text style={styles.sectionLabel}>Instagram</Text>
+        <View style={styles.inputGroupRow}>
+          <FontAwesome5 name="instagram" size={20} color="#1976d2" style={styles.inputIcon} />
+          <TextInput
+            style={styles.input}
+            placeholder="@seuusuario"
+            value={instagram}
+            onChangeText={setInstagram}
+            autoCapitalize="none"
+            maxLength={32}
+            accessibilityLabel="Instagram"
+          />
+        </View>
         {/* Botões */}
         <View style={styles.formButtonsRowCompact}>
           <TouchableOpacity
@@ -394,58 +436,59 @@ const ProfileForm = ({
 
 const styles = StyleSheet.create({
   formContainer: {
-    backgroundColor: '#f8fafc',
-    padding: 24,
-    borderRadius: 24,
+    backgroundColor: '#fff',
+    padding: 28,
+    borderRadius: 28,
     margin: 0,
     marginTop: 0,
     shadowColor: '#1976d2',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.10,
-    shadowRadius: 12,
-    elevation: 6,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.13,
+    shadowRadius: 16,
+    elevation: 8,
   },
   errorContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 59, 48, 0.1)',
-    padding: 14,
-    borderRadius: 14,
-    marginBottom: 18,
+    backgroundColor: 'rgba(255, 59, 48, 0.12)',
+    padding: 16,
+    borderRadius: 16,
+    marginBottom: 22,
   },
   errorText: {
-    marginLeft: 10,
-    fontSize: 15,
+    marginLeft: 12,
+    fontSize: 16,
     color: '#FF3B30',
+    fontWeight: '600',
   },
   sectionLabel: {
-    fontSize: 16,
+    fontSize: 17,
     color: '#1976d2',
     fontWeight: 'bold',
-    marginBottom: 8,
-    marginTop: 18,
-    letterSpacing: 0.2,
+    marginBottom: 10,
+    marginTop: 22,
+    letterSpacing: 0.3,
   },
   inputGroupRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 22,
+    marginBottom: 26,
   },
   inputIcon: {
-    marginRight: 12,
+    marginRight: 14,
   },
   input: {
-    backgroundColor: '#fff',
-    borderRadius: 14,
-    padding: 16,
-    fontSize: 16,
+    backgroundColor: '#f7fafd',
+    borderRadius: 16,
+    padding: 18,
+    fontSize: 17,
     borderWidth: 2,
     borderColor: '#e3f2fd',
     marginBottom: 0,
     flex: 1,
     shadowColor: '#1976d2',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
+    shadowOpacity: 0.07,
     shadowRadius: 4,
     elevation: 2,
   },
@@ -517,18 +560,18 @@ const styles = StyleSheet.create({
   },
   avatarUpload: {
     position: 'relative',
-    width: 100,
-    height: 100,
+    width: 110,
+    height: 110,
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 12,
-    marginBottom: 12,
+    marginTop: 16,
+    marginBottom: 16,
   },
   avatar: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    borderWidth: 2,
+    width: 110,
+    height: 110,
+    borderRadius: 55,
+    borderWidth: 3,
     borderColor: '#1976d2',
     backgroundColor: '#fff',
   },
@@ -537,18 +580,18 @@ const styles = StyleSheet.create({
     bottom: 0,
     right: 0,
     backgroundColor: '#1976d2',
-    borderRadius: 18,
-    width: 36,
-    height: 36,
+    borderRadius: 20,
+    width: 40,
+    height: 40,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 2,
     borderColor: '#fff',
     shadowColor: '#1976d2',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.12,
-    shadowRadius: 4,
-    elevation: 3,
+    shadowOpacity: 0.13,
+    shadowRadius: 5,
+    elevation: 4,
   },
   ufCidadeRow: {
     flexDirection: 'row',
@@ -621,33 +664,35 @@ const styles = StyleSheet.create({
   formButtonsRowCompact: {
     flexDirection: 'row',
     justifyContent: 'center',
-    marginTop: 18,
-    gap: 10,
+    marginTop: 24,
+    gap: 14,
   },
   formCancelButtonCompact: {
     backgroundColor: '#f0f0f0',
     borderWidth: 1,
     borderColor: '#1976d2',
-    borderRadius: 16,
-    padding: 16,
+    borderRadius: 18,
+    padding: 18,
+    minWidth: 120,
   },
   formCancelButtonTextCompact: {
     color: '#1976d2',
     fontWeight: 'bold',
-    fontSize: 16,
+    fontSize: 17,
   },
   formSaveButtonCompact: {
     backgroundColor: 'transparent',
+    minWidth: 120,
   },
   formSaveButtonGradientCompact: {
-    borderRadius: 16,
+    borderRadius: 18,
     alignItems: 'center',
-    padding: 16,
+    padding: 18,
     width: '100%',
   },
   formSaveButtonTextCompact: {
     color: '#fff',
-    fontSize: 17,
+    fontSize: 18,
     fontWeight: 'bold',
     letterSpacing: 0.5,
   },

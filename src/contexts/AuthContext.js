@@ -14,6 +14,7 @@ import { saveLastUser } from '../utils/storage';
 import { saveImageLocally, deleteLocalImage } from '../services/storage';
 import { uploadProfilePicture, deleteProfilePicture } from '../services/profilePictureService';
 import { Alert } from 'react-native';
+import { saveUserData, getUserData, updateUserData } from '../services/firebase/user';
 
 export const AuthContext = createContext({});
 
@@ -25,19 +26,29 @@ export const AuthProvider = ({ children }) => {
 
   // Monitorar estado de autenticação
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       if (firebaseUser) {
-        // Convertendo o usuário do Firebase para o formato esperado no app
+        // Buscar dados completos do Firestore
+        let firestoreUser = null;
+        try {
+          firestoreUser = await getUserData(firebaseUser.uid);
+        } catch (e) {
+          firestoreUser = null;
+        }
         const formattedUser = {
           id: firebaseUser.uid,
-          name: firebaseUser.displayName || 'Usuário',
+          name: firestoreUser?.name || firebaseUser.displayName || 'Usuário',
           email: firebaseUser.email,
-          photoURL: firebaseUser.photoURL
+          photoURL: firestoreUser?.photoURL || firebaseUser.photoURL || null,
+          birthdate: firestoreUser?.birthdate || '',
+          cidade: firestoreUser?.cidade || '',
+          mobilityType: firestoreUser?.mobilityType || '',
+          comorbidades: firestoreUser?.comorbidades || [],
+          acceptTerms: firestoreUser?.acceptTerms !== undefined ? firestoreUser.acceptTerms : true,
+          phoneNumber: firestoreUser?.phoneNumber || firestoreUser?.phone || '',
+          instagram: firestoreUser?.instagram || '',
         };
-        
         setUser(formattedUser);
-        
-        // Salvar informações do usuário para uso futuro
         saveLastUser(formattedUser);
       } else {
         setUser(null);
@@ -63,16 +74,20 @@ export const AuthProvider = ({ children }) => {
   };
 
   // Registro de novo usuário
-  const register = async (email, password, name) => {
+  const register = async (email, password, name, extraData = {}) => {
     try {
       setError(null);
       const { user: firebaseUser } = await createUserWithEmailAndPassword(auth, email, password);
-      
       // Adicionar o nome de exibição
       if (name) {
         await updateProfile(firebaseUser, { displayName: name });
       }
-      
+      // Salvar dados extras no Firestore
+      await saveUserData(firebaseUser.uid, {
+        name,
+        email,
+        ...extraData,
+      });
       return true;
     } catch (err) {
       console.error('Erro no registro:', err.message);
@@ -98,13 +113,12 @@ export const AuthProvider = ({ children }) => {
     try {
       if (auth.currentUser) {
         await updateProfile(auth.currentUser, userData);
-        
-        // Atualizar estado local também
+        // Atualizar no Firestore
+        await updateUserData(auth.currentUser.uid, userData);
         setUser(prev => ({
           ...prev,
           ...userData
         }));
-        
         return true;
       }
       return false;

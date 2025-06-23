@@ -19,6 +19,7 @@ import UserProfileScreen from '../screens/UserProfileScreen';
 import { useAuth } from '../contexts/AuthContext';
 import RegisterScreen from '../screens/auth/RegisterScreen';
 import AddLocationScreen from '../screens/AddLocationScreen';
+import MapSettingsScreen from '../screens/mapa/MapSettingsScreen';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -155,6 +156,11 @@ export const AppNavigator = () => {
           <Stack.Screen
             name="AddLocation"
             component={AddLocationScreen}
+            options={{ headerShown: false }}
+          />
+          <Stack.Screen
+            name="MapSettings"
+            component={MapSettingsScreen}
             options={{ headerShown: false }}
           />
         </>
