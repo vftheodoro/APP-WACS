@@ -350,27 +350,45 @@ const ProfileForm = ({
           ))}
         </View>
         {/* Foto de Perfil */}
-        <Text style={[styles.sectionLabel, { textAlign: 'center', marginTop: 18 }]}>Foto de Perfil (opcional)</Text>
-        <View style={{ alignItems: 'center', marginBottom: 10 }}>
-          <TouchableOpacity style={styles.avatarUpload} onPress={pickImage} accessibilityLabel="Foto de perfil">
-            {profilePic ? (
-              <Image
-                source={{ uri: profilePic }}
-                style={styles.avatar}
-              />
-            ) : (
-              <View style={[styles.avatar, { alignItems: 'center', justifyContent: 'center' }]}> 
-                <Ionicons name="person-circle" size={80} color="#b0b0b0" />
-              </View>
-            )}
-            <View style={styles.avatarUploadBtn}>
-              <Ionicons name="camera" size={18} color="#fff" />
+        {!isEditMode && (
+          <>
+            <Text style={[styles.sectionLabel, { textAlign: 'center', marginTop: 18 }]}>Foto de Perfil (opcional)</Text>
+            <View style={{ alignItems: 'center', marginBottom: 10 }}>
+              <TouchableOpacity style={styles.avatarUpload} onPress={pickImage} accessibilityLabel="Foto de perfil">
+                {profilePic ? (
+                  <Image
+                    source={{ uri: profilePic }}
+                    style={styles.avatar}
+                  />
+                ) : (
+                  <View style={[styles.avatar, { alignItems: 'center', justifyContent: 'center' }]}> 
+                    <Ionicons name="person-circle" size={80} color="#b0b0b0" />
+                  </View>
+                )}
+                <View style={styles.avatarUploadBtn}>
+                  <Ionicons name="camera" size={18} color="#fff" />
+                </View>
+              </TouchableOpacity>
             </View>
-          </TouchableOpacity>
+          </>
+        )}
+        {/* Instagram */}
+        <Text style={styles.sectionLabel}>Instagram</Text>
+        <View style={styles.inputGroupRow}>
+          <FontAwesome5 name="instagram" size={20} color="#1976d2" style={styles.inputIcon} />
+          <TextInput
+            style={styles.input}
+            placeholder="@seuusuario"
+            value={instagram}
+            onChangeText={setInstagram}
+            autoCapitalize="none"
+            maxLength={32}
+            accessibilityLabel="Instagram"
+          />
         </View>
         {/* Aceite de Termos */}
         {showTerms && (
-          <View style={{ alignItems: 'center', marginTop: 10, marginBottom: 4 }}>
+          <View style={{ alignItems: 'center', marginTop: 10, marginBottom: 10 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}>
               <Ionicons name={acceptTerms ? 'checkbox' : 'square-outline'} size={22} color={acceptTerms ? '#1976d2' : '#888'} />
               <Text style={{ marginLeft: 8, textAlign: 'center' }}>
@@ -391,20 +409,6 @@ const ProfileForm = ({
             keyboardType="phone-pad"
             maxLength={20}
             accessibilityLabel="Telefone"
-          />
-        </View>
-        {/* Instagram */}
-        <Text style={styles.sectionLabel}>Instagram</Text>
-        <View style={styles.inputGroupRow}>
-          <FontAwesome5 name="instagram" size={20} color="#1976d2" style={styles.inputIcon} />
-          <TextInput
-            style={styles.input}
-            placeholder="@seuusuario"
-            value={instagram}
-            onChangeText={setInstagram}
-            autoCapitalize="none"
-            maxLength={32}
-            accessibilityLabel="Instagram"
           />
         </View>
         {/* Botões */}
@@ -465,14 +469,14 @@ const styles = StyleSheet.create({
     fontSize: 17,
     color: '#1976d2',
     fontWeight: 'bold',
-    marginBottom: 10,
-    marginTop: 22,
+    marginBottom: 4,
+    marginTop: 14,
     letterSpacing: 0.3,
   },
   inputGroupRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 26,
+    marginBottom: 12,
   },
   inputIcon: {
     marginRight: 14,

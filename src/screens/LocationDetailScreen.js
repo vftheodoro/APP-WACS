@@ -41,6 +41,8 @@ import * as Location from 'expo-location';
 import MapView, { Marker } from 'react-native-maps';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '../contexts/AuthContext';
+import { addXP } from '../services/gamification';
+import { Snackbar } from 'react-native-paper';
 
 // Constantes de cores e estilo
 const COLORS = {
@@ -216,8 +218,9 @@ export default function LocationDetailScreen() {
   const [mapModalVisible, setMapModalVisible] = useState(false);
   const [isFavorite, setIsFavorite] = useState(false);
   const [distance, setDistance] = useState(null);
-  const { currentUser } = useAuth();
+  const { currentUser, user } = useAuth();
   const [reviewsToShow, setReviewsToShow] = useState(3);
+  const [xpSnackbar, setXpSnackbar] = useState({ visible: false, message: '' });
   
   // Função para carregar dados
   const loadData = useCallback(async () => {
@@ -345,6 +348,10 @@ export default function LocationDetailScreen() {
         Alert.alert("Sucesso", "Sua avaliação foi enviada!");
         setReviewModalVisible(false);
         onRefresh(); // Recarrega os dados para mostrar a nova avaliação
+        if (user?.id) {
+          await addXP(user.id, 'review');
+          setXpSnackbar({ visible: true, message: '+10 XP por avaliar!' });
+        }
     } catch (error) {
         console.error("Erro ao enviar avaliação: ", error);
         Alert.alert("Erro", "Não foi possível enviar sua avaliação. Por favor, tente novamente.");
@@ -657,6 +664,16 @@ export default function LocationDetailScreen() {
             </MapView>
         </View>
       </Modal>
+
+      <Snackbar
+        visible={xpSnackbar.visible}
+        onDismiss={() => setXpSnackbar({ ...xpSnackbar, visible: false })}
+        duration={2000}
+        style={{ backgroundColor: '#1976d2', borderRadius: 16, marginBottom: 60 }}
+        action={{ label: '🎉', onPress: () => setXpSnackbar({ ...xpSnackbar, visible: false }) }}
+      >
+        <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 16 }}>{xpSnackbar.message}</Text>
+      </Snackbar>
     </View>
   );
 }

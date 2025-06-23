@@ -243,6 +243,53 @@ Essas melhorias tornam a experiência do usuário mais fluida, moderna e acessí
 
 ---
 
+## 🏆 Sistema de Gamificação, Perfil e Contribuições
+
+O APP-WACS conta com um sistema de gamificação moderno e motivador, que valoriza cada contribuição do usuário para a comunidade. Veja como funciona:
+
+### 🎯 Como ganhar pontos (XP)
+- **Avaliar um local:** +10 XP por avaliação
+- **Adicionar um local acessível:** +30 XP
+- **Outras ações (fotos, reports, etc):** XP variável (ver código)
+
+### ⭐ Níveis e Progresso
+- O usuário sobe de nível a cada 50 XP (Nível 1: 0 XP, Nível 2: 50 XP, Nível 3: 100 XP, ...)
+- O nível é exibido de forma destacada no perfil e no header, com um badge colorido na foto de perfil (bronze, prata, ouro, azul, roxo)
+- O progresso para o próximo nível é mostrado por uma barra e um arco circular ao redor da foto
+
+### 🥇 Badges e Conquistas
+- Badges especiais são concedidos por marcos (ex: 10 fotos, 100 avaliações, etc)
+- Os badges aparecem no perfil, exceto o de "Primeiros Passos" (substituído por um card de contribuições)
+
+### 📊 Card de Contribuições
+- Mostra o total de contribuições (avaliações + locais adicionados)
+- Exibe separadamente o número de avaliações e de locais
+- Mensagem motivacional personalizada conforme o engajamento
+- Visual premium, com ícones, sombra e destaque
+
+### 🔔 Notificações e Visual
+- Ícone de notificação no header da tela principal
+- Badge de nível na foto de perfil do header
+- Layouts modernos, responsivos e acessíveis
+
+### 👤 Edição de Perfil
+- O usuário pode editar todos os dados pessoais em um formulário compacto e moderno
+- A opção de trocar foto de perfil aparece apenas fora do modo de edição, evitando duplicidade
+- O aceite dos termos aparece logo acima dos botões de salvar/cancelar
+- O espaçamento entre campos foi reduzido para facilitar o preenchimento
+
+### 🧠 Como funciona por trás
+- O XP, nível, badges e contribuições são calculados automaticamente ao logar ou realizar ações
+- O sistema é centralizado, fácil de manter e expandir
+- Não há mais streaks diários, tornando o progresso mais simples e motivador
+
+### 📱 Exemplo de fluxo:
+1. O usuário avalia um local → ganha XP → barra e badge de nível atualizam instantaneamente
+2. Adiciona um local → XP e contribuições aumentam, card de contribuições é atualizado
+3. Ao editar o perfil, só vê a opção de trocar foto fora do modo de edição
+
+---
+
 ## 📄 Licença
 
 Este projeto está licenciado sob a licença MIT - veja o arquivo LICENSE para detalhes.

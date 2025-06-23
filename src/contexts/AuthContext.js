@@ -15,6 +15,7 @@ import { saveImageLocally, deleteLocalImage } from '../services/storage';
 import { uploadProfilePicture, deleteProfilePicture } from '../services/profilePictureService';
 import { Alert } from 'react-native';
 import { saveUserData, getUserData, updateUserData } from '../services/firebase/user';
+import { fetchLocations, fetchReviewsForLocation } from '../services/firebase/locations';
 
 export const AuthContext = createContext({});
 
@@ -23,6 +24,42 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [isUploading, setIsUploading] = useState(false);
+
+  // Função para calcular e atualizar gamificação do usuário
+  async function calculateAndUpdateGamification(uid) {
+    // Buscar todas as avaliações feitas pelo usuário
+    let reviewsCount = 0;
+    let locationsCount = 0;
+    try {
+      // Buscar todos os locais e reviews
+      const locations = await fetchLocations();
+      locationsCount = locations.filter(l => l.author?.id === uid || l.userId === uid).length;
+      let allReviews = [];
+      for (const loc of locations) {
+        const reviews = await fetchReviewsForLocation(loc.id);
+        allReviews = allReviews.concat(reviews.filter(r => r.userId === uid || r.user?.id === uid));
+      }
+      reviewsCount = allReviews.length;
+    } catch (e) {
+      // fallback: não atualiza
+      return;
+    }
+    // Regras de XP e níveis
+    const XP_RULES = { review: 10, add_location: 30 };
+    const LEVELS = [0, 50, 100, 150, 200, 250, 300, 350, 400, 450, 500, 999999];
+    let xp = reviewsCount * XP_RULES.review + locationsCount * XP_RULES.add_location;
+    let level = 1;
+    for (let i = 1; i < LEVELS.length; i++) {
+      if (xp >= LEVELS[i]) level = i + 1;
+      else break;
+    }
+    // Badges
+    let badges = [];
+    if (xp >= 50) badges.push('primeiros_passos');
+    if (reviewsCount >= 100) badges.push('mestre_avaliacoes');
+    // Atualizar no Firestore
+    await updateUserData(uid, { xp, level, badges, reviewsDone: reviewsCount, locationsAdded: locationsCount });
+  }
 
   // Monitorar estado de autenticação
   useEffect(() => {
@@ -35,6 +72,12 @@ export const AuthProvider = ({ children }) => {
         } catch (e) {
           firestoreUser = null;
         }
+        // Atualizar gamificação automaticamente se necessário
+        await calculateAndUpdateGamification(firebaseUser.uid);
+        // Buscar novamente após atualizar
+        try {
+          firestoreUser = await getUserData(firebaseUser.uid);
+        } catch {}
         const formattedUser = {
           id: firebaseUser.uid,
           name: firestoreUser?.name || firebaseUser.displayName || 'Usuário',
@@ -47,6 +90,12 @@ export const AuthProvider = ({ children }) => {
           acceptTerms: firestoreUser?.acceptTerms !== undefined ? firestoreUser.acceptTerms : true,
           phoneNumber: firestoreUser?.phoneNumber || firestoreUser?.phone || '',
           instagram: firestoreUser?.instagram || '',
+          xp: firestoreUser?.xp || 0,
+          level: firestoreUser?.level || 1,
+          badges: firestoreUser?.badges || [],
+          streak: firestoreUser?.streak || 0,
+          reviewsDone: firestoreUser?.reviewsDone || 0,
+          locationsAdded: firestoreUser?.locationsAdded || 0,
         };
         setUser(formattedUser);
         saveLastUser(formattedUser);

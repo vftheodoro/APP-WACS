@@ -17,6 +17,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../contexts/AuthContext';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useBluetooth } from '../contexts/BluetoothContext';
+import { getUserGamificationData, getLevelNameAndReward } from '../services/gamification';
 
 const { width } = Dimensions.get('window');
 
@@ -35,6 +36,7 @@ export const MainSelectionScreen = () => {
   const [refreshing, setRefreshing] = useState(false);
   const [fadeAnim] = useState(new Animated.Value(0));
   const [slideAnim] = useState(new Animated.Value(-50));
+  const [gamification, setGamification] = useState({ xp: 0, level: 1, badges: [] });
 
   useEffect(() => {
     // Animação de entrada
@@ -50,6 +52,10 @@ export const MainSelectionScreen = () => {
         useNativeDriver: true,
       }),
     ]).start();
+
+    if (user?.id) {
+      getUserGamificationData(user.id).then(setGamification);
+    }
 
     // TODO: Aqui, em uma implementação real, você pode querer:
     // 1. Tentar reconectar automaticamente a um dispositivo pareado ao carregar a tela.
@@ -140,6 +146,14 @@ export const MainSelectionScreen = () => {
     if (batteryLevel > 50) return '#4CAF50';
     if (batteryLevel > 20) return '#FF9800';
     return '#F44336';
+  };
+
+  const getLevelColor = (level) => {
+    if (level >= 10) return '#8e24aa'; // Roxo
+    if (level >= 7) return '#1976d2'; // Azul
+    if (level >= 5) return '#FFD700'; // Ouro
+    if (level >= 3) return '#B0BEC5'; // Prata
+    return '#CD7F32'; // Bronze
   };
 
   const quickActions = [
@@ -273,24 +287,56 @@ export const MainSelectionScreen = () => {
               onPress={() => navigation.navigate('UserProfileScreen')}
               style={styles.profileImageContainer}
             >
-              {user?.photoURL ? (
-                <Image source={{ uri: user.photoURL }} style={styles.profileImage} />
-              ) : (
-                <View style={styles.profileImagePlaceholder}>
-                  <Ionicons name="person" size={30} color="#1976d2" />
+              <View>
+                {user?.photoURL ? (
+                  <Image source={{ uri: user.photoURL }} style={styles.profileImage} />
+                ) : (
+                  <View style={styles.profileImagePlaceholder}>
+                    <Ionicons name="person" size={30} color="#1976d2" />
+                  </View>
+                )}
+                {/* Badge de nível na foto */}
+                <View style={{
+                  position: 'absolute',
+                  bottom: 0,
+                  right: 0,
+                  width: 26,
+                  height: 26,
+                  borderRadius: 13,
+                  backgroundColor: getLevelColor(gamification.level),
+                  borderWidth: 2,
+                  borderColor: '#fff',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  shadowColor: '#000',
+                  shadowOffset: { width: 0, height: 2 },
+                  shadowOpacity: 0.15,
+                  shadowRadius: 4,
+                  elevation: 3,
+                }}>
+                  <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 13 }}>{gamification.level}</Text>
                 </View>
-              )}
+              </View>
             </Pressable>
             <View style={styles.greetingContainer}>
               <Text style={styles.timeGreeting}>{getTimeGreeting()},</Text>
               <Text style={styles.userName}>{user?.name || 'Usuário'}!</Text>
-              <Text style={styles.welcomeSubtext}>Bem-Vindo(a) ao WACS!</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 2 }}>
+                <Ionicons name="trophy" size={18} color="#FFD700" style={{ marginRight: 5 }} />
+                <Text style={{ color: '#FFD700', fontWeight: 'bold', fontSize: 15 }}>
+                  Nível {gamification.level} - {getLevelNameAndReward(gamification.level).name}
+                </Text>
+              </View>
             </View>
+            {/* Ícone de notificação à direita */}
+            <Pressable
+              onPress={() => {/* navegação futura para notificações */}}
+              style={{ marginLeft: 'auto', padding: 8 }}
+              accessibilityLabel="Notificações"
+            >
+              <Ionicons name="notifications-outline" size={28} color="#fff" />
+            </Pressable>
           </View>
-          
-          <Pressable style={styles.logoutButton} onPress={handleLogout}>
-            <Ionicons name="log-out-outline" size={24} color="#fff" />
-          </Pressable>
         </Animated.View>
       </LinearGradient>
 

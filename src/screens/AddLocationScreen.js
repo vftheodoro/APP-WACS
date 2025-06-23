@@ -21,6 +21,9 @@ import { collection, addDoc, serverTimestamp, runTransaction, doc } from 'fireba
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { Picker } from '@react-native-picker/picker';
 import Constants from 'expo-constants';
+import { addXP } from '../services/gamification';
+import { useAuth } from '../contexts/AuthContext';
+import { Snackbar } from 'react-native-paper';
 
 const COLORS = {
   primary: '#1976d2',
@@ -100,6 +103,8 @@ export default function AddLocationScreen() {
   const [placeType, setPlaceType] = useState('');
   const [showExtraTypes, setShowExtraTypes] = useState(false);
   const [customType, setCustomType] = useState('');
+  const { user } = useAuth();
+  const [xpSnackbar, setXpSnackbar] = useState({ visible: false, message: '' });
 
   useEffect(() => {
     if (photoUrl) {
@@ -251,6 +256,10 @@ export default function AddLocationScreen() {
       });
       Alert.alert("Sucesso!", "Novo local adicionado com sucesso.");
       navigation.navigate('LocationsList');
+      if (user?.id) {
+        await addXP(user.id, 'add_location');
+        setXpSnackbar({ visible: true, message: '+30 XP por adicionar local!' });
+      }
     } catch (error) {
       console.error("Erro ao adicionar local:", error);
       Alert.alert("Erro", "Não foi possível adicionar o novo local.");
@@ -372,6 +381,15 @@ export default function AddLocationScreen() {
         <View style={{width: 40}} />
       </View>
       {step === 1 ? renderStep1() : renderStep2()}
+      <Snackbar
+        visible={xpSnackbar.visible}
+        onDismiss={() => setXpSnackbar({ ...xpSnackbar, visible: false })}
+        duration={2000}
+        style={{ backgroundColor: '#43e97b', borderRadius: 16, marginBottom: 60 }}
+        action={{ label: '🚀', onPress: () => setXpSnackbar({ ...xpSnackbar, visible: false }) }}
+      >
+        <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 16 }}>{xpSnackbar.message}</Text>
+      </Snackbar>
     </View>
   );
 }

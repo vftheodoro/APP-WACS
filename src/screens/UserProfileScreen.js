@@ -24,6 +24,8 @@ import ProfileForm from '../components/common/ProfileForm';
 import { fetchLocations, fetchReviewsForLocation, deleteLocationById, deleteReviewById, updateReviewById } from '../services/firebase/locations';
 import ReviewModal from '../components/ReviewModal';
 import { fetchLocationById } from '../services/firebase/locations';
+import { getUserGamificationData, getLevelNameAndReward, addXP } from '../services/gamification';
+import ProfileProgressRing from '../components/common/ProfileProgressRing';
 
 const { width } = Dimensions.get('window');
 
@@ -70,6 +72,8 @@ export default function UserProfileScreen() {
 
   const [showMoreInfo, setShowMoreInfo] = useState(false);
 
+  const [gamification, setGamification] = useState({ xp: 0, level: 1, badges: [], streak: 0 });
+
   useEffect(() => {
     if (user) {
       setName(user.name || '');
@@ -109,6 +113,12 @@ export default function UserProfileScreen() {
       setUserReviews(reviews);
       setLoadingUserData(false);
     });
+  }, [user]);
+
+  useEffect(() => {
+    if (user?.id) {
+      getUserGamificationData(user.id).then(setGamification);
+    }
   }, [user]);
 
   // Função para buscar todas as avaliações do usuário
@@ -310,6 +320,10 @@ export default function UserProfileScreen() {
         featureRatings,
       });
       setUserReviews(prev => prev.map(r => r.id === reviewToEdit.id ? { ...r, rating, comment, featureRatings } : r));
+      if (user?.id) {
+        await addXP(user.id, 'review');
+        getUserGamificationData(user.id).then(setGamification);
+      }
       closeEditReviewModal();
     } catch (error) {
       Alert.alert('Erro', 'Não foi possível atualizar a avaliação.');
@@ -317,6 +331,18 @@ export default function UserProfileScreen() {
       setEditReviewLoading(false);
     }
   };
+
+  // Calcule o progresso antes do JSX
+  const currentLevelXP = getLevelXP(gamification.level) || 0;
+  const nextLevelXP = getNextLevelXP(gamification.level);
+  const progressPercent = Math.min(
+    1,
+    (gamification.xp - currentLevelXP) / (nextLevelXP - currentLevelXP)
+  );
+
+  // Antes da exibição dos badges, calcule as contribuições
+  const totalContribuicoes = (gamification.reviewsDone || 0) + (user.locationsAdded || 0);
+  const percentilAtivo = totalContribuicoes >= 20 ? 'Você está entre os 10% mais ativos!' : totalContribuicoes >= 10 ? 'Continue assim, você está crescendo!' : 'Dê seus primeiros passos!';
 
   if (!user) {
     return (
@@ -342,16 +368,18 @@ export default function UserProfileScreen() {
         {/* Foto de perfil centralizada, única */}
         <View style={styles.avatarSection}>
           <View style={styles.avatarWrapper}>
-            {user.photoURL ? (
-              <Image
-                source={{ uri: user.photoURL }}
-                style={styles.avatarLarge}
-              />
-            ) : (
-              <View style={[styles.avatarLarge, { backgroundColor: '#e3f2fd', alignItems: 'center', justifyContent: 'center' }]}> 
-                <Ionicons name="person-circle" size={100} color="#b0b0b0" />
-              </View>
-            )}
+            <ProfileProgressRing progress={progressPercent} size={140} strokeWidth={10} color="#1976d2">
+              {user.photoURL ? (
+                <Image
+                  source={{ uri: user.photoURL }}
+                  style={styles.avatarLarge}
+                />
+              ) : (
+                <View style={[styles.avatarLarge, { backgroundColor: '#e3f2fd', alignItems: 'center', justifyContent: 'center' }]}> 
+                  <Ionicons name="person-circle" size={100} color="#b0b0b0" />
+                </View>
+              )}
+            </ProfileProgressRing>
             <TouchableOpacity style={styles.avatarEditBtn} onPress={handlePickImage} accessibilityLabel="Trocar foto de perfil">
               <LinearGradient colors={['#1976d2', '#2196f3']} style={styles.avatarEditGradient}>
                 <Ionicons name="camera" size={22} color="#fff" />
@@ -362,6 +390,69 @@ export default function UserProfileScreen() {
                 <View style={[styles.progressBar, { width: `${uploadProgress}%` }]} />
               </View>
             )}
+          </View>
+        </View>
+        {/* Gamificação logo abaixo da foto */}
+        <View style={{ alignItems: 'center', marginTop: 0, marginBottom: 18 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}>
+            <Ionicons name="trophy" size={28} color="#FFD700" style={{ marginRight: 8 }} />
+            <Text style={{ fontSize: 20, fontWeight: 'bold', color: '#1976d2' }}>Nível {gamification.level} - {getLevelNameAndReward(gamification.level).name}</Text>
+          </View>
+          <View style={{ width: 220, height: 16, backgroundColor: '#e3f2fd', borderRadius: 8, overflow: 'hidden', marginBottom: 4 }}>
+            <View style={{ width: `${progressPercent * 100}%`, height: 16, backgroundColor: '#1976d2', borderRadius: 8 }} />
+          </View>
+          <Text style={{ fontSize: 13, color: '#1976d2', fontWeight: '600' }}>{gamification.xp} XP</Text>
+          {/* Card de contribuições estilizado */}
+          <View style={{
+            backgroundColor: '#fff',
+            borderRadius: 18,
+            padding: 18,
+            marginTop: 14,
+            marginBottom: 8,
+            alignItems: 'center',
+            width: '90%',
+            maxWidth: 320,
+            alignSelf: 'center',
+            shadowColor: '#1976d2',
+            shadowOffset: { width: 0, height: 4 },
+            shadowOpacity: 0.10,
+            shadowRadius: 12,
+            elevation: 8,
+            borderWidth: 1,
+            borderColor: '#e3f2fd',
+            overflow: 'hidden',
+          }}>
+            <LinearGradient colors={['#e3f2fd', '#fff']} style={{ ...StyleSheet.absoluteFillObject, zIndex: -1, borderRadius: 18 }} />
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}>
+              <Ionicons name="medal-outline" size={22} color="#1976d2" style={{ marginRight: 7 }} />
+              <Text style={{ fontWeight: 'bold', color: '#1976d2', fontSize: 17, letterSpacing: 0.2 }}>Contribuições</Text>
+            </View>
+            <View style={{ flexDirection: 'row', justifyContent: 'center', alignItems: 'center', marginBottom: 2 }}>
+              <Text style={{ fontSize: 32, color: '#1976d2', fontWeight: 'bold', marginRight: 8 }}>{totalContribuicoes}</Text>
+              <Text style={{ color: '#7B8BB2', fontSize: 15, fontWeight: '600', marginTop: 8 }}>total</Text>
+            </View>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', width: '100%', marginTop: 6, marginBottom: 2 }}>
+              <View style={{ alignItems: 'center', flex: 1 }}>
+                <Ionicons name="star-outline" size={20} color="#1976d2" />
+                <Text style={{ color: '#1976d2', fontWeight: 'bold', fontSize: 15 }}>{gamification.reviewsDone || 0}</Text>
+                <Text style={{ color: '#7B8BB2', fontSize: 13 }}>Avaliações</Text>
+              </View>
+              <View style={{ alignItems: 'center', flex: 1 }}>
+                <Ionicons name="location-outline" size={20} color="#1976d2" />
+                <Text style={{ color: '#1976d2', fontWeight: 'bold', fontSize: 15 }}>{user.locationsAdded || 0}</Text>
+                <Text style={{ color: '#7B8BB2', fontSize: 13 }}>Locais</Text>
+              </View>
+            </View>
+            <Text style={{ color: '#1976d2', fontSize: 13, marginTop: 8, fontStyle: 'italic', fontWeight: '600', textAlign: 'center' }}>{percentilAtivo}</Text>
+          </View>
+          {/* Exibir badges exceto primeiros_passos */}
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginTop: 8, justifyContent: 'center' }}>
+            {gamification.badges.filter(badge => badge !== 'primeiros_passos').map(badge => (
+              <View key={badge} style={{ backgroundColor: '#fffbe6', borderRadius: 12, paddingHorizontal: 10, paddingVertical: 4, margin: 3, borderWidth: 1, borderColor: '#FFD700', flexDirection: 'row', alignItems: 'center' }}>
+                <Ionicons name="star" size={16} color="#FFD700" style={{ marginRight: 4 }} />
+                <Text style={{ color: '#222B45', fontWeight: 'bold', fontSize: 13 }}>{badge.replace('_', ' ').toUpperCase()}</Text>
+              </View>
+            ))}
           </View>
         </View>
         {/* Modo edição: formulário tela cheia */}
@@ -375,7 +466,6 @@ export default function UserProfileScreen() {
                 cidade: user.cidade || '',
                 mobilityType: user.mobilityType || '',
                 comorbidades: user.comorbidades || [],
-                profilePic: user.photoURL || null,
                 acceptTerms: user.acceptTerms || true,
                 phoneNumber: user.phoneNumber || '',
                 instagram: user.instagram || '',
@@ -386,6 +476,7 @@ export default function UserProfileScreen() {
               showTerms={true}
               isEditMode={true}
               loading={loading}
+              hideProfilePicField={true}
             />
           </View>
         ) : (
@@ -680,7 +771,7 @@ export default function UserProfileScreen() {
                 </View>
                 <View style={styles.reviewIconCircle}>
                   <MaterialIcons name="rate-review" size={22} color="#fff" />
-                </View>
+              </View>
               </View>
               <View style={styles.reviewContentColumn}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 2 }}>
@@ -1311,4 +1402,14 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
 });
+
+// Funções auxiliares para XP de nível
+function getLevelXP(level) {
+  const LEVELS = [0, 50, 100, 150, 200, 250, 300, 350, 400, 450, 500, 999999];
+  return LEVELS[Math.max(0, Math.min(level - 1, LEVELS.length - 1))];
+}
+function getNextLevelXP(level) {
+  const LEVELS = [0, 50, 100, 150, 200, 250, 300, 350, 400, 450, 500, 999999];
+  return LEVELS[Math.max(1, Math.min(level, LEVELS.length - 1))];
+}
 
