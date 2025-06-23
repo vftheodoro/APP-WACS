@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useContext } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Platform, Alert, Dimensions, TextInput, FlatList, ScrollView, Image, StatusBar } from 'react-native';
 import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
 import * as Location from 'expo-location';
@@ -11,6 +11,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import AppHeader from '../components/common/AppHeader';
 import SearchBar from '../components/SearchBar';
 import CustomMarker from '../components/mapas/CustomMarker.js';
+import AccessibleMarker from '../components/mapas/AccessibleMarker';
 import AccessibilityIcons from '../components/mapas/AccessibilityIcons.js';
 import LivePanel from '../components/mapas/LivePanel.js';
 import AccessibleLocationDetailPanel from '../components/mapas/AccessibleLocationDetailPanel.js';
@@ -18,6 +19,10 @@ import { calculateDistance, decodePolyline, getManeuverIcon } from '../utils/map
 import MapSearchPanel from '../components/mapas/MapSearchPanel.js';
 import { Share } from 'react-native';
 import { fetchReviewsForLocation } from '../services/firebase/locations';
+import { AuthContext } from '../contexts/AuthContext';
+import UserMarker from '../components/mapas/UserMarker';
+import useRoutePlanner from '../hooks/useRoutePlanner';
+import RoutePlannerModal from '../components/mapas/RoutePlannerModal';
 
 const GOOGLE_MAPS_APIKEY = Constants.expoConfig.extra.GOOGLE_MAPS_API_KEY;
 const { width, height } = Dimensions.get('window');
@@ -80,9 +85,30 @@ const MapScreen = () => {
   const [mapReady, setMapReady] = useState(false);
   const [didAnimateToLocal, setDidAnimateToLocal] = useState(false);
 
+  // Adicionar estado para rota temporária
+  const [simpleRouteCoords, setSimpleRouteCoords] = useState([]);
+  const [showRouteConfirm, setShowRouteConfirm] = useState(false);
+
   const navigation = useNavigation();
   const route = useRoute();
   const { locationId } = route.params || {};
+
+  // Obter usuário do contexto de autenticação
+  const { user } = useContext(AuthContext);
+
+  // Novo sistema de rotas
+  const [routeModalVisible, setRouteModalVisible] = useState(false);
+  const [pendingDestination, setPendingDestination] = useState(null);
+  const [userLocationAtRequest, setUserLocationAtRequest] = useState(null); // posição fixa
+  const {
+    requestRoute,
+    routeCoords: routeCoordsPlanner,
+    steps,
+    info: infoPlanner,
+    loading: loadingRoutePlanner,
+    error: routeErrorPlanner,
+    resetRoute,
+  } = useRoutePlanner();
 
   // Buscar locais acessíveis do Firestore ao montar
   useEffect(() => {
@@ -384,13 +410,31 @@ const MapScreen = () => {
     }
   };
 
-  // Selecionar destino com toque longo
-  const handleLongPress = (e) => {
+  // Atualizar handleLongPress para desenhar rota simples e exibir confirmação
+  const handleLongPress = async (e) => {
     const { latitude, longitude } = e.nativeEvent.coordinate;
-    setDestination({ latitude, longitude });
-    setSearchText('');
-    setSearchResults([]);
-    setShowSearchHistory(false);
+    if (!location) return;
+    // Desenhar Polyline simples
+    setSimpleRouteCoords([
+      { latitude: location.latitude, longitude: location.longitude },
+      { latitude, longitude }
+    ]);
+    setPendingDestination({ latitude, longitude });
+    setShowRouteConfirm(true);
+  };
+
+  // Função para cancelar rota temporária
+  const handleCancelSimpleRoute = () => {
+    setSimpleRouteCoords([]);
+    setPendingDestination(null);
+    setShowRouteConfirm(false);
+  };
+
+  // Função para confirmar e abrir modal de detalhes
+  const handleConfirmSimpleRoute = () => {
+    if (location) setUserLocationAtRequest({ ...location });
+    setShowRouteConfirm(false);
+    // O useEffect já vai abrir o modal e buscar rota
   };
 
   // Selecionar local da lista de resultados
@@ -455,29 +499,14 @@ const MapScreen = () => {
     }, 5000); // Verificar a cada 5 segundos
   };
 
-  // Obter ícone com base no tipo de manobra
-  const getManeuverIcon = (maneuver) => {
-    switch (maneuver) {
-      case 'turn-right':
-        return 'arrow-right';
-      case 'turn-left':
-        return 'arrow-left';
-      case 'uturn-right':
-      case 'uturn-left':
-        return 'undo';
-      case 'roundabout-right':
-      case 'roundabout-left':
-        return 'sync';
-      case 'merge':
-        return 'compress-arrows-alt';
-      case 'fork-right':
-      case 'fork-left':
-        return 'code-branch';
-      case 'straight':
-      default:
-        return 'arrow-up';
-    }
-  };
+  // Função para obter cor do segmento conforme elevação
+  function getStepColor(step, index, elevation) {
+    if (!elevation || !elevation.warnings) return COLORS.primary;
+    const warning = elevation.warnings.find(w => w.index === index);
+    if (warning?.type === 'stairs') return '#F44336'; // vermelho
+    if (warning?.type === 'ramp') return '#FFC107'; // amarelo
+    return COLORS.accent; // verde
+  }
 
   // Parar navegação
   const stopNavigation = () => {
@@ -532,16 +561,10 @@ const MapScreen = () => {
 
   // Refatorar handleStartRoute para usar extractLatLng
   const handleStartRoute = () => {
-    if (!selectedLocation) {
-      Alert.alert('Erro', 'Nenhum local selecionado.');
-      return;
-    }
+    if (!selectedLocation) return;
     const { latitude, longitude } = extractLatLng(selectedLocation);
-    if (typeof latitude !== 'number' || typeof longitude !== 'number' || isNaN(latitude) || isNaN(longitude)) {
-      Alert.alert('Erro', 'Coordenadas do destino inválidas.');
-      return;
-    }
-    setDestination({ latitude, longitude });
+    if (location) setUserLocationAtRequest({ ...location });
+    setPendingDestination({ latitude, longitude });
   };
 
   // Atualizar initialRegion ao receber params ou localização do usuário
@@ -622,6 +645,49 @@ const MapScreen = () => {
   // Resetar didAnimateToLocal ao abrir a tela novamente
   useEffect(() => { setDidAnimateToLocal(false); }, [route.key]);
 
+  // Quando o usuário seleciona um destino (toque longo ou via detalhes), abrir modal e buscar rota
+  useEffect(() => {
+    if (
+      pendingDestination &&
+      userLocationAtRequest &&
+      typeof pendingDestination.latitude === 'number' &&
+      typeof pendingDestination.longitude === 'number' &&
+      typeof userLocationAtRequest.latitude === 'number' &&
+      typeof userLocationAtRequest.longitude === 'number'
+    ) {
+      requestRoute(userLocationAtRequest, pendingDestination);
+      setRouteModalVisible(true);
+    }
+    // eslint-disable-next-line
+  }, [pendingDestination, userLocationAtRequest]);
+
+  // Ao fechar o modal, resetar rota
+  const handleCloseRouteModal = () => {
+    setRouteModalVisible(false);
+    setPendingDestination(null);
+    setUserLocationAtRequest(null);
+    resetRoute();
+  };
+
+  // Corrigir handleStartNavigation para iniciar navegação corretamente
+  const handleStartNavigation = () => {
+    setRouteModalVisible(false);
+    if (steps && steps.length > 0) {
+      startNavigation(steps);
+    }
+  };
+
+  // Compartilhar rota
+  const handleShareRoute = async () => {
+    if (!pendingDestination) return;
+    try {
+      await Share.share({
+        message: `Veja a rota até o destino: https://www.google.com/maps/dir/?api=1&destination=${pendingDestination.latitude},${pendingDestination.longitude}`,
+        title: 'Rota WACS',
+      });
+    } catch {}
+  };
+
   if (showLoading) {
     return (
       <View style={{ flex: 1, backgroundColor: COLORS.background, justifyContent: 'center', alignItems: 'center' }}>
@@ -700,7 +766,7 @@ const MapScreen = () => {
         customMapStyle={mapCustomStyle}
         provider={PROVIDER_GOOGLE}
         initialRegion={mapInitialRegion}
-        showsUserLocation
+        showsUserLocation={false}
         showsMyLocationButton={false}
         onLongPress={handleLongPress}
         onMapReady={() => setMapReady(true)}
@@ -708,9 +774,11 @@ const MapScreen = () => {
         {location && (
           <Marker
             coordinate={{ latitude: location.latitude, longitude: location.longitude }}
-            title="Você"
-            pinColor={COLORS.primary}
-          />
+            anchor={{ x: 0.5, y: 0.5 }}
+            zIndex={1000}
+          >
+            <UserMarker photoURL={user?.photoURL} />
+          </Marker>
         )}
         {destination && (
           <Marker
@@ -744,38 +812,22 @@ const MapScreen = () => {
               }
             }
             if (typeof latitude === 'number' && typeof longitude === 'number' && !isNaN(latitude) && !isNaN(longitude)) {
+              const isSelected = selectedLocation && selectedLocation.id === loc.id;
               return (
                 <Marker
                   key={loc.id}
                   coordinate={{ latitude, longitude }}
                   onPress={() => setSelectedLocation(loc)}
+                  anchor={{ x: 0.5, y: 1 }}
+                  zIndex={isSelected ? 999 : 1}
                 >
-                  <LinearGradient
-                    colors={["#43e97b", "#1976d2"]}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 1 }}
-                    style={{
-                      width: 54,
-                      height: 54,
-                      borderRadius: 27,
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      borderWidth: 4,
-                      borderColor: '#fff',
-                      shadowColor: '#1976d2',
-                      shadowOffset: { width: 0, height: 4 },
-                      shadowOpacity: 0.18,
-                      shadowRadius: 8,
-                      elevation: 8,
-                    }}
-                  >
-                    <FontAwesome5 name="universal-access" size={28} color="#fff" accessibilityLabel="Local acessível" />
-                  </LinearGradient>
+                  <AccessibleMarker location={loc} isSelected={isSelected} />
                 </Marker>
               );
             }
             return null;
           })}
+        {/* Nova Polyline da rota */}
         {routeCoords.length > 0 && (
           <Polyline
             coordinates={routeCoords}
@@ -783,11 +835,30 @@ const MapScreen = () => {
             strokeColor={COLORS.primary}
           />
         )}
+        {/* Polyline de navegação destacando o segmento atual */}
         {isNavigating && navigationSteps.length > 0 && currentStepIndex < navigationSteps.length && (
+          <>
+            {/* Polyline completa (cinza claro) */}
+            <Polyline
+              coordinates={routeCoords}
+              strokeWidth={5}
+              strokeColor={'#e0e0e0'}
+            />
+            {/* Polyline do segmento atual (colorida) */}
+            <Polyline
+              coordinates={navigationSteps[currentStepIndex].polyline}
+              strokeWidth={8}
+              strokeColor={getStepColor(navigationSteps[currentStepIndex], currentStepIndex, { warnings: [{ index: currentStepIndex, type: navigationSteps[currentStepIndex].maneuver === 'stairs' ? 'stairs' : navigationSteps[currentStepIndex].maneuver === 'ramp' ? 'ramp' : '' }] })}
+            />
+          </>
+        )}
+        {/* Polyline temporária da rota simples */}
+        {simpleRouteCoords.length === 2 && (
           <Polyline
-            coordinates={navigationSteps[currentStepIndex].polyline}
-            strokeWidth={8}
+            coordinates={simpleRouteCoords}
+            strokeWidth={5}
             strokeColor={COLORS.accent}
+            lineDashPattern={[10, 10]}
           />
         )}
       </MapView>
@@ -807,47 +878,81 @@ const MapScreen = () => {
           <Ionicons name="add" size={36} color="#fff" />
         </LinearGradient>
       </TouchableOpacity>
-      {/* Painel de navegação */}
-      {destination && routeCoords.length > 0 && (
-        <View style={styles.navigationPanel}>
-          <View style={styles.navigationHeader}>
-            <Text style={styles.navigationTitle}>Navegação</Text>
+      {/* Painel de navegação profissional */}
+      {isNavigating && navigationSteps.length > 0 && currentStepIndex < navigationSteps.length && (
+        <View style={{
+          position: 'absolute',
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: '#fff',
+          borderTopLeftRadius: 18,
+          borderTopRightRadius: 18,
+          padding: 18,
+          elevation: 12,
+          shadowColor: '#000',
+          shadowOpacity: 0.13,
+          shadowOffset: { width: 0, height: -2 },
+          shadowRadius: 8,
+          zIndex: 999,
+          flexDirection: 'column',
+          alignItems: 'stretch',
+        }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+            {/* Ícone de manobra */}
+            <FontAwesome5
+              name={getManeuverIcon(navigationSteps[currentStepIndex].maneuver)}
+              size={28}
+              color={getStepColor(navigationSteps[currentStepIndex], currentStepIndex, { warnings: [{ index: currentStepIndex, type: navigationSteps[currentStepIndex].maneuver === 'stairs' ? 'stairs' : navigationSteps[currentStepIndex].maneuver === 'ramp' ? 'ramp' : '' }] })}
+              style={{ marginRight: 14 }}
+            />
+            <Text style={{ fontSize: 18, fontWeight: 'bold', color: COLORS.text, flex: 1 }}>
+              {navigationSteps[currentStepIndex].instruction}
+            </Text>
           </View>
-          <Text style={styles.routeText}>Distância: {info.distance} | Tempo: {info.duration}</Text>
-          {isNavigating && navigationSteps.length > 0 && currentStepIndex < navigationSteps.length && (
-            <View style={styles.stepContainer}>
-              <FontAwesome5 
-                name={getManeuverIcon(navigationSteps[currentStepIndex].maneuver)} 
-                size={24}
-                color={COLORS.primary} 
-                style={styles.maneuverIcon}
-              />
-              <Text style={styles.stepInstruction}>
-                {navigationSteps[currentStepIndex].instruction}
-              </Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6, gap: 18 }}>
+            <MaterialIcons name="directions-walk" size={20} color={COLORS.primary} style={{ marginRight: 4 }} />
+            <Text style={{ color: COLORS.textSecondary, fontSize: 15 }}>Distância: <Text style={{ color: COLORS.primary, fontWeight: 'bold' }}>{navigationSteps[currentStepIndex].distance}</Text></Text>
+            <MaterialIcons name="schedule" size={20} color={COLORS.primary} style={{ marginLeft: 18, marginRight: 4 }} />
+            <Text style={{ color: COLORS.textSecondary, fontSize: 15 }}>Tempo: <Text style={{ color: COLORS.primary, fontWeight: 'bold' }}>{navigationSteps[currentStepIndex].duration}</Text></Text>
+          </View>
+          {/* Aviso de elevação/escada/rampa */}
+          {navigationSteps[currentStepIndex].maneuver === 'stairs' && (
+            <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#fdeaea', borderRadius: 8, padding: 8, marginBottom: 6 }}>
+              <MaterialIcons name="stairs" size={20} color="#F44336" style={{ marginRight: 6 }} />
+              <Text style={{ color: '#F44336', fontWeight: 'bold', fontSize: 15 }}>Atenção: Escada à frente!</Text>
             </View>
           )}
-          <View style={styles.navigationButtonsContainer}>
-            {!isNavigating ? (
-              <TouchableOpacity 
-                style={styles.startButton} 
-                onPress={() => startNavigation(navigationSteps)}
-              >
-                <MaterialIcons name="directions" size={20} color="#fff" />
-                <Text style={{ color: '#fff', marginLeft: 8 }}>Iniciar</Text>
-              </TouchableOpacity>
-            ) : (
-              <TouchableOpacity
-                style={styles.stopButton} 
-                onPress={stopNavigation}
-              >
-                <MaterialIcons name="pause" size={20} color="#fff" />
-                <Text style={{ color: '#fff', marginLeft: 8 }}>Pausar</Text>
-              </TouchableOpacity>
-            )}
-            <TouchableOpacity style={styles.cancelButton} onPress={cancelNavigation}>
-              <Ionicons name="close" size={20} color="#fff" />
-              <Text style={{ color: '#fff', marginLeft: 8 }}>Cancelar</Text>
+          {navigationSteps[currentStepIndex].maneuver === 'ramp' && (
+            <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff8e1', borderRadius: 8, padding: 8, marginBottom: 6 }}>
+              <MaterialIcons name="accessible" size={20} color="#FFC107" style={{ marginRight: 6 }} />
+              <Text style={{ color: '#FFC107', fontWeight: 'bold', fontSize: 15 }}>Rampa à frente. Atenção à inclinação.</Text>
+            </View>
+          )}
+          {/* Controles */}
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 10, gap: 10 }}>
+            <TouchableOpacity
+              style={{ flex: 1, flexDirection: 'row', alignItems: 'center', backgroundColor: '#FF9800', borderRadius: 10, padding: 12, justifyContent: 'center' }}
+              onPress={stopNavigation}
+              accessibilityLabel="Pausar navegação"
+            >
+              <MaterialIcons name="pause" size={22} color="#fff" />
+              <Text style={{ color: '#fff', fontWeight: 'bold', marginLeft: 8, fontSize: 16 }}>Pausar</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={{ flex: 1, flexDirection: 'row', alignItems: 'center', backgroundColor: '#ff4444', borderRadius: 10, padding: 12, justifyContent: 'center' }}
+              onPress={cancelNavigation}
+              accessibilityLabel="Cancelar navegação"
+            >
+              <Ionicons name="close" size={22} color="#fff" />
+              <Text style={{ color: '#fff', fontWeight: 'bold', marginLeft: 8, fontSize: 16 }}>Cancelar</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={{ width: 54, height: 54, borderRadius: 27, backgroundColor: COLORS.primary, alignItems: 'center', justifyContent: 'center', marginLeft: 8 }}
+              onPress={centerOnUser}
+              accessibilityLabel="Centralizar no usuário"
+            >
+              <Ionicons name="locate" size={28} color="#fff" />
             </TouchableOpacity>
           </View>
         </View>
@@ -870,6 +975,60 @@ const MapScreen = () => {
           onToggleFavorite={() => setIsFavorite(fav => !fav)}
           reviews={selectedLocationReviews}
         />
+      )}
+      {/* Novo modal de rota */}
+      <RoutePlannerModal
+        visible={routeModalVisible}
+        onClose={handleCloseRouteModal}
+        onStart={handleStartNavigation}
+        onShare={handleShareRoute}
+        info={infoPlanner}
+        steps={steps}
+        loading={loadingRoutePlanner}
+        error={routeErrorPlanner}
+        routeCoords={routeCoordsPlanner}
+        origin={userLocationAtRequest}
+        destination={pendingDestination}
+      />
+      {/* Painel de confirmação da rota temporária */}
+      {showRouteConfirm && (
+        <View style={{
+          position: 'absolute',
+          left: 0,
+          right: 0,
+          bottom: 24,
+          backgroundColor: '#fff',
+          borderRadius: 16,
+          marginHorizontal: 18,
+          padding: 18,
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          elevation: 8,
+          shadowColor: '#000',
+          shadowOpacity: 0.13,
+          shadowOffset: { width: 0, height: 2 },
+          shadowRadius: 8,
+          zIndex: 999,
+        }}>
+          <Text style={{ fontSize: 16, color: COLORS.text, flex: 1 }}>
+            Deseja ver os detalhes da rota para este destino?
+          </Text>
+          <TouchableOpacity
+            onPress={handleCancelSimpleRoute}
+            style={{ marginLeft: 12, padding: 8, borderRadius: 8, backgroundColor: '#eee' }}
+            accessibilityLabel="Cancelar"
+          >
+            <Text style={{ color: '#666', fontWeight: 'bold' }}>Cancelar</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={handleConfirmSimpleRoute}
+            style={{ marginLeft: 8, padding: 8, borderRadius: 8, backgroundColor: COLORS.primary }}
+            accessibilityLabel="Ver detalhes"
+          >
+            <Text style={{ color: '#fff', fontWeight: 'bold' }}>Ver detalhes</Text>
+          </TouchableOpacity>
+        </View>
       )}
     </View>
   );

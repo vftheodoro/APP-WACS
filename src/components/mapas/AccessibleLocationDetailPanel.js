@@ -11,6 +11,14 @@ const COLORS = {
   background: '#f8fafc',
 };
 
+// Nova função para obter a cor com base na avaliação
+const getRatingColor = (rating = 0) => {
+  if (rating >= 4.0) return '#4CAF50'; // Verde
+  if (rating >= 2.5) return '#FFC107'; // Amarelo
+  if (rating > 0) return '#F44336'; // Vermelho
+  return '#9E9E9E'; // Cinza
+};
+
 const filterOptions = [
   { key: 'wheelchair', label: 'Cadeirante', icon: 'walk', color: '#4CAF50' },
   { key: 'blind', label: 'Deficiência Visual', icon: 'eye-off', color: '#FF9800' },
@@ -21,7 +29,7 @@ const filterOptions = [
   { key: 'ramp', label: 'Rampa', icon: 'enter', color: '#F44336' },
 ];
 
-function renderStars(rating = 0, size = 16, color = COLORS.accent) {
+function renderStars(rating = 0, size = 16, color = '#FFC107') {
   const stars = Array(5).fill(0);
   return (
     <View style={{ flexDirection: 'row' }}>
@@ -72,6 +80,7 @@ export default function AccessibleLocationDetailPanel({
 
   if (!location) return null;
   const { emoji, text: emojiText } = getLocationEmoji(location.rating);
+  const ratingColor = getRatingColor(location.rating); // Obter a cor dinâmica
   const distance = userLocation && location.latitude && location.longitude
     ? (Math.round(
         Math.sqrt(
@@ -139,7 +148,7 @@ export default function AccessibleLocationDetailPanel({
         {/* Avaliação geral */}
         <View style={styles.ratingRow}>
           <Text style={styles.ratingScore}>{location.rating?.toFixed(1) || '-'}</Text>
-          {renderStars(location.rating, 20)}
+          {renderStars(location.rating, 20, ratingColor)}
           <View style={styles.emojiTag}>
             <Text style={styles.emojiText}>{emoji}</Text>
             <Text style={styles.emojiTagText}>{emojiText}</Text>

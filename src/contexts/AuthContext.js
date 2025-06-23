@@ -15,7 +15,7 @@ import { saveImageLocally, deleteLocalImage } from '../services/storage';
 import { uploadProfilePicture, deleteProfilePicture } from '../services/profilePictureService';
 import { Alert } from 'react-native';
 
-const AuthContext = createContext({});
+export const AuthContext = createContext({});
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
