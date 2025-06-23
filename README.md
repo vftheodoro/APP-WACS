@@ -206,6 +206,28 @@ Essas melhorias tornam a experiência do usuário mais fluida, moderna e acessí
 
 ---
 
+## 🆕 Novas Funcionalidades de Navegação no Mapa
+
+- **Rota temporária ao segurar no mapa:**
+  - Ao pressionar e segurar em qualquer ponto do mapa, uma linha tracejada é desenhada entre sua localização atual e o ponto selecionado.
+  - Um painel de confirmação aparece na parte inferior perguntando se deseja ver os detalhes da rota.
+  - Se confirmar, o modal de detalhes da rota é aberto; se cancelar, a linha desaparece.
+
+- **Confirmação antes de abrir detalhes da rota:**
+  - Evita abrir o modal de rota acidentalmente, tornando a experiência mais fluida e controlada.
+
+- **Modal de detalhes de rota com IA de acessibilidade:**
+  - Mostra endereço de origem e destino, miniatura do trajeto, distância, tempo, elevação e análise inteligente de acessibilidade (escadas, rampas, plano).
+  - Instruções detalhadas podem ser expandidas sob demanda.
+
+- **Modo de navegação profissional:**
+  - Ao iniciar navegação, um painel fixo na parte inferior exibe o passo atual, instrução, ícone de manobra, distância, tempo e avisos visuais (ex: escada/rampa).
+  - O segmento atual da rota é destacado com cor conforme a elevação (verde, amarelo, vermelho), enquanto o restante aparece em cinza claro.
+  - Controles grandes e acessíveis para pausar, cancelar e centralizar no usuário.
+  - Layout limpo, responsivo e acessível, com foco em experiência para cadeirantes.
+
+---
+
 ## 📄 Licença
 
 Este projeto está licenciado sob a licença MIT - veja o arquivo LICENSE para detalhes.
