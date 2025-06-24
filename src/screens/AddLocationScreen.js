@@ -64,7 +64,7 @@ const MAIN_PLACE_TYPES = [
   { key: 'station', label: 'Estação', icon: <MaterialCommunityIcons name="train" size={20} color="#1976d2" /> },
   { key: 'park', label: 'Parque', icon: <MaterialCommunityIcons name="tree" size={20} color="#1976d2" /> },
   { key: 'church', label: 'Igreja', icon: <MaterialCommunityIcons name="church" size={20} color="#1976d2" /> },
-  { key: 'pharmacy', label: 'Farmácia', icon: <MaterialCommunityIcons name="pharmacy" size={20} color="#1976d2" /> },
+  { key: 'pharmacy', label: 'Farmácia', icon: <MaterialCommunityIcons name="pharmacy-cross" size={20} color="#1976d2" /> },
   { key: 'supermarket', label: 'Supermercado', icon: <MaterialCommunityIcons name="cart" size={20} color="#1976d2" /> },
   { key: 'shopping_mall', label: 'Shopping', icon: <MaterialCommunityIcons name="shopping" size={20} color="#1976d2" /> },
   { key: 'bank', label: 'Banco', icon: <FontAwesome5 name="university" size={20} color="#1976d2" /> },
@@ -165,14 +165,30 @@ export default function AddLocationScreen() {
   };
 
   const handlePickImage = async () => {
-    const result = await ImagePicker.launchImageLibraryAsync({ 
-      mediaTypes: ImagePicker.MediaTypeOptions.Images, 
-      quality: 0.7,
-      allowsEditing: true,
-      aspect: [16, 9],
-    });
-    if (!result.canceled && result.assets && result.assets[0]) {
-      setImage(result.assets[0]);
+    try {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permissão necessária', 'É preciso permitir acesso às fotos para escolher uma imagem. Vá nas configurações do app e permita o acesso.');
+        return;
+      }
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaType.Images,
+        quality: 0.7,
+        allowsEditing: true,
+        aspect: [16, 9],
+      });
+      if (result.canceled) {
+        Alert.alert('Operação cancelada', 'Nenhuma imagem foi selecionada.');
+        return;
+      }
+      if (result.assets && result.assets[0]) {
+        setImage(result.assets[0]);
+        Alert.alert('Imagem selecionada', 'A imagem foi adicionada com sucesso!');
+      } else {
+        Alert.alert('Erro', 'Não foi possível obter a imagem selecionada.');
+      }
+    } catch (error) {
+      Alert.alert('Erro', 'Ocorreu um erro ao tentar acessar a galeria. Tente novamente ou verifique as permissões do app.');
     }
   };
   
@@ -199,10 +215,8 @@ export default function AddLocationScreen() {
       Alert.alert("Erro", "Você precisa estar logado para adicionar um local.");
       return;
     }
-    
     setSubmitting(true);
     let reviewData = null;
-
     if (includeReview) {
         const ratings = Object.values(featureRatings);
         if (ratings.length < accessibilityFeatures.length) {
@@ -218,30 +232,28 @@ export default function AddLocationScreen() {
             featureRatings,
         };
     }
-    
     try {
       const response = await fetch(image.uri);
       const blob = await response.blob();
-      const filename = `locations/${Date.now()}-${image.uri.split('/').pop()}`;
+      const filename = `locations/${currentUser.uid}_${Date.now()}_${image.uri.split('/').pop()}`;
       const imageRef = ref(storage, filename);
       await uploadBytes(imageRef, blob);
       const imageUrl = await getDownloadURL(imageRef);
-
       const locationsCollectionRef = collection(db, 'accessibleLocations');
       await runTransaction(db, async (transaction) => {
-        const newLocationRef = doc(locationsCollectionRef);
+        const newLocationRef = doc(locationsCollectionRef, name.trim());
         const locationPayload = {
           name: name.trim(),
           address,
-          latitude: parseFloat(latitude),
-          longitude: parseFloat(longitude),
+          location: [parseFloat(latitude), parseFloat(longitude)],
           accessibilityFeatures,
           imageUrl,
           createdAt: serverTimestamp(),
-          author: { id: currentUser.uid, name: currentUser.displayName, photoURL: currentUser.photoURL },
+          userId: currentUser.uid,
+          userName: currentUser.displayName || currentUser.email || 'Usuário',
+          placeType: placeType === 'custom' ? customType.trim() : placeType,
           rating: reviewData ? reviewData.rating : 0,
           reviewCount: reviewData ? 1 : 0,
-          placeType: placeType === 'custom' ? customType.trim() : placeType,
         };
         transaction.set(newLocationRef, locationPayload);
         if (reviewData) {
@@ -254,14 +266,12 @@ export default function AddLocationScreen() {
           });
         }
       });
-      // Alert.alert("Sucesso!", "Novo local adicionado com sucesso.");
-      navigation.navigate('LocationsList');
+      navigation.navigate('LocationsListScreen');
       if (user?.id) {
         await addXP(user.id, 'add_location');
         setXpSnackbar({ visible: true, message: '+30 XP por adicionar local!' });
       }
     } catch (error) {
-      console.error("Erro ao adicionar local:", error);
       Alert.alert("Erro", "Não foi possível adicionar o novo local.");
       setSubmitting(false);
     }

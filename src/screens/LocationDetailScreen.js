@@ -205,16 +205,10 @@ function parseLatLngString(str, isLat) {
 }
 
 export default function LocationDetailScreen() {
-  // LOG: render do componente
-  console.log('[LocationDetailScreen] render', new Date().toISOString());
-
   const route = useRoute();
   const navigation = useNavigation();
   const { locationId } = route.params || {};
   
-  // LOG: valor de locationId
-  console.log('[LocationDetailScreen] locationId:', locationId);
-
   // Estados
   const [location, setLocation] = useState(null);
   const [reviews, setReviews] = useState([]);
@@ -230,7 +224,6 @@ export default function LocationDetailScreen() {
   
   // Função para carregar dados (NÃO é mais useCallback)
   async function loadData() {
-    console.log('[LocationDetailScreen] loadData chamada', new Date().toISOString());
     try {
       setError(null);
       const [loc, revs] = await Promise.all([
@@ -240,7 +233,6 @@ export default function LocationDetailScreen() {
       if (!loc) throw new Error('Local não encontrado');
       setLocation(loc);
       setReviews(revs);
-      console.log('[LocationDetailScreen] setLocation e setReviews executados');
     } catch (err) {
       setError(err.message || 'Erro ao carregar detalhes');
     } finally {
@@ -251,7 +243,6 @@ export default function LocationDetailScreen() {
   
   // Efeito para carregar dados ao montar a tela
   useEffect(() => {
-    console.log('[LocationDetailScreen] useEffect disparado', new Date().toISOString());
     if (locationId) {
       loadData();
     }
@@ -332,7 +323,6 @@ export default function LocationDetailScreen() {
           setXpSnackbar({ visible: true, message: '+10 XP por avaliar!' });
         }
     } catch (error) {
-        console.error("Erro ao enviar avaliação: ", error);
         Alert.alert("Erro", "Não foi possível enviar sua avaliação. Por favor, tente novamente.");
     }
   };

@@ -12,7 +12,7 @@ import {
   Alert,
   Platform,
 } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../contexts/AuthContext';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -52,16 +52,16 @@ export const MainSelectionScreen = () => {
         useNativeDriver: true,
       }),
     ]).start();
+  }, []);
 
-    if (user?.id) {
-      getUserGamificationData(user.id).then(setGamification);
-    }
-
-    // TODO: Aqui, em uma implementação real, você pode querer:
-    // 1. Tentar reconectar automaticamente a um dispositivo pareado ao carregar a tela.
-    // 2. Manter um listener global para atualizações de status via contexto Bluetooth.
-
-  }, []); // Sem dependências para rodar apenas na montagem
+  // Atualiza gamification sempre que a tela ganha foco
+  useFocusEffect(
+    React.useCallback(() => {
+      if (user?.id) {
+        getUserGamificationData(user.id).then(setGamification);
+      }
+    }, [user?.id])
+  );
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -489,6 +489,28 @@ export const MainSelectionScreen = () => {
             <Text style={styles.statLabel}>Vel. Média</Text>
           </View>
         </View>
+      </View>
+
+      {/* Botão administrativo para classificar locais antigos */}
+      <View style={{ paddingHorizontal: 20, marginTop: 18 }}>
+        <Pressable
+          style={{
+            backgroundColor: '#1976d2',
+            borderRadius: 12,
+            paddingVertical: 14,
+            alignItems: 'center',
+            marginBottom: 10,
+            flexDirection: 'row',
+            justifyContent: 'center',
+            gap: 8,
+          }}
+          onPress={() => navigation.navigate('ClassifyLocationsScreen')}
+        >
+          <Ionicons name="build-outline" size={20} color="#fff" />
+          <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 16 }}>
+            Classificar Locais
+          </Text>
+        </Pressable>
       </View>
     </ScrollView>
   );
