@@ -20,6 +20,7 @@ import { useAuth } from '../contexts/AuthContext';
 import RegisterScreen from '../screens/auth/RegisterScreen';
 import AddLocationScreen from '../screens/AddLocationScreen';
 import MapSettingsScreen from '../screens/mapa/MapSettingsScreen';
+import ContributeToLocationScreen from '../features/location-contributions/ContributeToLocationScreen';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -162,6 +163,11 @@ export const AppNavigator = () => {
             name="MapSettings"
             component={MapSettingsScreen}
             options={{ headerShown: false }}
+          />
+          <Stack.Screen
+            name="ContributeToLocation"
+            component={ContributeToLocationScreen}
+            options={{ title: 'Contribuir com Local' }}
           />
         </>
       )}

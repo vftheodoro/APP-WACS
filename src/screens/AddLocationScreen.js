@@ -17,7 +17,7 @@ import * as ImagePicker from 'expo-image-picker';
 import * as Haptics from 'expo-haptics';
 import { useRoute, useNavigation } from '@react-navigation/native';
 import { db, storage, auth } from '../services/firebase/config';
-import { collection, addDoc, serverTimestamp, runTransaction, doc } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp, runTransaction, doc, getDocs } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { Picker } from '@react-native-picker/picker';
 import Constants from 'expo-constants';
@@ -209,6 +209,34 @@ export default function AddLocationScreen() {
     setStep(2);
   };
   
+  const checkDuplicateLocation = async () => {
+    // Busca locais próximos (raio de 100 metros) ou com nome/endereço similar
+    const colRef = collection(db, 'accessibleLocations');
+    const snap = await getDocs(colRef);
+    const lat = parseFloat(latitude);
+    const lng = parseFloat(longitude);
+    for (const docSnap of snap.docs) {
+      const d = docSnap.data();
+      // Verifica proximidade geográfica
+      if (Array.isArray(d.location) && d.location.length === 2) {
+        const dLat = d.location[0];
+        const dLng = d.location[1];
+        const dist = Math.sqrt(Math.pow(lat - dLat, 2) + Math.pow(lng - dLng, 2));
+        if (dist < 0.001) { // Aproximadamente 100m
+          return { duplicate: true, locationId: docSnap.id, name: d.name };
+        }
+      }
+      // Verifica nome/endereço similar
+      if (d.name && name && d.name.trim().toLowerCase() === name.trim().toLowerCase()) {
+        return { duplicate: true, locationId: docSnap.id, name: d.name };
+      }
+      if (d.address && address && d.address.trim().toLowerCase() === address.trim().toLowerCase()) {
+        return { duplicate: true, locationId: docSnap.id, name: d.name };
+      }
+    }
+    return { duplicate: false };
+  };
+
   const handleSubmit = async (includeReview) => {
     const currentUser = auth.currentUser;
     if (!currentUser) {
@@ -233,6 +261,20 @@ export default function AddLocationScreen() {
         };
     }
     try {
+      // Verificação de duplicidade antes de cadastrar
+      const dup = await checkDuplicateLocation();
+      if (dup.duplicate) {
+        Alert.alert(
+          'Local já existe',
+          `Já existe um local semelhante cadastrado: ${dup.name}. Que tal contribuir com mais informações ou imagens?`,
+          [
+            { text: 'Cancelar', style: 'cancel' },
+            { text: 'Contribuir', onPress: () => navigation.navigate('ContributeToLocation', { locationId: dup.locationId }) }
+          ]
+        );
+        setSubmitting(false);
+        return;
+      }
       const response = await fetch(image.uri);
       const blob = await response.blob();
       const filename = `locations/${currentUser.uid}_${Date.now()}_${image.uri.split('/').pop()}`;

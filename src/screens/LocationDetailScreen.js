@@ -44,6 +44,7 @@ import { useAuth } from '../contexts/AuthContext';
 import * as Haptics from 'expo-haptics';
 import { Snackbar } from 'react-native-paper';
 import { addXP } from '../services/gamification';
+import ContributionsList from '../features/location-contributions/ContributionsList';
 
 // Constantes de cores e estilo
 const COLORS = {
@@ -576,6 +577,20 @@ export default function LocationDetailScreen() {
               <Text style={styles.noReviewsText}>Nenhuma avaliação ainda.</Text>
             )}
           </View>
+          <View style={{ position: 'relative', marginVertical: 16 }}>
+            <TouchableOpacity
+              style={{ backgroundColor: '#b0b0b0', borderRadius: 10, padding: 12, alignItems: 'center', opacity: 0.7 }}
+              disabled={true}
+            >
+              <Ionicons name="add-circle-outline" size={20} color="#fff" />
+              <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 16, marginTop: 2 }}>Contribuir</Text>
+            </TouchableOpacity>
+            <View style={{ position: 'absolute', top: 6, right: 16, backgroundColor: '#FFD700', borderRadius: 8, paddingHorizontal: 8, paddingVertical: 2 }}>
+              <Text style={{ color: '#333', fontWeight: 'bold', fontSize: 12 }}>Em breve</Text>
+            </View>
+          </View>
+          <Text style={{ fontWeight: 'bold', color: '#1976d2', fontSize: 17, marginBottom: 8 }}>Contribuições da Comunidade</Text>
+          <ContributionsList locationId={location.id} />
         </View>
       </ScrollView>
       <ReviewModal 
