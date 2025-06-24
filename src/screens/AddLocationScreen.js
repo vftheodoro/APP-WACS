@@ -227,7 +227,7 @@ export default function AddLocationScreen() {
       await uploadBytes(imageRef, blob);
       const imageUrl = await getDownloadURL(imageRef);
 
-      const locationsCollectionRef = collection(db, 'locations');
+      const locationsCollectionRef = collection(db, 'accessibleLocations');
       await runTransaction(db, async (transaction) => {
         const newLocationRef = doc(locationsCollectionRef);
         const locationPayload = {
@@ -245,7 +245,7 @@ export default function AddLocationScreen() {
         };
         transaction.set(newLocationRef, locationPayload);
         if (reviewData) {
-          const reviewCollectionRef = collection(db, 'locations', newLocationRef.id, 'reviews');
+          const reviewCollectionRef = collection(db, 'accessibleLocations', newLocationRef.id, 'reviews');
           const newReviewRef = doc(reviewCollectionRef);
           transaction.set(newReviewRef, {
             ...reviewData,
@@ -254,7 +254,7 @@ export default function AddLocationScreen() {
           });
         }
       });
-      Alert.alert("Sucesso!", "Novo local adicionado com sucesso.");
+      // Alert.alert("Sucesso!", "Novo local adicionado com sucesso.");
       navigation.navigate('LocationsList');
       if (user?.id) {
         await addXP(user.id, 'add_location');

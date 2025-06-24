@@ -321,12 +321,9 @@ export const MainSelectionScreen = () => {
             <View style={styles.greetingContainer}>
               <Text style={styles.timeGreeting}>{getTimeGreeting()},</Text>
               <Text style={styles.userName}>{user?.name || 'Usuário'}!</Text>
-              <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 2 }}>
-                <Ionicons name="trophy" size={18} color="#FFD700" style={{ marginRight: 5 }} />
-                <Text style={{ color: '#FFD700', fontWeight: 'bold', fontSize: 15 }}>
-                  Nível {gamification.level} - {getLevelNameAndReward(gamification.level).name}
-                </Text>
-              </View>
+              <Text style={{ color: '#FFD700', fontWeight: 'bold', fontSize: 15, marginTop: 2 }}>
+                Nível {gamification.level} - {gamification.xp} XP
+              </Text>
             </View>
             {/* Ícone de notificação à direita */}
             <Pressable

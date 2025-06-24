@@ -41,8 +41,9 @@ import * as Location from 'expo-location';
 import MapView, { Marker } from 'react-native-maps';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '../contexts/AuthContext';
-import { addXP } from '../services/gamification';
+import * as Haptics from 'expo-haptics';
 import { Snackbar } from 'react-native-paper';
+import { addXP } from '../services/gamification';
 
 // Constantes de cores e estilo
 const COLORS = {
@@ -204,10 +205,16 @@ function parseLatLngString(str, isLat) {
 }
 
 export default function LocationDetailScreen() {
+  // LOG: render do componente
+  console.log('[LocationDetailScreen] render', new Date().toISOString());
+
   const route = useRoute();
   const navigation = useNavigation();
   const { locationId } = route.params || {};
   
+  // LOG: valor de locationId
+  console.log('[LocationDetailScreen] locationId:', locationId);
+
   // Estados
   const [location, setLocation] = useState(null);
   const [reviews, setReviews] = useState([]);
@@ -217,64 +224,40 @@ export default function LocationDetailScreen() {
   const [reviewModalVisible, setReviewModalVisible] = useState(false);
   const [mapModalVisible, setMapModalVisible] = useState(false);
   const [isFavorite, setIsFavorite] = useState(false);
-  const [distance, setDistance] = useState(null);
   const { currentUser, user } = useAuth();
   const [reviewsToShow, setReviewsToShow] = useState(3);
   const [xpSnackbar, setXpSnackbar] = useState({ visible: false, message: '' });
   
-  // Função para carregar dados
-  const loadData = useCallback(async () => {
+  // Função para carregar dados (NÃO é mais useCallback)
+  async function loadData() {
+    console.log('[LocationDetailScreen] loadData chamada', new Date().toISOString());
     try {
       setError(null);
       const [loc, revs] = await Promise.all([
         fetchLocationById(locationId),
         fetchReviewsForLocation(locationId)
       ]);
-      
       if (!loc) throw new Error('Local não encontrado');
-      
       setLocation(loc);
       setReviews(revs);
-      
+      console.log('[LocationDetailScreen] setLocation e setReviews executados');
     } catch (err) {
       setError(err.message || 'Erro ao carregar detalhes');
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [locationId]);
+  }
   
-  // Função para obter localização do usuário e calcular distância
-  const getUserLocation = useCallback(async () => {
-    // Usar função utilitária para extrair lat/lng do local
-    const latLng = location ? getLatLngFromLocationField(location) : null;
-    if (!latLng) return;
-    try {
-      let { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted') {
-        return;
-      }
-      let userLoc = await Location.getCurrentPositionAsync({});
-      const dist = calculateDistance(
-        userLoc.coords.latitude,
-        userLoc.coords.longitude,
-        latLng.latitude,
-        latLng.longitude
-      );
-      setDistance(dist);
-    } catch (error) {}
-  }, [location]);
-  
+  // Efeito para carregar dados ao montar a tela
   useEffect(() => {
+    console.log('[LocationDetailScreen] useEffect disparado', new Date().toISOString());
     if (locationId) {
       loadData();
     }
-  }, [locationId, loadData]);
-
-  useEffect(() => {
-    getUserLocation();
-  }, [location, getUserLocation]);
-
+  }, [locationId]);
+  
+  // Função de refresh manual
   const onRefresh = () => {
     setRefreshing(true);
     loadData();
@@ -304,33 +287,28 @@ export default function LocationDetailScreen() {
   const toggleFavorite = () => setIsFavorite(!isFavorite);
 
   const handleReviewSubmit = async ({ rating, comment, featureRatings }) => {
-    if (!currentUser) {
-        Alert.alert("Erro", "Você precisa estar logado para avaliar um local.");
-      return;
-    }
-    
-    const locationRef = doc(db, 'locations', locationId);
-    const reviewsCollectionRef = collection(db, 'locations', locationId, 'reviews');
+    // Corrigir caminho da coleção
+    const locationRef = doc(db, 'accessibleLocations', locationId);
+    const reviewsCollectionRef = collection(db, 'reviews'); // coleção global
     
     try {
         await runTransaction(db, async (transaction) => {
             const locationDoc = await transaction.get(locationRef);
             if (!locationDoc.exists()) {
                 throw new Error("Local não encontrado!");
-    }
+            }
 
-            // 1. Adicionar a nova avaliação na subcoleção
+            // 1. Adicionar a nova avaliação na coleção global
             const newReviewRef = doc(reviewsCollectionRef); // Cria uma referência com ID único
             transaction.set(newReviewRef, {
+                locationId, // importante para filtrar depois
                 rating,
                 comment,
                 featureRatings,
                 createdAt: serverTimestamp(),
-                user: {
-                    id: currentUser.uid,
-                    name: currentUser.displayName || 'Anônimo',
-                    photoURL: currentUser.photoURL || null,
-                },
+                userId: user.id,
+                userName: user.name || 'Anônimo',
+                photoURL: user.photoURL || null,
             });
 
             // 2. Atualizar a avaliação média e a contagem no documento do local
@@ -350,6 +328,7 @@ export default function LocationDetailScreen() {
         onRefresh(); // Recarrega os dados para mostrar a nova avaliação
         if (user?.id) {
           await addXP(user.id, 'review');
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
           setXpSnackbar({ visible: true, message: '+10 XP por avaliar!' });
         }
     } catch (error) {
@@ -414,13 +393,12 @@ export default function LocationDetailScreen() {
   }
   
   if (!location) return null;
-  
+
   const { emoji, text: emojiText } = getLocationEmoji(location.rating);
-  
+
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor={COLORS.primaryDark} />
-      
       <LinearGradient colors={[COLORS.primary, COLORS.primaryLight]} style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.headerButton}>
           <Ionicons name="arrow-back" size={24} color="#fff" />
@@ -429,13 +407,12 @@ export default function LocationDetailScreen() {
         <View style={{flexDirection: 'row'}}>
           <TouchableOpacity onPress={handleShare} style={styles.headerButton}>
             <Ionicons name="share-social-outline" size={24} color="#fff" />
-        </TouchableOpacity>
+          </TouchableOpacity>
           <TouchableOpacity onPress={toggleFavorite} style={styles.headerButton}>
             <Ionicons name={isFavorite ? "heart" : "heart-outline"} size={24} color={isFavorite ? COLORS.error : "#fff"} />
           </TouchableOpacity>
         </View>
       </LinearGradient>
-      
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
@@ -444,7 +421,6 @@ export default function LocationDetailScreen() {
         {location.imageUrl && (
           <Image source={{ uri: location.imageUrl }} style={styles.locationImage} />
         )}
-        
         <View style={styles.mainContent}>
           <View style={styles.titleSection}>
             <Text style={styles.locationName}>{location.name}</Text>
@@ -456,15 +432,7 @@ export default function LocationDetailScreen() {
                 </Text>
               </View>
             )}
-            {/* Badge de distância igual ao card da lista */}
-            {distance !== null && (
-              <View style={styles.distanceBadgeDetail}>
-                <Ionicons name="navigate" size={16} color="#fff" style={{ marginRight: 4 }} />
-                <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 14 }}>{distance.toFixed(1)} km</Text>
-              </View>
-            )}
           </View>
-          
           {location.author && (
             <View style={styles.authorCard}>
               {location.author.photoURL ? (
@@ -472,14 +440,13 @@ export default function LocationDetailScreen() {
               ) : (
                 <View style={styles.authorPhotoPlaceholder}>
                   <Ionicons name="person-outline" size={18} color="#666" />
-            </View>
+                </View>
               )}
               <Text style={styles.authorText}>
                 Adicionado por <Text style={{fontWeight: 'bold'}}>{location.author.name || 'um usuário'}</Text>
               </Text>
-          </View>
+            </View>
           )}
-          
           <View style={styles.card}>
             <Text style={styles.sectionTitle}>Avaliação Geral</Text>
             <View style={styles.ratingSummary}>
@@ -487,10 +454,10 @@ export default function LocationDetailScreen() {
               <View>
                 {renderStars(location.rating, 24)}
                 <Text style={styles.reviewCount}>
-                    {location.reviewCount ? `${location.reviewCount} avaliações` : 'Sem avaliações'}
-                  </Text>
-                </View>
-              <View style={[styles.emojiTag, { backgroundColor: getRatingColor(location.rating) }]}>
+                  {location.reviewCount ? `${location.reviewCount} avaliações` : 'Sem avaliações'}
+                </Text>
+              </View>
+              <View style={[styles.emojiTag, { backgroundColor: getRatingColor(location.rating) }]}> 
                 <Text style={styles.emojiText}>{emoji}</Text>
                 <Text style={styles.emojiTagText}>{emojiText}</Text>
               </View>
@@ -499,8 +466,6 @@ export default function LocationDetailScreen() {
               <Text style={styles.description}>{location.description}</Text>
             )}
           </View>
-
-          {/* Botões de ação: Avaliar e Ver no Mapa, lado a lado */}
           <View style={styles.actionButtonsGrid}>
             <TouchableOpacity style={styles.gridButton} onPress={() => setReviewModalVisible(true)}>
               <LinearGradient colors={[COLORS.primary, COLORS.primaryLight]} style={styles.gridButtonGradient}>
@@ -526,8 +491,6 @@ export default function LocationDetailScreen() {
               </LinearGradient>
             </TouchableOpacity>
           </View>
-          
-          {/* Seção de Recursos de Acessibilidade melhorada */}
           {location.accessibilityFeatures?.length > 0 && (
             <View style={styles.card}>
               <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
@@ -545,14 +508,9 @@ export default function LocationDetailScreen() {
                     else if (avgRating > 0) bgColor = '#ffeaea';
                   }
                   return (
-                    <TouchableOpacity
+                    <View
                       key={featureKey}
-                      activeOpacity={0.85}
                       style={[styles.accessChip, { backgroundColor: bgColor }]}
-                      onPress={() => {
-                        const msg = FEATURE_EXPLANATIONS[featureKey] || data.name;
-                        Alert.alert(data.name, msg);
-                      }}
                     >
                       <View style={{
                         backgroundColor: avgRating >= 4 ? '#43a04722' : avgRating >= 3 ? '#FFC10722' : avgRating > 0 ? '#F4433622' : '#e0e0e0',
@@ -573,13 +531,12 @@ export default function LocationDetailScreen() {
                       ) : (
                         <Text style={[styles.accessChipRating, { color: '#b0b0b0', marginTop: 1 }]}>N/A</Text>
                       )}
-                    </TouchableOpacity>
+                    </View>
                   );
                 })}
               </View>
             </View>
           )}
-          
           <View style={styles.card}>
             <Text style={styles.sectionTitle}>Avaliações ({reviews.length})</Text>
             {reviews.length > 0 ? (
@@ -631,7 +588,6 @@ export default function LocationDetailScreen() {
           </View>
         </View>
       </ScrollView>
-
       <ReviewModal 
         visible={reviewModalVisible} 
         onClose={() => setReviewModalVisible(false)}
@@ -639,37 +595,11 @@ export default function LocationDetailScreen() {
         locationName={location.name}
         features={location.accessibilityFeatures || []}
       />
-      
-      <Modal visible={mapModalVisible} animationType="slide" onRequestClose={() => setMapModalVisible(false)}>
-        <View style={styles.mapModalContainer}>
-          <LinearGradient colors={[COLORS.primary, COLORS.primaryLight]} style={styles.mapModalHeader}>
-            <TouchableOpacity onPress={() => setMapModalVisible(false)}>
-              <Ionicons name="close" size={24} color="#fff" />
-            </TouchableOpacity>
-            <Text style={styles.mapModalTitle}>Localização</Text>
-            <TouchableOpacity onPress={openInMaps}>
-              <Ionicons name="open-outline" size={24} color="#fff" />
-            </TouchableOpacity>
-          </LinearGradient>
-            <MapView
-              style={styles.map}
-              initialRegion={{
-                latitude: location.latitude,
-                longitude: location.longitude,
-                latitudeDelta: 0.01,
-                longitudeDelta: 0.01,
-              }}
-            >
-            <Marker coordinate={location} title={location.name} />
-            </MapView>
-        </View>
-      </Modal>
-
       <Snackbar
         visible={xpSnackbar.visible}
         onDismiss={() => setXpSnackbar({ ...xpSnackbar, visible: false })}
         duration={2000}
-        style={{ backgroundColor: '#1976d2', borderRadius: 16, marginBottom: 60 }}
+        style={{ backgroundColor: '#43e97b', borderRadius: 16, marginBottom: 60 }}
         action={{ label: '🎉', onPress: () => setXpSnackbar({ ...xpSnackbar, visible: false }) }}
       >
         <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 16 }}>{xpSnackbar.message}</Text>

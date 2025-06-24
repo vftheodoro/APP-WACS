@@ -391,8 +391,8 @@ const ProfileForm = ({
           <View style={{ alignItems: 'center', marginTop: 10, marginBottom: 10 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center' }}>
               <Ionicons name={acceptTerms ? 'checkbox' : 'square-outline'} size={22} color={acceptTerms ? '#1976d2' : '#888'} />
-              <Text style={{ marginLeft: 8, textAlign: 'center' }}>
-                Li e aceito os <Text style={{ color: '#1976d2', textDecorationLine: 'underline' }}>Termos de Uso</Text>
+              <Text style={{ marginLeft: 8, textAlign: 'center', color: '#1976d2', textDecorationLine: 'underline', fontWeight: 'bold' }}>
+                Termos de Uso
               </Text>
             </View>
           </View>

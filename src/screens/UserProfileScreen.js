@@ -342,7 +342,7 @@ export default function UserProfileScreen() {
 
   // Antes da exibição dos badges, calcule as contribuições
   const totalContribuicoes = (gamification.reviewsDone || 0) + (user.locationsAdded || 0);
-  const percentilAtivo = totalContribuicoes >= 20 ? 'Você está entre os 10% mais ativos!' : totalContribuicoes >= 10 ? 'Continue assim, você está crescendo!' : 'Dê seus primeiros passos!';
+  const percentilAtivo = totalContribuicoes >= 20 ? 'Você está entre os 10% mais ativos!' : totalContribuicoes >= 10 ? 'Continue assim, você está crescendo!' : 'Contribua para a comunidade e desbloqueie conquistas!';
 
   if (!user) {
     return (
@@ -394,14 +394,12 @@ export default function UserProfileScreen() {
         </View>
         {/* Gamificação logo abaixo da foto */}
         <View style={{ alignItems: 'center', marginTop: 0, marginBottom: 18 }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}>
-            <Ionicons name="trophy" size={28} color="#FFD700" style={{ marginRight: 8 }} />
-            <Text style={{ fontSize: 20, fontWeight: 'bold', color: '#1976d2' }}>Nível {gamification.level} - {getLevelNameAndReward(gamification.level).name}</Text>
-          </View>
+          <Text style={{ color: '#1976d2', fontWeight: 'bold', fontSize: 20, marginBottom: 6 }}>
+            Nível {gamification.level} - {gamification.xp} XP
+          </Text>
           <View style={{ width: 220, height: 16, backgroundColor: '#e3f2fd', borderRadius: 8, overflow: 'hidden', marginBottom: 4 }}>
             <View style={{ width: `${progressPercent * 100}%`, height: 16, backgroundColor: '#1976d2', borderRadius: 8 }} />
           </View>
-          <Text style={{ fontSize: 13, color: '#1976d2', fontWeight: '600' }}>{gamification.xp} XP</Text>
           {/* Card de contribuições estilizado */}
           <View style={{
             backgroundColor: '#fff',

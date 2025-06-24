@@ -1,24 +1,5 @@
 # APP-WACS: Controle e Navegação de Cadeira de Rodas
 
-## Alterações Recentes
-
-- Refatoração completa da tela `MapScreen.js`:
-  - Toda a lógica de estado e efeitos foi movida para o hook customizado `useMapLogic.js`.
-  - A interface foi dividida em componentes menores e reutilizáveis:
-    - `MapViewContainer`: renderização do mapa, marcadores e polylines.
-    - `RouteConfirmationPanel`: painel de confirmação de rota temporária.
-    - `FloatingButtons`: botões flutuantes de centralizar e adicionar local.
-  - Componentes já existentes de mapas foram integrados de forma desacoplada.
-- O uso do pacote `expo-share` foi comentado temporariamente em `useMapLogic.js` devido a problemas de instalação no npm/yarn.
-  - **Atenção:** Quando o pacote estiver disponível, descomente o import e o uso de `Share.share` em `useMapLogic.js`.
-  - Para instalar, rode: `npx expo install expo-share`
-- Recomenda-se limpar o cache do Metro Bundler após grandes mudanças:
-  - `npx expo start -c`
-
-Aplicativo móvel desenvolvido em **React Native** e **Expo** para controle e navegação de cadeiras de rodas, com foco em acessibilidade, experiência do usuário e eficiência. O app oferece funcionalidades modernas de localização, avaliação de estabelecimentos acessíveis, controle via Bluetooth e uma interface visual de alto padrão.
-
----
-
 ## 🧐 Como o APP-WACS Funciona?
 
 O APP-WACS é um aplicativo completo para pessoas com mobilidade reduzida, cuidadores e familiares. Ele permite:
@@ -305,4 +286,4 @@ Contribuições são muito bem-vindas! Para contribuir:
 
 ---
 
-Desenvolvido com 💙 por [VTheodoro](https://github.com/VTheodoro) e colaboradores.
+Desenvolvido por [VTheodoro](https://github.com/VTheodoro)

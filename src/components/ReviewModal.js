@@ -86,11 +86,8 @@ export default function ReviewModal({ visible, onClose, onSubmit, features = [],
     if (visible) {
       setComment(initialComment || '');
       setFeatureRatings(initialFeatureRatings || {});
-    } else {
-      setComment('');
-      setFeatureRatings({});
     }
-  }, [visible, initialComment, initialFeatureRatings]);
+  }, [visible]);
 
   const handleRatingPress = (featureKey, value) => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
