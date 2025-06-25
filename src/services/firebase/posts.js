@@ -13,6 +13,10 @@ import {
   startAfter,
   limit as limitFn,
   deleteDoc,
+  deleteField,
+  getDoc,
+  increment,
+  setDoc,
 } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
 
@@ -35,8 +39,8 @@ export async function createPost({ userId, userName, userPhoto, text, imageUri }
     text,
     imageUrl,
     createdAt: serverTimestamp(),
-    likes: [], // array de userId
-    comments: [], // array de objetos {userId, userName, userPhoto, text, createdAt}
+    likes: [],
+    commentsCount: 0,
   };
   const docRef = await addDoc(collection(db, POSTS_COLLECTION), postData);
   return { id: docRef.id, ...postData };
@@ -54,14 +58,14 @@ export async function fetchPostsPaginated({ pageSize = 10, lastDoc = null }) {
     const data = docSnap.data();
     posts.push({
       id: docSnap.id,
-      userName: data.userName || data.author || 'Usuário',
-      userPhoto: data.userPhoto || data.avatar || null,
-      text: data.text || data.content || '',
-      imageUrl: data.imageUrl || data.image || null,
-      likes: Array.isArray(data.likes) && data.likes.length > 0 ? data.likes : (Array.isArray(data.likedBy) ? data.likedBy : []),
-      comments: Array.isArray(data.comments) ? data.comments : [],
+      userId: data.userId || '',
+      userName: data.userName || 'Usuário',
+      userPhoto: data.userPhoto || null,
+      text: data.text || '',
+      imageUrl: data.imageUrl || null,
+      likes: Array.isArray(data.likes) ? data.likes : [],
+      commentsCount: typeof data.commentsCount === 'number' ? data.commentsCount : 0,
       createdAt: data.createdAt,
-      _docSnap: docSnap, // Para paginação
     });
   });
   return { posts, lastDoc: querySnapshot.docs[querySnapshot.docs.length - 1] };
@@ -75,11 +79,57 @@ export async function toggleLikePost(postId, userId, liked) {
   });
 }
 
-// Adicionar comentário
+// Adiciona um comentário na subcoleção e incrementa o contador
 export async function addComment(postId, { userId, userName, userPhoto, text }) {
-  const postRef = doc(db, POSTS_COLLECTION, postId);
-  await updateDoc(postRef, {
-    comments: arrayUnion({ userId, userName, userPhoto, text, createdAt: new Date().toISOString() }),
+  const commentData = {
+    userId,
+    userName,
+    userPhoto,
+    text,
+    createdAt: new Date().toISOString(),
+    likes: [],
+  };
+  await addDoc(collection(db, POSTS_COLLECTION, postId, 'comments'), commentData);
+  await updateDoc(doc(db, POSTS_COLLECTION, postId), {
+    comments: deleteField(),
+    commentsCount: increment(1),
+  });
+}
+
+// Curtir/descurtir comentário
+export async function toggleLikeComment(postId, commentId, userId, liked) {
+  const commentRef = doc(db, POSTS_COLLECTION, postId, 'comments', commentId);
+  await updateDoc(commentRef, {
+    likes: liked ? arrayRemove(userId) : arrayUnion(userId),
+  });
+}
+
+// Busca comentários da subcoleção (ordenados por relevância: mais curtidos, depois mais recentes)
+export async function fetchComments(postId, { limit = 30 } = {}) {
+  const q = query(collection(db, POSTS_COLLECTION, postId, 'comments'), orderBy('createdAt', 'desc'), limitFn(limit));
+  const querySnapshot = await getDocs(q);
+  // Ordena por likes (desc), depois por data (desc)
+  return querySnapshot.docs
+    .map(docSnap => ({ id: docSnap.id, likes: [], ...docSnap.data() }))
+    .map(c => ({ ...c, likes: Array.isArray(c.likes) ? c.likes : [] }))
+    .sort((a, b) => {
+      if ((b.likes?.length || 0) !== (a.likes?.length || 0)) {
+        return (b.likes?.length || 0) - (a.likes?.length || 0);
+      }
+      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+    });
+}
+
+// Remove comentário e decrementa o contador
+export async function deleteComment(postId, commentId, userId, isAdmin = false) {
+  const commentRef = doc(db, POSTS_COLLECTION, postId, 'comments', commentId);
+  const commentSnap = await getDoc(commentRef);
+  if (!commentSnap.exists()) throw new Error('Comentário não encontrado');
+  const data = commentSnap.data();
+  if (data.userId !== userId && !isAdmin) throw new Error('Sem permissão para apagar este comentário');
+  await deleteDoc(commentRef);
+  await updateDoc(doc(db, POSTS_COLLECTION, postId), {
+    commentsCount: increment(-1),
   });
 }
 
@@ -110,4 +160,9 @@ export async function deletePost(postId, imageUrl) {
   // Deleta o documento do post
   await deleteDoc(doc(db, POSTS_COLLECTION, postId));
   return true;
+}
+
+// Atualiza o texto do post
+export async function updatePost(postId, { text }) {
+  await updateDoc(doc(db, POSTS_COLLECTION, postId), { text });
 } 

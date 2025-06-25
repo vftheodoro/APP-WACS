@@ -40,6 +40,35 @@ O APP-WACS é um aplicativo completo para pessoas com mobilidade reduzida, cuida
 
 ---
 
+## 🌐 Sistema de Feed Social e Comunidade
+
+O APP-WACS conta com um sistema de feed social moderno, projetado para promover a interação, colaboração e engajamento entre os membros da comunidade. O feed está disponível tanto no aplicativo quanto na versão web, sempre integrado ao Firebase para garantir segurança, escalabilidade e sincronização em tempo real.
+
+### **Principais Funcionalidades:**
+
+- **Publicação de Posts:** Usuários autenticados podem criar posts com texto e/ou imagem, compartilhando experiências, dicas e novidades com a comunidade.
+- **Upload de Imagens:** As imagens dos posts são enviadas para o Firebase Storage e exibidas automaticamente no feed, com visualização em tela cheia ao tocar/clicar.
+- **Curtidas e Comentários:** É possível curtir/descurtir posts e comentar, promovendo discussões e reconhecimento entre os usuários.
+- **Deleção e Edição:** O autor do post pode editar ou deletar seus próprios posts, incluindo a remoção da imagem associada no Storage.
+- **Feedback Visual:** Todas as ações (postar, curtir, comentar, deletar) exibem notificações visuais (Toast) para garantir clareza e boa experiência.
+- **Feed em Tempo Real:** O feed é atualizado automaticamente sempre que um novo post, curtida ou comentário é adicionado, sem necessidade de recarregar a tela.
+- **Datas Relativas:** As datas dos posts são exibidas de forma amigável (“Hoje, HH:mm”, “Ontem”, “X dias atrás”).
+- **Acessibilidade e Visual Moderno:** Cards com sombras, bordas arredondadas, animações suaves e botões intuitivos garantem uma experiência acessível e agradável.
+
+### **Experiência Unificada App + Web**
+
+- O sistema de feed foi cuidadosamente adaptado para funcionar de forma equivalente no app e no site, mantendo a mesma lógica, permissões e experiência visual.
+- O upload e exibição de imagens, bem como as notificações de sucesso/erro, funcionam de maneira consistente em todas as plataformas.
+
+### **Tecnologias Utilizadas**
+
+- **Firebase Firestore:** Armazenamento dos posts, curtidas e comentários.
+- **Firebase Storage:** Upload e hospedagem das imagens dos posts.
+- **Firebase Auth:** Controle de autenticação e permissões.
+- **React Native (App) e HTML/JS (Web):** Interfaces modernas, responsivas e acessíveis.
+
+---
+
 ## 🚀 Tecnologias Utilizadas
 
 - React Native

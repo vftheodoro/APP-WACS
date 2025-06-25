@@ -10,6 +10,8 @@ import {
   Platform,
   Alert,
   SafeAreaView,
+  Image,
+  Modal,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons, MaterialIcons, FontAwesome5 } from '@expo/vector-icons';
@@ -64,13 +66,30 @@ const LoginScreen = () => {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: '#f8fafc' }}>
+      {/* Modal de carregamento global */}
+      <Modal
+        visible={isLoading}
+        transparent
+        animationType="fade"
+        onRequestClose={() => {}}
+      >
+        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.25)', justifyContent: 'center', alignItems: 'center' }}>
+          <View style={{ backgroundColor: '#fff', borderRadius: 16, padding: 32, alignItems: 'center', elevation: 8 }}>
+            <ActivityIndicator size="large" color="#1976d2" />
+            <Text style={{ marginTop: 16, color: '#1976d2', fontWeight: 'bold', fontSize: 16 }}>Entrando...</Text>
+          </View>
+        </View>
+      </Modal>
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
         <LinearGradient colors={['#1976d2', '#2196f3']} style={styles.header}>
-          <Ionicons name="accessibility" size={48} color="#fff" style={{ marginBottom: 10 }} />
-          <Text style={styles.headerTitle}>Bem-vindo ao WACS</Text>
+          <Image
+            source={require('../../../assets/logos_wacs/logo_padrao_com_nome.png')}
+            style={{ width: 120, height: 120, resizeMode: 'contain', marginBottom: 0, alignSelf: 'center' }}
+            accessibilityLabel="Logo WACS"
+          />
           <Text style={styles.headerSubtitle}>Acesse sua conta para continuar</Text>
         </LinearGradient>
         <View style={styles.card}>

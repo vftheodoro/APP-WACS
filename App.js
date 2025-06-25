@@ -12,6 +12,8 @@ import { BluetoothProvider } from './src/contexts/BluetoothContext';
 import * as SplashScreen from 'expo-splash-screen';
 import CustomSplashScreen from './src/screens/SplashScreen'; // Import your custom splash screen
 import { NavigationProvider } from './src/context/NavigationContext';
+import Toast from './src/components/common/Toast';
+import { Image, View, Text } from 'react-native';
 
 // Keep the splash screen visible while we fetch resources
 SplashScreen.preventAutoHideAsync();
@@ -19,65 +21,107 @@ SplashScreen.preventAutoHideAsync();
 export default function App() {
   const [appIsReady, setAppIsReady] = useState(false);
   const [splashAnimationComplete, setSplashAnimationComplete] = useState(false);
-
-  useEffect(() => {
-    async function prepare() {
-      try {
-        // Pre-load fonts, make any API calls you need to do here
-        // await Font.loadAsync(Entypo.font);
-        // Artificially delay for two seconds to simulate a slow loading
-        // experience. Please remove this if you copy and paste the code!
-        await new Promise(resolve => setTimeout(resolve, 2000));
-      } catch (e) {
-        console.warn(e);
-      } finally {
-        // Set appIsReady to true once all necessary resources are loaded
-        setAppIsReady(true);
-      }
-    }
-
-    prepare();
-  }, []);
-
-  const onSplashAnimationComplete = useCallback(() => {
-    setSplashAnimationComplete(true);
-  }, []);
-
-  // Only hide the native splash screen when the custom animation is complete AND app is ready
-  useEffect(() => {
-    if (appIsReady && splashAnimationComplete) {
-      SplashScreen.hideAsync();
-    }
-  }, [appIsReady, splashAnimationComplete]);
-
-  if (!appIsReady || !splashAnimationComplete) {
-    // While the app is not ready or the splash animation is not complete,
-    // show the custom splash screen.
-    return <CustomSplashScreen onAnimationComplete={onSplashAnimationComplete} />;
-  }
+  const [showWelcome, setShowWelcome] = useState(false);
+  const [welcomeUser, setWelcomeUser] = useState(null);
 
   return (
     <NavigationProvider>
       <GestureHandlerRootView style={{ flex: 1 }}>
         <SafeAreaProvider>
           <AuthProvider>
-            <ThemeProvider>
-              <SearchHistoryProvider>
-                <ChatProvider>
-                  <BluetoothProvider>
-                    <NavigationContainer>
-                      <StatusBar style="auto" />
-                      <SafeAreaView style={{ flex: 1 }} edges={['top', 'bottom', 'left', 'right']}>
-                        <AppNavigator />
-                      </SafeAreaView>
-                    </NavigationContainer>
-                  </BluetoothProvider>
-                </ChatProvider>
-              </SearchHistoryProvider>
-            </ThemeProvider>
+            <BluetoothProvider>
+              <AppWithAuth
+                appIsReady={appIsReady}
+                setAppIsReady={setAppIsReady}
+                splashAnimationComplete={splashAnimationComplete}
+                setSplashAnimationComplete={setSplashAnimationComplete}
+                showWelcome={showWelcome}
+                setShowWelcome={setShowWelcome}
+                welcomeUser={welcomeUser}
+                setWelcomeUser={setWelcomeUser}
+              />
+            </BluetoothProvider>
           </AuthProvider>
         </SafeAreaProvider>
       </GestureHandlerRootView>
     </NavigationProvider>
+  );
+}
+
+function AppWithAuth({
+  appIsReady,
+  setAppIsReady,
+  splashAnimationComplete,
+  setSplashAnimationComplete,
+  showWelcome,
+  setShowWelcome,
+  welcomeUser,
+  setWelcomeUser
+}) {
+  const { user, loading } = require('./src/contexts/AuthContext').useAuth();
+
+  // Splash logic
+  useEffect(() => {
+    async function prepare() {
+      try {
+        await new Promise(resolve => setTimeout(resolve, 500));
+      } catch (e) {
+        console.warn(e);
+      } finally {
+        setAppIsReady(true);
+      }
+    }
+    prepare();
+  }, []);
+
+  const onSplashAnimationComplete = useCallback(() => {
+    setSplashAnimationComplete(true);
+  }, [setSplashAnimationComplete]);
+
+  useEffect(() => {
+    if (appIsReady && splashAnimationComplete && !loading) {
+      require('expo-splash-screen').hideAsync();
+    }
+  }, [appIsReady, splashAnimationComplete, loading]);
+
+  // Exibir Toast de boas-vindas ao detectar login automático
+  useEffect(() => {
+    if (!loading && user) {
+      setWelcomeUser(user);
+      setShowWelcome(true);
+      const timer = setTimeout(() => setShowWelcome(false), 3500);
+      return () => clearTimeout(timer);
+    }
+  }, [loading, user, setShowWelcome]);
+
+  if (!appIsReady || !splashAnimationComplete || loading) {
+    return <CustomSplashScreen onAnimationComplete={onSplashAnimationComplete} />;
+  }
+
+  return (
+    <NavigationContainer>
+      <SafeAreaView style={{ flex: 1 }} edges={['top', 'bottom', 'left', 'right']}>
+        <AppNavigator />
+        {/* Toast de boas-vindas */}
+        <Toast
+          visible={showWelcome}
+          type="success"
+          duration={3500}
+          onHide={() => setShowWelcome(false)}
+          message={
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              {welcomeUser?.photoURL ? (
+                <Image source={{ uri: welcomeUser.photoURL }} style={{ width: 32, height: 32, borderRadius: 16, marginRight: 10 }} />
+              ) : (
+                <View style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: '#1976d2', alignItems: 'center', justifyContent: 'center', marginRight: 10 }}>
+                  <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 18 }}>{welcomeUser?.name?.charAt(0) || '?'}</Text>
+                </View>
+              )}
+              <Text style={{ fontWeight: 'bold', color: '#333', fontSize: 16 }}>Bem-vindo de volta, {welcomeUser?.name?.split(' ')[0] || 'usuário'}!</Text>
+            </View>
+          }
+        />
+      </SafeAreaView>
+    </NavigationContainer>
   );
 }

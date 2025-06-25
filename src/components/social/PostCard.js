@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { View, Text, Image, StyleSheet, Pressable, Modal, TouchableOpacity, Animated, Easing, Dimensions } from 'react-native';
+import { View, Text, Image, StyleSheet, Pressable, Modal, TouchableOpacity, Animated, Easing, Dimensions, TextInput } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, Typography, Spacing, Borders, Shadows } from '../../theme';
 
@@ -33,6 +33,9 @@ export default function PostCard({ post, onLike, onComment, isLiked, userId, onD
   const [avatarPulse] = useState(new Animated.Value(1));
   const [imgModal, setImgModal] = useState(false);
   const [imgModalAnim] = useState(new Animated.Value(0));
+  const [editModal, setEditModal] = useState(false);
+  const [editText, setEditText] = useState(post.text);
+  const [savingEdit, setSavingEdit] = useState(false);
   const formattedDate = getRelativeDate(post.createdAt);
   const isOwner = userId === post.userId;
 
@@ -96,6 +99,13 @@ export default function PostCard({ post, onLike, onComment, isLiked, userId, onD
     }).start(() => setImgModal(false));
   };
 
+  const handleEdit = async () => {
+    setSavingEdit(true);
+    await onEdit && onEdit(post, editText);
+    setSavingEdit(false);
+    setEditModal(false);
+  };
+
   const { width, height } = Dimensions.get('window');
 
   return (
@@ -138,7 +148,7 @@ export default function PostCard({ post, onLike, onComment, isLiked, userId, onD
             onPress={() => onComment && onComment(post)}
           >
             <Ionicons name="chatbubble-outline" size={24} color={Colors.text.darkSecondary} />
-            <Text style={styles.feedActionText}>{post.comments?.length || 0}</Text>
+            <Text style={styles.feedActionText}>{typeof post.commentsCount === 'number' ? post.commentsCount : (post.comments?.length || 0)}</Text>
           </Pressable>
         </View>
         {/* Menu de opções */}
@@ -150,7 +160,7 @@ export default function PostCard({ post, onLike, onComment, isLiked, userId, onD
         >
           <TouchableOpacity style={styles.menuOverlay} activeOpacity={1} onPress={() => setMenuVisible(false)}>
             <Animated.View style={[styles.menuModal, { opacity: fadeAnim, transform: [{ scale: fadeAnim }] }] }>
-              <Pressable style={styles.menuItem} onPress={() => { setMenuVisible(false); onEdit && onEdit(post); }}>
+              <Pressable style={styles.menuItem} onPress={() => { setMenuVisible(false); setEditModal(true); }}>
                 <Ionicons name="create-outline" size={20} color={Colors.primary.dark} style={{ marginRight: 8 }} />
                 <Text style={styles.menuText}>Editar</Text>
               </Pressable>
@@ -160,6 +170,34 @@ export default function PostCard({ post, onLike, onComment, isLiked, userId, onD
               </Pressable>
             </Animated.View>
           </TouchableOpacity>
+        </Modal>
+        {/* Modal de edição de texto */}
+        <Modal
+          visible={editModal}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setEditModal(false)}
+        >
+          <View style={styles.editModalOverlay}>
+            <View style={styles.editModalContent}>
+              <Text style={styles.editModalTitle}>Editar post</Text>
+              <TextInput
+                style={styles.editInput}
+                value={editText}
+                onChangeText={setEditText}
+                multiline
+                editable={!savingEdit}
+              />
+              <View style={{ flexDirection: 'row', justifyContent: 'flex-end', marginTop: 16 }}>
+                <Pressable onPress={() => setEditModal(false)} style={{ marginRight: 16 }} disabled={savingEdit}>
+                  <Text style={{ color: Colors.text.darkSecondary, fontWeight: 'bold' }}>Cancelar</Text>
+                </Pressable>
+                <Pressable onPress={handleEdit} disabled={savingEdit || !editText.trim()} style={{ backgroundColor: Colors.primary.dark, borderRadius: 8, paddingHorizontal: 18, paddingVertical: 8 }}>
+                  <Text style={{ color: '#fff', fontWeight: 'bold' }}>{savingEdit ? 'Salvando...' : 'Salvar'}</Text>
+                </Pressable>
+              </View>
+            </View>
+          </View>
         </Modal>
         {/* Modal de imagem em tela cheia */}
         <Modal
@@ -195,8 +233,8 @@ const styles = StyleSheet.create({
     elevation: 10,
   },
   ownerBorder: {
-    borderWidth: 2,
-    borderColor: Colors.primary.dark,
+    borderWidth: 1,
+    borderColor: Colors.border.light,
   },
   feedCard: {
     backgroundColor: 'rgba(255,255,255,0.98)',
@@ -335,5 +373,37 @@ const styles = StyleSheet.create({
     top: 32,
     right: 24,
     zIndex: 10,
+  },
+  editModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.35)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  editModalContent: {
+    backgroundColor: '#fff',
+    borderRadius: 18,
+    padding: 24,
+    width: '90%',
+    maxWidth: 400,
+    elevation: 8,
+  },
+  editModalTitle: {
+    fontSize: Typography.fontSizes.lg,
+    fontWeight: 'bold',
+    marginBottom: 12,
+    color: Colors.text.darkPrimary,
+  },
+  editInput: {
+    minHeight: 60,
+    maxHeight: 180,
+    borderWidth: 1,
+    borderColor: Colors.border.light,
+    borderRadius: 10,
+    padding: 12,
+    fontSize: Typography.fontSizes.md,
+    color: Colors.text.darkPrimary,
+    backgroundColor: Colors.background.screen,
+    textAlignVertical: 'top',
   },
 }); 

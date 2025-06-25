@@ -3,7 +3,27 @@ import { Modal, View, Text, StyleSheet, FlatList, TextInput, Pressable, Image, A
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, Typography, Spacing, Borders } from '../../theme';
 
-export default function CommentsModal({ visible, onClose, post, onAddComment, user, loading }) {
+function getRelativeDate(date) {
+  if (!date) return '';
+  let d;
+  if (date.seconds) d = new Date(date.seconds * 1000);
+  else d = new Date(date);
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const postDay = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  const diffDays = Math.floor((today - postDay) / (1000 * 60 * 60 * 24));
+  if (diffDays === 0) {
+    return `Hoje, ${d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`;
+  } else if (diffDays === 1) {
+    return 'Ontem';
+  } else if (diffDays < 7) {
+    return `${diffDays} dias atrás`;
+  } else {
+    return d.toLocaleDateString('pt-BR', { dateStyle: 'short' });
+  }
+}
+
+export default function CommentsModal({ visible, onClose, post, comments = [], onAddComment, onDeleteComment, user, loading, onLikeComment }) {
   const [comment, setComment] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
@@ -13,6 +33,16 @@ export default function CommentsModal({ visible, onClose, post, onAddComment, us
     await onAddComment(comment.trim());
     setComment('');
     setSubmitting(false);
+  };
+
+  const handleDelete = async (commentId) => {
+    if (!onDeleteComment) return;
+    await onDeleteComment(commentId);
+  };
+
+  const handleLike = async (comment) => {
+    if (!onLikeComment) return;
+    await onLikeComment(comment.id, comment.likes?.includes(user?.id));
   };
 
   return (
@@ -29,15 +59,28 @@ export default function CommentsModal({ visible, onClose, post, onAddComment, us
             <ActivityIndicator size="large" color={Colors.primary.dark} style={{ marginTop: 32 }} />
           ) : (
             <FlatList
-              data={post.comments || []}
-              keyExtractor={(_, idx) => idx.toString()}
+              data={comments}
+              keyExtractor={item => item.id || item.createdAt}
               renderItem={({ item }) => (
                 <View style={styles.commentItem}>
                   <Image source={{ uri: item.userPhoto || 'https://via.placeholder.com/40/BDBDBD/FFFFFF?text=U' }} style={styles.avatar} />
                   <View style={styles.commentContent}>
-                    <Text style={styles.commentName}>{item.userName}</Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                        <Text style={styles.commentName}>{item.userName}</Text>
+                        {user?.id === item.userId && (
+                          <Pressable onPress={() => handleDelete(item.id)} hitSlop={8} style={{ marginLeft: 8 }}>
+                            <Ionicons name="trash-outline" size={18} color={Colors.danger.primary} />
+                          </Pressable>
+                        )}
+                      </View>
+                      <Pressable style={styles.likeBtn} onPress={() => handleLike(item)} hitSlop={8}>
+                        <Ionicons name={item.likes?.includes(user?.id) ? 'heart' : 'heart-outline'} size={20} color={item.likes?.includes(user?.id) ? '#E53935' : '#E53935'} />
+                        <Text style={styles.likeCount}>{item.likes?.length || 0}</Text>
+                      </Pressable>
+                    </View>
                     <Text style={styles.commentText}>{item.text}</Text>
-                    <Text style={styles.commentDate}>{item.createdAt ? new Date(item.createdAt).toLocaleString('pt-BR') : ''}</Text>
+                    <Text style={styles.commentDate}>{getRelativeDate(item.createdAt)}</Text>
                   </View>
                 </View>
               )}
@@ -151,5 +194,20 @@ const styles = StyleSheet.create({
   },
   sendBtn: {
     padding: 6,
+  },
+  likeBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginLeft: 8,
+    paddingVertical: 2,
+    paddingHorizontal: 6,
+    borderRadius: 12,
+    backgroundColor: 'rgba(229,57,53,0.08)',
+  },
+  likeCount: {
+    marginLeft: 4,
+    color: '#E53935',
+    fontWeight: 'bold',
+    fontSize: Typography.fontSizes.sm,
   },
 }); 
