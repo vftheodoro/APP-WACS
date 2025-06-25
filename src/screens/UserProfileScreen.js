@@ -74,6 +74,8 @@ export default function UserProfileScreen() {
 
   const [gamification, setGamification] = useState({ xp: 0, level: 1, badges: [], streak: 0 });
 
+  const [showAllReviews, setShowAllReviews] = useState(false);
+
   useEffect(() => {
     if (user) {
       setName(user.name || '');
@@ -355,16 +357,21 @@ export default function UserProfileScreen() {
 
   return (
     <View style={{ flex: 1, backgroundColor: '#f8fafc' }}>
-      <ScrollView contentContainerStyle={{ paddingBottom: 40 }} showsVerticalScrollIndicator={false}>
-        {/* Header visual */}
-        <LinearGradient colors={['#1976d2', '#2196f3']} style={styles.headerGradient}>
-          <View style={styles.headerContent}>
-            <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
-              <Ionicons name="arrow-back" size={26} color="#fff" />
+      {/* Header visual só quando pode voltar */}
+      {navigation.canGoBack() && (
+        <LinearGradient colors={['#1976d2', '#2196f3']} style={{ paddingTop: 40, paddingBottom: 24, paddingHorizontal: 18, borderBottomLeftRadius: 18, borderBottomRightRadius: 18, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', elevation: 6, shadowColor: '#1976d2', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.10, shadowRadius: 8 }}>
+          <View style={{ width: 40, alignItems: 'flex-start' }}>
+            <TouchableOpacity onPress={() => navigation.goBack()} accessibilityLabel="Voltar">
+              <Ionicons name="arrow-back" size={28} color="#fff" />
             </TouchableOpacity>
-            <Text style={styles.headerTitle}>Meu Perfil</Text>
           </View>
+          <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+            <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 22, letterSpacing: 0.5, textAlign: 'center' }}>Meu Perfil</Text>
+          </View>
+          <View style={{ width: 40 }} />
         </LinearGradient>
+      )}
+      <ScrollView contentContainerStyle={{ paddingBottom: 40 }} showsVerticalScrollIndicator={false}>
         {/* Foto de perfil centralizada, única */}
         <View style={styles.avatarSection}>
           <View style={styles.avatarWrapper}>
@@ -760,7 +767,7 @@ export default function UserProfileScreen() {
           {userReviews.length === 0 && !loadingUserData && (
             <Text style={styles.sectionEmpty}>Você ainda não avaliou nenhum local.</Text>
           )}
-          {userReviews.map(review => (
+          {(showAllReviews ? userReviews : userReviews.slice(0, 2)).map(review => (
             <View key={review.id} style={styles.reviewCardModern}>
               <View style={styles.reviewLeftColumn}>
                 <View style={styles.reviewRatingBadge}>
@@ -769,7 +776,7 @@ export default function UserProfileScreen() {
                 </View>
                 <View style={styles.reviewIconCircle}>
                   <MaterialIcons name="rate-review" size={22} color="#fff" />
-              </View>
+                </View>
               </View>
               <View style={styles.reviewContentColumn}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 2 }}>
@@ -793,6 +800,11 @@ export default function UserProfileScreen() {
               </View>
             </View>
           ))}
+          {userReviews.length > 2 && (
+            <TouchableOpacity style={{ alignSelf: 'flex-end', marginTop: 6, marginBottom: 2 }} onPress={() => setShowAllReviews(v => !v)}>
+              <Text style={{ color: '#1976d2', fontWeight: 'bold', fontSize: 15 }}>{showAllReviews ? 'Ver menos' : 'Ver mais'}</Text>
+            </TouchableOpacity>
+          )}
         </View>
       </ScrollView>
       {/* Modal de edição de avaliação */}
@@ -814,35 +826,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f8fafc',
-  },
-  headerGradient: {
-    paddingTop: 36,
-    paddingBottom: 40,
-    paddingHorizontal: 20,
-    borderBottomLeftRadius: 25,
-    borderBottomRightRadius: 25,
-  },
-  headerContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    width: '100%',
-    position: 'relative',
-  },
-  backButton: {
-    position: 'absolute',
-    left: 0,
-    top: 0,
-    padding: 10,
-    zIndex: 2,
-  },
-  headerTitle: {
-    fontSize: 22,
-    fontWeight: 'bold',
-    color: '#fff',
-    textAlign: 'center',
-    flex: 1,
-    letterSpacing: 0.2,
   },
   avatarSection: {
     alignItems: 'center',

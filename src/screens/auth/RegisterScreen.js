@@ -192,7 +192,7 @@ const RegisterScreen = () => {
         // Upload da foto de perfil
         photoURL = await updateProfilePicture({ uri: profilePic });
       }
-      await register(email, password, fullName, {
+      const userCredential = await register(email, password, fullName, {
         birthdate,
         cidade,
         mobilityType,

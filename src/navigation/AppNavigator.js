@@ -120,7 +120,7 @@ export const AppNavigator = () => {
           <Stack.Screen
             name="ChatScreen"
             component={ChatScreen}
-            options={{ title: 'Chat' }} // O título pode ser definido na SocialScreen, se preferir
+            options={{ headerShown: false }}
           />
           <Stack.Screen
             name="LocationsListScreen"

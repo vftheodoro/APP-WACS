@@ -23,7 +23,7 @@ import { Ionicons, FontAwesome5, MaterialCommunityIcons } from '@expo/vector-ico
 import { db, storage, auth } from '../services/firebase/config';
 import { collection, addDoc, serverTimestamp, deleteDoc, doc, runTransaction } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { THEME } from '../config/constants';
+import { Colors } from '../theme/Colors';
 import { useTheme } from '../contexts/ThemeContext';
 import { LinearGradient } from 'expo-linear-gradient';
 import AppHeader from '../components/common/AppHeader';
@@ -522,7 +522,7 @@ export default function LocationsListScreen() {
   if (loading && !refreshing && locations.length === 0) {
     return (
       <View style={styles.centered}>
-        <ActivityIndicator size="large" color={theme.colors.primary} />
+        <ActivityIndicator size="large" color={Colors.primary.dark} />
         <Text style={styles.loadingText}>Carregando locais...</Text>
       </View>
     );
@@ -823,9 +823,9 @@ export default function LocationsListScreen() {
             <RefreshControl
               refreshing={refreshing}
               onRefresh={onRefresh}
-              colors={[theme.colors.primary]}
+              colors={[Colors.primary.dark]}
               progressBackgroundColor="#fff"
-              tintColor={theme.colors.primary}
+              tintColor={Colors.primary.dark}
             />
           }
           showsVerticalScrollIndicator={false}
@@ -838,7 +838,7 @@ export default function LocationsListScreen() {
         />
       {/* Floating Action Button */}
         <TouchableOpacity
-          style={[styles.fab, { backgroundColor: theme.colors.primary }]}
+          style={[styles.fab, { backgroundColor: Colors.primary.dark }]}
           onPress={() => navigation.navigate('SelectLocationMap')}
           activeOpacity={0.8}
         >
@@ -1166,7 +1166,7 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   retryButton: {
-    backgroundColor: THEME.colors.primary,
+    backgroundColor: Colors.primary.dark,
     paddingHorizontal: 24,
     paddingVertical: 12,
     borderRadius: 25,
@@ -1195,7 +1195,7 @@ const styles = StyleSheet.create({
   addFirstButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: THEME.colors.primary,
+    backgroundColor: Colors.primary.dark,
     paddingHorizontal: 24,
     paddingVertical: 14,
     borderRadius: 25,
@@ -1228,7 +1228,7 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: '#1976d2',
+    backgroundColor: Colors.primary.dark,
     justifyContent: 'center',
     alignItems: 'center',
     shadowColor: '#000',

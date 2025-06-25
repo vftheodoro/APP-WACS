@@ -1,5 +1,5 @@
 import { db } from './config';
-import { doc, setDoc, getDoc, updateDoc } from 'firebase/firestore';
+import { doc, setDoc, getDoc, updateDoc, arrayUnion, getFirestore, collection as firestoreCollection, addDoc, serverTimestamp } from 'firebase/firestore';
 
 const USERS_COLLECTION = 'users';
 
@@ -50,4 +50,17 @@ export async function updateUserData(uid, data) {
     console.error('Erro ao atualizar dados do usuário:', error);
     throw error;
   }
+}
+
+// Busca dados de múltiplos usuários por array de UIDs
+export async function getUsersByIds(uids) {
+  if (!uids || !uids.length) return [];
+  const users = [];
+  for (const uid of uids) {
+    try {
+      const user = await getUserData(uid);
+      if (user) users.push({ id: uid, ...user });
+    } catch {}
+  }
+  return users;
 } 

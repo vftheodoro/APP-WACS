@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { View, Text, StyleSheet, Pressable } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
@@ -9,32 +9,35 @@ import { Colors, Typography, Spacing, Borders, Shadows } from '../../theme';
 // Import new tab screens
 import { PostsFeedScreen } from './PostsFeedScreen';
 import { ConversationsScreen } from './ConversationsScreen';
-import { ProfileTabScreen } from './ProfileTabScreen';
+import UserProfileScreen from '../UserProfileScreen';
 
 const Tab = createBottomTabNavigator();
 
 export const SocialScreen = () => {
   const navigation = useNavigation();
+  const [activeTab, setActiveTab] = useState('PostsFeed');
 
   return (
     <View style={styles.screenContainer}>
-      <LinearGradient
-        colors={['#1976d2', '#2196f3']}
-        style={styles.header}
-      >
-        <View style={styles.headerContent}>
-          <Pressable
-            style={styles.backButton}
-            onPress={() => navigation.goBack()}
-            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-          >
-            <Ionicons name="arrow-back" size={24} color="#fff" />
-          </Pressable>
-          <Text style={styles.headerTitle}>Comunidade WACS</Text>
-          <View style={styles.headerRightPlaceholder} /> 
-        </View>
-      </LinearGradient>
-
+      {/* Header só aparece se não estiver na aba Perfil */}
+      {activeTab !== 'Perfil' && (
+        <LinearGradient
+          colors={['#1976d2', '#2196f3']}
+          style={{ paddingTop: 40, paddingBottom: 24, paddingHorizontal: 18, borderBottomLeftRadius: 18, borderBottomRightRadius: 18, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', elevation: 6, shadowColor: '#1976d2', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.10, shadowRadius: 8 }}
+        >
+          <View style={{ width: 40, alignItems: 'flex-start' }}>
+            <Pressable onPress={() => navigation.goBack()} accessibilityLabel="Voltar" hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+              <Ionicons name="arrow-back" size={28} color="#fff" />
+            </Pressable>
+          </View>
+          <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+            <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 22, letterSpacing: 0.5, textAlign: 'center' }}>
+              {activeTab === 'PostsFeed' ? 'Posts' : activeTab === 'Chats' ? 'Chats' : 'Comunidade WACS'}
+            </Text>
+          </View>
+          <View style={{ width: 40 }} />
+        </LinearGradient>
+      )}
       <View style={styles.tabNavigatorContainer}>
         <Tab.Navigator
           screenOptions={({ route }) => ({
@@ -55,10 +58,9 @@ export const SocialScreen = () => {
             },
             tabBarIcon: ({ focused, color, size }) => {
               let iconName;
-
               if (route.name === 'PostsFeed') {
                 iconName = focused ? 'copy' : 'copy-outline';
-              } else if (route.name === 'Conversas') {
+              } else if (route.name === 'Chats') {
                 iconName = focused ? 'chatbubbles' : 'chatbubbles-outline';
               } else if (route.name === 'Perfil') {
                 iconName = focused ? 'person' : 'person-outline';
@@ -66,6 +68,12 @@ export const SocialScreen = () => {
               return <Ionicons name={iconName} size={size} color={color} />;
             },
           })}
+          screenListeners={{
+            state: (e) => {
+              const tabName = e.data.state.routeNames[e.data.state.index];
+              setActiveTab(tabName);
+            },
+          }}
         >
           <Tab.Screen 
             name="PostsFeed" 
@@ -73,13 +81,13 @@ export const SocialScreen = () => {
             options={{ title: 'Posts' }} 
           />
           <Tab.Screen 
-            name="Conversas" 
+            name="Chats" 
             component={ConversationsScreen} 
-            options={{ title: 'Conversas' }} 
+            options={{ title: 'Chats' }} 
           />
           <Tab.Screen 
             name="Perfil" 
-            component={ProfileTabScreen} 
+            component={UserProfileScreen} 
             options={{ title: 'Perfil' }} 
           />
         </Tab.Navigator>

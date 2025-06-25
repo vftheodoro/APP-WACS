@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { getFirestore, collection, addDoc, query, orderBy, onSnapshot, serverTimestamp, deleteDoc, doc, updateDoc } from 'firebase/firestore';
+import { getFirestore, collection, addDoc, query, orderBy, onSnapshot, serverTimestamp, deleteDoc, doc, updateDoc, where } from 'firebase/firestore';
 import { getStorage, ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { getAuth } from 'firebase/auth';
 import { getApps } from 'firebase/app';
@@ -15,11 +15,20 @@ const ChatContext = createContext();
 export function ChatProvider({ children }) {
   const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [chatId, setChatId] = useState(null);
 
-  // Carrega mensagens em tempo real
+  // Carrega mensagens do chat selecionado em tempo real
   useEffect(() => {
-    if (!db) return;
-    const q = query(collection(db, 'chatMessages'), orderBy('timestamp', 'asc'));
+    if (!db || !chatId) {
+      setMessages([]);
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
+    const q = query(collection(db, 'chatMessages'),
+      where('chatId', '==', chatId),
+      orderBy('timestamp', 'asc')
+    );
     const unsubscribe = onSnapshot(q, (snapshot) => {
       setMessages(
         snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }))
@@ -27,13 +36,14 @@ export function ChatProvider({ children }) {
       setLoading(false);
     });
     return unsubscribe;
-  }, []);
+  }, [chatId]);
 
   const sendMessage = useCallback(async (text) => {
     const auth = getAuth();
     const user = auth.currentUser;
-    if (!user || !db) return;
+    if (!user || !db || !chatId) return;
     await addDoc(collection(db, 'chatMessages'), {
+      chatId,
       type: 'text',
       text,
       userId: user.uid,
@@ -42,13 +52,13 @@ export function ChatProvider({ children }) {
       photoURL: user.photoURL || '',
       timestamp: serverTimestamp(),
     });
-  }, []);
+  }, [chatId]);
 
   // Função para enviar imagem
   const sendImageMessage = useCallback(async (uri) => {
     const auth = getAuth();
     const user = auth.currentUser;
-    if (!user || !db || !uri) return;
+    if (!user || !db || !uri || !chatId) return;
     try {
       const storage = getStorage();
       const response = await fetch(uri);
@@ -71,6 +81,7 @@ export function ChatProvider({ children }) {
       }
       console.log('URL da imagem enviada:', imageUrl);
       const docData = {
+        chatId,
         type: 'image',
         imageUrl,
         userId: user.uid,
@@ -91,7 +102,7 @@ export function ChatProvider({ children }) {
       alert('Erro ao enviar imagem. Tente novamente.');
       console.error('Erro ao enviar imagem:', e);
     }
-  }, []);
+  }, [chatId]);
 
   // Função para deletar mensagem pelo id
   const deleteMessage = useCallback(async (id) => {
@@ -113,7 +124,7 @@ export function ChatProvider({ children }) {
   }, []);
 
   return (
-    <ChatContext.Provider value={{ messages, loading, sendMessage, sendImageMessage, deleteMessage }}>
+    <ChatContext.Provider value={{ chatId, setChatId, messages, loading, sendMessage, sendImageMessage, deleteMessage }}>
       {children}
     </ChatContext.Provider>
   );

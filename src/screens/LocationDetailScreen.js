@@ -45,21 +45,7 @@ import * as Haptics from 'expo-haptics';
 import { Snackbar } from 'react-native-paper';
 import { addXP } from '../services/gamification';
 import ContributionsList from '../features/location-contributions/ContributionsList';
-
-// Constantes de cores e estilo
-const COLORS = {
-  primary: '#1976d2',
-  primaryDark: '#004ba0',
-  primaryLight: '#63a4ff',
-  background: '#f8fafc',
-  surface: '#ffffff',
-  text: '#333333',
-  textSecondary: '#666666',
-  border: '#e0e0e0',
-  error: '#F44336',
-  success: '#4CAF50',
-  warning: '#FF9800',
-};
+import { Colors } from '../theme/Colors';
 
 // Função para calcular distância
 const calculateDistance = (lat1, lon1, lat2, lon2) => {
@@ -84,11 +70,11 @@ const getLocationEmoji = (rating) => {
 };
 
 const getRatingColor = (rating) => {
-  if (rating === undefined || rating === null || rating === 0) return COLORS.textSecondary;
-  if (rating >= 4.5) return COLORS.success;
-  if (rating >= 3.5) return COLORS.warning;
+  if (rating === undefined || rating === null || rating === 0) return Colors.text.darkSecondary;
+  if (rating >= 4.5) return Colors.success.primary;
+  if (rating >= 3.5) return Colors.warning.primary;
   if (rating >= 2.0) return '#FFC107'; // Amarelo
-  return COLORS.error;
+  return Colors.danger.primary;
 };
 
 const PLACE_TYPE_ICONS = {
@@ -335,7 +321,7 @@ export default function LocationDetailScreen() {
       <View style={styles.starsContainer}>
         {stars.map((_, i) => {
           const name = i < Math.floor(rating) ? 'star' : i < rating ? 'star-half' : 'star-outline';
-          return <Ionicons key={i} name={name} size={size} color={COLORS.warning} />;
+          return <Ionicons key={i} name={name} size={size} color={Colors.warning.primary} />;
         })}
       </View>
     );
@@ -365,7 +351,7 @@ export default function LocationDetailScreen() {
   if (loading) {
     return (
       <View style={styles.centered}>
-        <ActivityIndicator size="large" color={COLORS.primary} />
+        <ActivityIndicator size="large" color={Colors.primary.dark} />
         <Text style={styles.loadingText}>Carregando detalhes...</Text>
       </View>
     );
@@ -374,7 +360,7 @@ export default function LocationDetailScreen() {
   if (error) {
     return (
       <View style={styles.centered}>
-        <Ionicons name="alert-circle" size={60} color={COLORS.error} />
+        <Ionicons name="alert-circle" size={60} color={Colors.danger.primary} />
         <Text style={styles.errorText}>{error}</Text>
         <TouchableOpacity style={styles.retryButton} onPress={onRefresh}>
           <Text style={styles.retryButtonText}>Tentar Novamente</Text>
@@ -389,8 +375,8 @@ export default function LocationDetailScreen() {
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor={COLORS.primaryDark} />
-      <LinearGradient colors={[COLORS.primary, COLORS.primaryLight]} style={styles.header}>
+      <StatusBar barStyle="light-content" backgroundColor={Colors.primary.dark} />
+      <LinearGradient colors={[Colors.primary.dark, Colors.primary.light]} style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.headerButton}>
           <Ionicons name="arrow-back" size={24} color="#fff" />
         </TouchableOpacity>
@@ -400,14 +386,14 @@ export default function LocationDetailScreen() {
             <Ionicons name="share-social-outline" size={24} color="#fff" />
           </TouchableOpacity>
           <TouchableOpacity onPress={toggleFavorite} style={styles.headerButton}>
-            <Ionicons name={isFavorite ? "heart" : "heart-outline"} size={24} color={isFavorite ? COLORS.error : "#fff"} />
+            <Ionicons name={isFavorite ? "heart" : "heart-outline"} size={24} color={isFavorite ? Colors.danger.primary : "#fff"} />
           </TouchableOpacity>
         </View>
       </LinearGradient>
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[COLORS.primary]} />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[Colors.primary.dark]} />}
       >
         {location.imageUrl && (
           <Image source={{ uri: location.imageUrl }} style={styles.locationImage} />
@@ -459,7 +445,7 @@ export default function LocationDetailScreen() {
           </View>
           <View style={styles.actionButtonsGrid}>
             <TouchableOpacity style={styles.gridButton} onPress={() => setReviewModalVisible(true)}>
-              <LinearGradient colors={[COLORS.primary, COLORS.primaryLight]} style={styles.gridButtonGradient}>
+              <LinearGradient colors={[Colors.primary.dark, Colors.primary.light]} style={styles.gridButtonGradient}>
                 <Ionicons name="star-outline" size={24} color="#fff" />
                 <Text style={styles.gridButtonText}>Avaliar</Text>
               </LinearGradient>
@@ -485,7 +471,7 @@ export default function LocationDetailScreen() {
           {location.accessibilityFeatures?.length > 0 && (
             <View style={styles.card}>
               <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
-                <Ionicons name="accessibility" size={22} color={COLORS.primary} style={{ marginRight: 8 }} />
+                <Ionicons name="accessibility" size={22} color={Colors.primary.dark} style={{ marginRight: 8 }} />
                 <Text style={[styles.sectionTitle, { marginBottom: 0 }]}>Recursos de Acessibilidade</Text>
               </View>
               <View style={styles.featuresGrid}>
@@ -569,7 +555,7 @@ export default function LocationDetailScreen() {
                 ))}
                 {reviewsToShow < reviews.length && (
                   <TouchableOpacity style={{ alignSelf: 'center', marginTop: 10 }} onPress={() => setReviewsToShow(reviewsToShow + 3)}>
-                    <Text style={{ color: COLORS.primary, fontWeight: 'bold', fontSize: 15 }}>Ver mais avaliações</Text>
+                    <Text style={{ color: Colors.primary.dark, fontWeight: 'bold', fontSize: 15 }}>Ver mais avaliações</Text>
                   </TouchableOpacity>
                 )}
               </>
@@ -616,29 +602,29 @@ export default function LocationDetailScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.background,
+    backgroundColor: Colors.background.screen,
   },
   centered: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: COLORS.background,
+    backgroundColor: Colors.background.screen,
     padding: 20,
   },
   loadingText: {
     marginTop: 16,
     fontSize: 16,
-    color: COLORS.textSecondary,
+    color: Colors.text.darkSecondary,
   },
   errorText: {
     marginTop: 16,
     fontSize: 16,
     textAlign: 'center',
     marginBottom: 20,
-    color: COLORS.text,
+    color: Colors.text.darkPrimary,
   },
   retryButton: {
-    backgroundColor: COLORS.primary,
+    backgroundColor: Colors.primary.dark,
     paddingVertical: 12,
     paddingHorizontal: 24,
     borderRadius: 25,
@@ -685,7 +671,7 @@ const styles = StyleSheet.create({
   locationName: {
     fontSize: 26,
     fontWeight: 'bold',
-    color: COLORS.text,
+    color: Colors.text.darkPrimary,
     marginBottom: 4,
   },
   distanceContainer: {
@@ -696,11 +682,11 @@ const styles = StyleSheet.create({
   distanceText: {
     fontSize: 14,
     fontWeight: '600',
-    color: COLORS.primary,
+    color: Colors.primary.dark,
     marginLeft: 4,
   },
   card: {
-    backgroundColor: COLORS.surface,
+    backgroundColor: Colors.background.card,
     borderRadius: 16,
     padding: 16,
     marginBottom: 16,
@@ -713,7 +699,7 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: COLORS.text,
+    color: Colors.text.darkPrimary,
     marginBottom: 12,
   },
   ratingSummary: {
@@ -725,7 +711,7 @@ const styles = StyleSheet.create({
   ratingScore: {
     fontSize: 42,
     fontWeight: 'bold',
-    color: COLORS.text,
+    color: Colors.text.darkPrimary,
     marginRight: 12,
   },
   starsContainer: {
@@ -733,13 +719,13 @@ const styles = StyleSheet.create({
   },
   reviewCount: {
     fontSize: 14,
-    color: COLORS.textSecondary,
+    color: Colors.text.darkSecondary,
     marginTop: 4,
   },
   description: {
     fontSize: 15,
     lineHeight: 22,
-    color: COLORS.text,
+    color: Colors.text.darkPrimary,
   },
   actionButtonsGrid: {
     flexDirection: 'row',
@@ -774,13 +760,13 @@ const styles = StyleSheet.create({
   featureText: {
     marginTop: 6,
     fontSize: 12,
-    color: COLORS.textSecondary,
+    color: Colors.text.darkSecondary,
     textAlign: 'center',
   },
   reviewItem: {
     paddingVertical: 12,
     borderTopWidth: 1,
-    borderTopColor: COLORS.border,
+    borderTopColor: Colors.border.light,
   },
   reviewHeader: {
     flexDirection: 'row',
@@ -790,22 +776,22 @@ const styles = StyleSheet.create({
   reviewUser: {
     fontSize: 15,
     fontWeight: 'bold',
-    color: COLORS.text,
+    color: Colors.text.darkPrimary,
   },
   reviewComment: {
     fontSize: 14,
-    color: COLORS.textSecondary,
+    color: Colors.text.darkSecondary,
     lineHeight: 20,
   },
   reviewDate: {
     fontSize: 12,
-    color: COLORS.textSecondary,
+    color: Colors.text.darkSecondary,
     textAlign: 'right',
     marginTop: 8,
   },
   noReviewsText: {
     fontSize: 14,
-    color: COLORS.textSecondary,
+    color: Colors.text.darkSecondary,
     textAlign: 'center',
     paddingVertical: 20,
   },
@@ -853,7 +839,7 @@ const styles = StyleSheet.create({
   },
   authorText: {
     fontSize: 14,
-    color: COLORS.textSecondary,
+    color: Colors.text.darkSecondary,
   },
   emojiTag: {
     flexDirection: 'row',
@@ -898,7 +884,7 @@ const styles = StyleSheet.create({
   },
   detailedRatingText: {
     fontSize: 13,
-    color: COLORS.textSecondary,
+    color: Colors.text.darkSecondary,
     marginHorizontal: 8,
   },
   reviewerPhotoPlaceholder: {

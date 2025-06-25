@@ -69,6 +69,41 @@ O APP-WACS conta com um sistema de feed social moderno, projetado para promover 
 
 ---
 
+## 💬 Sistema de Chat Moderno por Cidade e Regional
+
+O APP-WACS agora conta com um sistema de chat robusto, moderno e totalmente integrado à experiência social do app. O chat foi projetado para ser intuitivo, seguro e escalável, promovendo a comunicação entre usuários de cada cidade e da região.
+
+### **Principais Funcionalidades do Chat:**
+
+- **Chats por Cidade e Regional:**
+  - Cada cidade possui seu próprio chat, identificado por um nome legível (ex: `chats/registro/messages`).
+  - Existe também um chat regional para comunicação ampla.
+- **Mensagens de Texto e Imagem:**
+  - Envie textos, fotos e mensagens do sistema (ex: "Fulano saiu do grupo").
+- **Respostas (Reply) igual WhatsApp:**
+  - Responda a qualquer mensagem (inclusive a sua), com visual de reply acima do texto, mostrando nome e trecho da mensagem original.
+- **Edição e Exclusão de Mensagens:**
+  - Edite ou apague suas próprias mensagens facilmente pelo menu de contexto.
+- **Menu de Contexto Profissional:**
+  - Ao segurar uma mensagem, aparece um menu com opções de responder, editar ou apagar (quando permitido).
+- **Barra de Escrita Profissional:**
+  - Input moderno, com suporte a reply, edição, envio de imagem, botão de enviar destacado e responsividade total ao teclado.
+- **Mensagens do Sistema:**
+  - Entradas e saídas de membros, avisos e ações administrativas aparecem com destaque visual diferenciado.
+- **Performance e Segurança:**
+  - Cada chat tem sua própria subcoleção de mensagens no Firestore, garantindo performance, organização e escalabilidade.
+- **Acessibilidade e Visual Moderno:**
+  - Layout limpo, responsivo, com cores acessíveis, feedback visual e navegação fluida.
+
+### **Exemplo de Fluxo de Uso:**
+1. O usuário entra no chat da sua cidade ou regional.
+2. Visualiza mensagens, responde, edita ou apaga suas próprias mensagens.
+3. Pode enviar imagens, responder a qualquer mensagem (inclusive a própria), e ver avisos do sistema.
+4. A barra de escrita sobe junto com o teclado, nunca ficando coberta.
+5. Tudo é sincronizado em tempo real via Firebase.
+
+---
+
 ## 🚀 Tecnologias Utilizadas
 
 - React Native

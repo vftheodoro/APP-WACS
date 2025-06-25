@@ -50,4 +50,47 @@ export const clearLastUser = async () => {
     console.error('Erro ao limpar dados do último usuário:', error);
     return false;
   }
+};
+
+/**
+ * Salva a lista de IDs de posts vistos pelo usuário
+ */
+export const saveSeenPosts = async (userId, postIds) => {
+  try {
+    await AsyncStorage.setItem(`@wacs:seenPosts:${userId}`, JSON.stringify(postIds));
+    return true;
+  } catch (error) {
+    console.error('Erro ao salvar posts vistos:', error);
+    return false;
+  }
+};
+
+/**
+ * Recupera a lista de IDs de posts vistos pelo usuário
+ */
+export const getSeenPosts = async (userId) => {
+  try {
+    const data = await AsyncStorage.getItem(`@wacs:seenPosts:${userId}`);
+    return data ? JSON.parse(data) : [];
+  } catch (error) {
+    console.error('Erro ao recuperar posts vistos:', error);
+    return [];
+  }
+};
+
+/**
+ * Adiciona um post à lista de vistos
+ */
+export const addSeenPost = async (userId, postId) => {
+  try {
+    const seen = await getSeenPosts(userId);
+    if (!seen.includes(postId)) {
+      seen.push(postId);
+      await saveSeenPosts(userId, seen);
+    }
+    return true;
+  } catch (error) {
+    console.error('Erro ao adicionar post visto:', error);
+    return false;
+  }
 }; 

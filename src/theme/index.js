@@ -1,63 +1,65 @@
 import { StyleSheet } from 'react-native';
-import { THEME } from '../config/constants';
+import { Colors } from './Colors';
+import { Spacing } from './Spacing';
+import { Typography } from './Typography';
 
 export const globalStyles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: THEME.colors.background,
+    backgroundColor: Colors.background.screen,
   },
   safeArea: {
     flex: 1,
-    backgroundColor: THEME.colors.background,
+    backgroundColor: Colors.background.screen,
   },
   header: {
-    padding: THEME.spacing.md,
-    backgroundColor: THEME.colors.primary,
+    padding: Spacing.md,
+    backgroundColor: Colors.primary.dark,
   },
   headerTitle: {
-    ...THEME.typography.h1,
-    color: THEME.colors.background,
+    ...Typography.h1,
+    color: Colors.background.screen,
   },
   content: {
     flex: 1,
-    padding: THEME.spacing.md,
+    padding: Spacing.md,
   },
   button: {
-    backgroundColor: THEME.colors.primary,
-    padding: THEME.spacing.md,
+    backgroundColor: Colors.primary.dark,
+    padding: Spacing.md,
     borderRadius: 8,
     alignItems: 'center',
     justifyContent: 'center',
   },
   buttonText: {
-    ...THEME.typography.body,
-    color: THEME.colors.background,
+    ...Typography.body,
+    color: Colors.background.screen,
     fontWeight: 'bold',
   },
   input: {
     borderWidth: 1,
-    borderColor: THEME.colors.text,
+    borderColor: Colors.text.darkPrimary,
     borderRadius: 8,
-    padding: THEME.spacing.md,
-    marginBottom: THEME.spacing.md,
+    padding: Spacing.md,
+    marginBottom: Spacing.md,
   },
   error: {
-    color: THEME.colors.error,
-    ...THEME.typography.caption,
-    marginTop: THEME.spacing.xs,
+    color: Colors.danger.primary,
+    ...Typography.caption,
+    marginTop: Spacing.xs,
   },
   map: {
     flex: 1,
   },
   navigationInfo: {
     position: 'absolute',
-    bottom: THEME.spacing.xl,
-    left: THEME.spacing.md,
-    right: THEME.spacing.md,
-    backgroundColor: THEME.colors.background,
+    bottom: Spacing.xl,
+    left: Spacing.md,
+    right: Spacing.md,
+    backgroundColor: Colors.background.screen,
     borderRadius: 8,
-    padding: THEME.spacing.md,
-    shadowColor: THEME.colors.text,
+    padding: Spacing.md,
+    shadowColor: Colors.text.darkPrimary,
     shadowOffset: {
       width: 0,
       height: 2,
@@ -67,13 +69,13 @@ export const globalStyles = StyleSheet.create({
     elevation: 5,
   },
   navigationText: {
-    ...THEME.typography.body,
-    color: THEME.colors.text,
-    marginBottom: THEME.spacing.xs,
+    ...Typography.body,
+    color: Colors.text.darkPrimary,
+    marginBottom: Spacing.xs,
   },
   navigationDistance: {
-    ...THEME.typography.h2,
-    color: THEME.colors.primary,
+    ...Typography.h2,
+    color: Colors.primary.dark,
   },
 });
 

@@ -18,6 +18,8 @@ import { useAuth } from '../contexts/AuthContext';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useBluetooth } from '../contexts/BluetoothContext';
 import { getUserGamificationData, getLevelNameAndReward } from '../services/gamification';
+import { getSeenPosts, saveSeenPosts } from '../utils/storage';
+import { fetchPostsPaginated } from '../services/firebase/posts';
 
 const { width } = Dimensions.get('window');
 
@@ -37,6 +39,7 @@ export const MainSelectionScreen = () => {
   const [fadeAnim] = useState(new Animated.Value(0));
   const [slideAnim] = useState(new Animated.Value(-50));
   const [gamification, setGamification] = useState({ xp: 0, level: 1, badges: [] });
+  const [hasNewPosts, setHasNewPosts] = useState(false);
 
   useEffect(() => {
     // Animação de entrada
@@ -62,6 +65,37 @@ export const MainSelectionScreen = () => {
       }
     }, [user?.id])
   );
+
+  // Função para verificar se há novos posts não vistos
+  const checkNewPosts = async () => {
+    if (!user?.id) return;
+    try {
+      const { posts } = await fetchPostsPaginated({ pageSize: 10 });
+      const seen = await getSeenPosts(user.id);
+      const unseen = posts.filter(p => !seen.includes(p.id));
+      setHasNewPosts(unseen.length > 0);
+    } catch (e) {
+      setHasNewPosts(false);
+    }
+  };
+
+  // Atualiza badge ao focar ou trocar usuário
+  useFocusEffect(
+    React.useCallback(() => {
+      checkNewPosts();
+    }, [user?.id])
+  );
+
+  // Ao entrar na tela de comunidade, marca todos os posts atuais como vistos
+  const handleCommunityPress = async () => {
+    navigation.navigate('SocialScreen');
+    try {
+      const { posts } = await fetchPostsPaginated({ pageSize: 10 });
+      const ids = posts.map(p => p.id);
+      await saveSeenPosts(user.id, ids);
+      setHasNewPosts(false);
+    } catch {}
+  };
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -185,10 +219,10 @@ export const MainSelectionScreen = () => {
       gradient: ['#1976d2', '#2196f3'],
     },
     {
-      id: 'chat',
-      title: 'Assistente',
+      id: 'community',
+      title: 'Comunidade',
       icon: 'chatbubble-ellipses-outline',
-      onPress: () => navigation.navigate('SocialScreen'),
+      onPress: handleCommunityPress,
       gradient: ['#1976d2', '#2196f3'],
     },
     {
@@ -255,6 +289,12 @@ export const MainSelectionScreen = () => {
         ]}>
           {action.title}
         </Text>
+        {/* Badge de novos posts */}
+        {action.id === 'community' && hasNewPosts && (
+          <View style={styles.newPostsBadge}>
+            <Ionicons name="ellipse" size={14} color="#E53935" />
+          </View>
+        )}
       </LinearGradient>
     </Pressable>
   );
@@ -802,5 +842,12 @@ const styles = StyleSheet.create({
     width: 1,
     height: 40,
     backgroundColor: '#e0e0e0',
+  },
+  newPostsBadge: {
+    position: 'absolute',
+    top: 10,
+    right: 18,
+    backgroundColor: 'transparent',
+    zIndex: 10,
   },
 });
