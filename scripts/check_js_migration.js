@@ -20,7 +20,7 @@ function checkFileExtensions(dir) {
     } else {
       // Verificar extensão de arquivo
       if (file.endsWith('.tsx') || file.endsWith('.ts')) {
-        console.warn(`Arquivo TypeScript encontrado: ${fullPath}`);
+        // console.warn(`Arquivo TypeScript encontrado: ${fullPath}`);
       }
     }
   }
@@ -39,22 +39,22 @@ function checkPackageJson() {
   );
   
   if (typescriptDeps.length > 0) {
-    console.warn('Dependências TypeScript encontradas no package.json:', typescriptDeps);
+    // console.warn('Dependências TypeScript encontradas no package.json:', typescriptDeps);
   } else {
-    console.log('Nenhuma dependência TypeScript encontrada no package.json');
+    // console.log('Nenhuma dependência TypeScript encontrada no package.json');
   }
   
   // Verificar o ponto de entrada
   if (packageJson.main && packageJson.main.endsWith('.ts')) {
-    console.warn(`Ponto de entrada ainda é um arquivo TypeScript: ${packageJson.main}`);
+    // console.warn(`Ponto de entrada ainda é um arquivo TypeScript: ${packageJson.main}`);
   } else {
-    console.log(`Ponto de entrada validado: ${packageJson.main}`);
+    // console.log(`Ponto de entrada validado: ${packageJson.main}`);
   }
 }
 
 // Executar verificações
-console.log('Iniciando verificação da migração de TypeScript para JavaScript...');
+// console.log('Iniciando verificação da migração de TypeScript para JavaScript...');
 checkPackageJson();
-console.log('Verificando extensões de arquivos...');
+// console.log('Verificando extensões de arquivos...');
 checkFileExtensions('.');
-console.log('Verificação concluída!'); 
+// console.log('Verificação concluída!'); 

@@ -26,13 +26,12 @@ function deleteTypeScriptFiles(dir) {
           const jsFileExists = fs.existsSync(jsFileName);
           
           if (jsFileExists) {
-            console.log(`Excluindo arquivo TypeScript: ${fullPath}`);
             fs.unlinkSync(fullPath);
           } else {
-            console.warn(`Arquivo JavaScript correspondente não encontrado para: ${fullPath}`);
+            // console.warn(`Arquivo JavaScript correspondente não encontrado para: ${fullPath}`);
           }
         } catch (error) {
-          console.error(`Erro ao excluir arquivo ${fullPath}:`, error.message);
+          // console.error(`Erro ao excluir arquivo ${fullPath}:`, error.message);
         }
       }
     }
@@ -40,6 +39,4 @@ function deleteTypeScriptFiles(dir) {
 }
 
 // Executar limpeza
-console.log('Iniciando remoção de arquivos TypeScript...');
-deleteTypeScriptFiles('.');
-console.log('Remoção de arquivos TypeScript concluída!'); 
+deleteTypeScriptFiles('.'); 

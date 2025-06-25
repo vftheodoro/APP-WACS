@@ -1,114 +1,254 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TextInput, Image, Pressable, FlatList, Dimensions } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
-import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
+import React, { useEffect, useState, useCallback } from 'react';
+import { View, Text, StyleSheet, FlatList, RefreshControl, Alert, ActivityIndicator } from 'react-native';
 import { Colors, Typography, Spacing, Borders, Shadows } from '../../theme';
 import { useAuth } from '../../contexts/AuthContext';
-
-const { width } = Dimensions.get('window');
+import PostInput from '../../components/social/PostInput';
+import PostCard from '../../components/social/PostCard';
+import { fetchPostsPaginated, createPost, toggleLikePost, addComment, deletePost } from '../../services/firebase/posts';
+import CommentsModal from '../../components/social/CommentsModal';
+import Toast from '../../components/common/Toast';
 
 export const PostsFeedScreen = () => {
-  const navigation = useNavigation();
-  const [postText, setPostText] = useState('');
   const { user } = useAuth();
+  const [posts, setPosts] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState(null);
+  const [lastDoc, setLastDoc] = useState(null);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [selectedPost, setSelectedPost] = useState(null);
+  const [commentsLoading, setCommentsLoading] = useState(false);
+  const [toast, setToast] = useState({ visible: false, type: 'info', message: '' });
+  const PAGE_SIZE = 10;
 
-  // Placeholder data for demonstration
-  const feedItems = [
-    {
-      id: '1',
-      profilePic: user?.photoURL || 'https://via.placeholder.com/40/BDBDBD/FFFFFF?text=VP',
-      name: user?.name || 'Você',
-      time: 'agora mesmo',
-      text: postText || 'Bem-vindo(a) à Comunidade WACS! Use este espaço para compartilhar suas experiências e interagir com outros usuários.',
-      likes: 0,
-      comments: 0,
-      hasImage: false,
-    },
-    {
-      id: '2',
-      profilePic: 'https://via.placeholder.com/40/33FF57/FFFFFF?text=MO', // Placeholder for Maria Oliveira
-      name: 'Maria Oliveira',
-      time: 'há 3 horas',
-      text: 'Muito feliz em ver a comunidade WACS crescendo! Juntos somos mais fortes para promover a inclusão. #ComunidadeWACS',
-      likes: 28,
-      comments: 7,
-      hasImage: true, // Placeholder for image
-      postImage: 'https://via.placeholder.com/300x200?text=Imagem+do+Post',
-    },
-  ];
+  if (!user) {
+    return (
+      <View style={styles.container}>
+        <Text style={styles.errorText}>
+          Você precisa estar logado para acessar o feed da comunidade.
+        </Text>
+      </View>
+    );
+  }
 
-  const renderFeedItem = ({ item }) => (
-    <View style={styles.feedCard}>
-      <View style={styles.feedHeader}>
-        <Image source={{ uri: item.profilePic }} style={styles.feedProfilePic} />
-        <View>
-          <Text style={styles.feedName}>{item.name}</Text>
-          <Text style={styles.feedTime}>{item.time}</Text>
-        </View>
-      </View>
-      <Text style={styles.feedText}>{item.text}</Text>
-      {item.hasImage && <Image source={{ uri: item.postImage }} style={styles.feedPostImage} />}
-      <View style={styles.feedActions}>
-        <View style={styles.feedActionItem}>
-          <Ionicons name="heart-outline" size={Typography.fontSizes.md} color={Colors.text.darkSecondary} />
-          <Text style={styles.feedActionText}>{item.likes} Curtidas</Text>
-        </View>
-        <View style={styles.feedActionItem}>
-          <Ionicons name="chatbubble-outline" size={Typography.fontSizes.md} color={Colors.text.darkSecondary} />
-          <Text style={styles.feedActionText}>{item.comments} Comentários</Text>
-        </View>
-      </View>
-    </View>
-  );
+  const loadPosts = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    console.log('[Feed] Iniciando loadPosts');
+    try {
+      const { posts: newPosts, lastDoc: newLastDoc } = await fetchPostsPaginated({ pageSize: PAGE_SIZE });
+      console.log('[Feed] Posts carregados:', newPosts.length, newPosts.map(p => p.id));
+      setPosts(newPosts);
+      setLastDoc(newLastDoc);
+    } catch (e) {
+      console.error('[Feed] Erro ao carregar posts:', e);
+      setError('Não foi possível carregar o feed. ' + (e?.message || ''));
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const loadMorePosts = async () => {
+    if (!lastDoc || loadingMore) return;
+    setLoadingMore(true);
+    console.log('[Feed] Carregando mais posts...');
+    try {
+      const { posts: morePosts, lastDoc: newLastDoc } = await fetchPostsPaginated({ pageSize: PAGE_SIZE, lastDoc });
+      console.log('[Feed] Mais posts carregados:', morePosts.length, morePosts.map(p => p.id));
+      setPosts(prev => [...prev, ...morePosts]);
+      setLastDoc(newLastDoc);
+    } catch (e) {
+      console.error('[Feed] Erro ao carregar mais posts:', e);
+      setError('Erro ao carregar mais posts. ' + (e?.message || ''));
+    } finally {
+      setLoadingMore(false);
+    }
+  };
+
+  useEffect(() => {
+    loadPosts();
+  }, [loadPosts]);
+
+  const showToast = (type, message) => {
+    setToast({ visible: true, type, message });
+  };
+
+  const handlePublish = async ({ text, imageUri }) => {
+    setLoading(true);
+    setError(null);
+    console.log('[Feed] Publicando post:', { text, imageUri, user });
+    try {
+      const newPost = await createPost({
+        userId: user.id,
+        userName: user.name,
+        userPhoto: user.photoURL,
+        text,
+        imageUri,
+      });
+      console.log('[Feed] Post criado:', newPost);
+      setPosts(prev => [{ ...newPost, likes: [], comments: [], createdAt: { seconds: Math.floor(Date.now() / 1000) } }, ...prev]);
+      await new Promise(res => setTimeout(res, 1000));
+      await loadPosts();
+      showToast('success', 'Post publicado com sucesso!');
+    } catch (e) {
+      console.error('[Feed] Erro ao publicar post:', e);
+      setError('Erro ao publicar post. ' + (e?.message || ''));
+      showToast('error', 'Erro ao publicar post. ' + (e?.message || ''));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleLike = async (postId, liked) => {
+    setError(null);
+    console.log('[Feed] Curtir/descurtir post:', { postId, liked, userId: user.id });
+    try {
+      await toggleLikePost(postId, user.id, liked);
+      setPosts(prevPosts => prevPosts.map(post => {
+        if (post.id !== postId) return post;
+        let newLikes = Array.isArray(post.likes) ? [...post.likes] : [];
+        if (liked) {
+          newLikes = newLikes.filter(uid => uid !== user.id);
+        } else {
+          newLikes.push(user.id);
+        }
+        return { ...post, likes: newLikes };
+      }));
+      console.log('[Feed] Curtida atualizada localmente para post:', postId);
+      showToast('success', liked ? 'Curtida removida!' : 'Post curtido!');
+    } catch (e) {
+      console.error('[Feed] Erro ao curtir/descurtir post:', e);
+      setError('Erro ao curtir/descurtir post. ' + (e?.message || ''));
+      showToast('error', 'Erro ao curtir/descurtir post. ' + (e?.message || ''));
+    }
+  };
+
+  const handleComment = (post) => {
+    setSelectedPost(post);
+    console.log('[Feed] Abrindo modal de comentários para post:', post.id);
+  };
+
+  const handleAddComment = async (text) => {
+    if (!user || !selectedPost) return;
+    setCommentsLoading(true);
+    setError(null);
+    console.log('[Feed] Adicionando comentário:', { postId: selectedPost.id, text, user });
+    try {
+      await addComment(selectedPost.id, {
+        userId: user.id,
+        userName: user.name,
+        userPhoto: user.photoURL,
+        text,
+      });
+      setPosts(prevPosts => prevPosts.map(post => {
+        if (post.id !== selectedPost.id) return post;
+        const newComments = Array.isArray(post.comments) ? [...post.comments, {
+          userId: user.id,
+          userName: user.name,
+          userPhoto: user.photoURL,
+          text,
+          createdAt: new Date().toISOString(),
+        }] : [{
+          userId: user.id,
+          userName: user.name,
+          userPhoto: user.photoURL,
+          text,
+          createdAt: new Date().toISOString(),
+        }];
+        return { ...post, comments: newComments };
+      }));
+      setSelectedPost(null);
+      await loadPosts();
+      showToast('success', 'Comentário adicionado!');
+    } catch (e) {
+      console.error('[Feed] Erro ao comentar:', e);
+      setError('Erro ao comentar. ' + (e?.message || ''));
+      showToast('error', 'Erro ao comentar. ' + (e?.message || ''));
+    } finally {
+      setCommentsLoading(false);
+    }
+  };
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    console.log('[Feed] Refresh manual do feed');
+    await loadPosts();
+    setRefreshing(false);
+  };
+
+  const handleDeletePost = async (post) => {
+    Alert.alert(
+      'Apagar post',
+      'Tem certeza que deseja apagar este post? Esta ação não pode ser desfeita.',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Apagar', style: 'destructive', onPress: async () => {
+            try {
+              await deletePost(post.id, post.imageUrl);
+              setPosts(prev => prev.filter(p => p.id !== post.id));
+              showToast('success', 'Post apagado com sucesso!');
+              await loadPosts();
+            } catch (err) {
+              showToast('error', 'Erro ao apagar post: ' + (err?.message || ''));
+            }
+          }
+        }
+      ]
+    );
+  };
 
   return (
     <View style={styles.container}>
-      <ScrollView contentContainerStyle={styles.scrollViewContent}>
-        {/* Seção de Postagem */}
-        <View style={styles.postCard}>
-          <View style={styles.postHeader}>
-            <Image source={{ uri: user?.photoURL || 'https://via.placeholder.com/40/BDBDBD/FFFFFF?text=VP' }} style={styles.feedProfilePic} />
-            <TextInput
-              style={styles.postInput}
-              placeholder="O que você está pensando?"
-              placeholderTextColor={Colors.text.darkTertiary}
-              multiline
-              value={postText}
-              onChangeText={setPostText}
-            />
-          </View>
-          <View style={styles.postActions}>
-            <Pressable style={styles.postActionButton}>
-              <Ionicons name="image-outline" size={Typography.fontSizes.xl} color={Colors.primary.dark} />
-              <Text style={styles.postActionText}>Foto</Text>
-            </Pressable>
-            <Pressable style={styles.postActionButton}>
-              <Ionicons name="videocam-outline" size={Typography.fontSizes.xl} color={Colors.primary.dark} />
-              <Text style={styles.postActionText}>Vídeo</Text>
-            </Pressable>
-            <LinearGradient
-              colors={[Colors.primary.dark, Colors.primary.light]}
-              style={styles.publishButtonGradient}
-            >
-              <Pressable style={styles.publishButton} onPress={() => console.log('Publicar:', postText)}>
-                <Text style={styles.publishButtonText}>Publicar</Text>
-              </Pressable>
-            </LinearGradient>
-          </View>
+      <Toast
+        visible={toast.visible}
+        type={toast.type}
+        message={toast.message}
+        onHide={() => setToast(t => ({ ...t, visible: false }))}
+      />
+      {loading && (
+        <View style={{ alignItems: 'center', marginTop: 32 }}>
+          <ActivityIndicator size="large" color={Colors.primary.dark} />
         </View>
-
-        {/* Feed da Comunidade */}
-        <View style={styles.sectionContainer}>
-          <Text style={styles.sectionTitle}>Feed da Comunidade</Text>
-          <FlatList
-            data={feedItems}
-            keyExtractor={item => item.id}
-            renderItem={renderFeedItem}
-            scrollEnabled={false} // Nested ScrollView - disable inner scroll
+      )}
+      {error && (
+        <Text style={styles.errorText}>{error}</Text>
+      )}
+      {!loading && !error && posts.length === 0 && (
+        <Text style={styles.emptyText}>
+          Nenhum post encontrado. Seja o primeiro a publicar!
+        </Text>
+      )}
+      <FlatList
+        ListHeaderComponent={
+          <PostInput user={user} onPublish={handlePublish} loading={loading} />
+        }
+        data={posts}
+        keyExtractor={item => item.id}
+        renderItem={({ item }) => (
+          <PostCard
+            post={item}
+            userId={user?.id}
+            isLiked={item.likes?.includes(user?.id)}
+            onLike={handleLike}
+            onComment={handleComment}
+            onDelete={handleDeletePost}
           />
-        </View>
-      </ScrollView>
+        )}
+        contentContainerStyle={styles.scrollViewContent}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+        onEndReached={loadMorePosts}
+        onEndReachedThreshold={0.5}
+        ListFooterComponent={loadingMore ? <ActivityIndicator size="small" color={Colors.primary.dark} style={{ marginVertical: 16 }} /> : null}
+      />
+      <CommentsModal
+        visible={!!selectedPost}
+        onClose={() => setSelectedPost(null)}
+        post={selectedPost || { comments: [] }}
+        onAddComment={handleAddComment}
+        user={user}
+        loading={commentsLoading}
+      />
     </View>
   );
 };
@@ -120,140 +260,19 @@ const styles = StyleSheet.create({
   },
   scrollViewContent: {
     padding: Spacing.xl,
-    paddingBottom: Spacing.xl * 2, // Extra padding at bottom
+    paddingBottom: Spacing.xl * 2,
   },
-  sectionContainer: {
-    backgroundColor: Colors.background.card,
-    borderRadius: Borders.radius.lg,
-    padding: Spacing.xl,
-    marginBottom: Spacing.xl,
-    ...Shadows.default,
-  },
-  sectionTitle: {
-    fontSize: Typography.fontSizes.lg,
-    fontWeight: Typography.fontWeights.bold,
-    color: Colors.text.darkPrimary,
-    marginBottom: Spacing.lg,
-  },
-  // Postagem Section
-  postCard: {
-    backgroundColor: Colors.background.card,
-    borderRadius: Borders.radius.lg,
-    padding: Spacing.xl,
-    marginBottom: Spacing.xl,
-    ...Shadows.default,
-  },
-  postHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: Spacing.lg,
-  },
-  postInput: {
-    flex: 1,
-    marginLeft: Spacing.sm,
-    minHeight: 40,
-    maxHeight: 100,
-    backgroundColor: Colors.background.screen,
-    borderRadius: Borders.radius.md,
-    paddingHorizontal: Spacing.sm,
-    paddingVertical: Spacing.xs,
+  errorText: {
+    color: Colors.error || 'red',
+    textAlign: 'center',
+    marginTop: 16,
     fontSize: Typography.fontSizes.md,
-    color: Colors.text.darkPrimary,
-    textAlignVertical: 'top',
-    borderWidth: Borders.width.sm,
-    borderColor: Colors.border.light,
+    fontWeight: 'bold',
   },
-  postActions: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginTop: Spacing.md,
-  },
-  postActionButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: Spacing.xs,
-    paddingHorizontal: Spacing.sm,
-    borderRadius: Borders.radius.xs,
-    backgroundColor: Colors.background.disabled,
-  },
-  postActionText: {
-    marginLeft: Spacing.xs,
-    fontSize: Typography.fontSizes.sm,
-    color: Colors.primary.dark,
-    fontWeight: Typography.fontWeights.semibold,
-  },
-  publishButtonGradient: {
-    borderRadius: Borders.radius.sm,
-    overflow: 'hidden',
-  },
-  publishButton: {
-    paddingVertical: Spacing.sm,
-    paddingHorizontal: Spacing.lg,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  publishButtonText: {
-    color: Colors.text.lightOnPrimary,
-    fontSize: Typography.fontSizes.md,
-    fontWeight: Typography.fontWeights.semibold,
-  },
-  // Feed da Comunidade
-  feedCard: {
-    backgroundColor: Colors.background.card,
-    borderRadius: Borders.radius.md,
-    padding: Spacing.lg,
-    marginBottom: Spacing.md,
-    borderWidth: Borders.width.sm,
-    borderColor: Colors.border.light,
-  },
-  feedHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: Spacing.md,
-  },
-  feedProfilePic: {
-    width: 40,
-    height: 40,
-    borderRadius: Borders.radius.circular,
-    marginRight: Spacing.sm,
-    borderWidth: Borders.width.sm,
-    borderColor: Colors.primary.dark,
-  },
-  feedName: {
-    fontSize: Typography.fontSizes.md,
-    fontWeight: Typography.fontWeights.semibold,
-    color: Colors.text.darkPrimary,
-  },
-  feedTime: {
-    fontSize: Typography.fontSizes.xs,
+  emptyText: {
+    textAlign: 'center',
+    marginTop: 32,
     color: Colors.text.darkSecondary,
-  },
-  feedText: {
     fontSize: Typography.fontSizes.md,
-    color: Colors.text.darkPrimary,
-    marginBottom: Spacing.md,
-  },
-  feedPostImage: {
-    width: '100%',
-    height: 200,
-    borderRadius: Borders.radius.md,
-    resizeMode: 'cover',
-    marginBottom: Spacing.md,
-  },
-  feedActions: {
-    flexDirection: 'row',
-    justifyContent: 'flex-start',
-    alignItems: 'center',
-    gap: Spacing.lg,
-  },
-  feedActionItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: Spacing.xs,
-  },
-  feedActionText: {
-    fontSize: Typography.fontSizes.sm,
-    color: Colors.text.darkSecondary,
   },
 }); 

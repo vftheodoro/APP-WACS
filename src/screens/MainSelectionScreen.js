@@ -490,28 +490,6 @@ export const MainSelectionScreen = () => {
           </View>
         </View>
       </View>
-
-      {/* Botão administrativo para classificar locais antigos */}
-      <View style={{ paddingHorizontal: 20, marginTop: 18 }}>
-        <Pressable
-          style={{
-            backgroundColor: '#1976d2',
-            borderRadius: 12,
-            paddingVertical: 14,
-            alignItems: 'center',
-            marginBottom: 10,
-            flexDirection: 'row',
-            justifyContent: 'center',
-            gap: 8,
-          }}
-          onPress={() => navigation.navigate('ClassifyLocationsScreen')}
-        >
-          <Ionicons name="build-outline" size={20} color="#fff" />
-          <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 16 }}>
-            Classificar Locais
-          </Text>
-        </Pressable>
-      </View>
     </ScrollView>
   );
 };

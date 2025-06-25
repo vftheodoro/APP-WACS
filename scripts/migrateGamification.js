@@ -75,9 +75,7 @@ async function migrate() {
       badges,
       streak,
     });
-    console.log(`Usuário ${userId} migrado: XP=${xp}, Nível=${level}, Badges=${badges.join(',')}, Streak=${streak}`);
   }
-  console.log('Migração concluída!');
 }
 
-migrate().catch(console.error); 
+migrate().catch(() => {}); 

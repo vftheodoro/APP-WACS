@@ -26,5 +26,14 @@ service firebase.storage {
       allow update, delete: if request.auth != null && 
                             request.auth.uid == getUserIdFromFileName();
     }
+
+    // Imagens de posts
+    match /posts/{fileName} {
+      // Permitir upload apenas para usuários autenticados, imagens até 5MB
+      allow create: if request.auth != null &&
+                    request.resource.contentType.matches('image/.*') &&
+                    request.resource.size < 5 * 1024 * 1024;
+      allow read: if true;
+    }
   }
 } 

@@ -198,7 +198,6 @@ export const ControlScreen = () => {
         y: normalizedY,
       };
       // Em um cenário real, você enviaria o comando Bluetooth aqui
-      console.log('Enviando comando:', command);
     },
     onEnd: () => {
       // A lógica de habilitação/desabilitação agora depende dos shared values
@@ -216,7 +215,6 @@ export const ControlScreen = () => {
         mode: speedModeShared.value,
       };
       // Em um cenário real, você enviaria o comando Bluetooth de parada aqui
-      console.log('Enviando comando:', stopCommand);
     },
   });
 
@@ -270,8 +268,6 @@ export const ControlScreen = () => {
       translateY.value = withSpring(0);
       currentSpeed.value = 0; // Reseta o shared value
     }
-
-    console.log('Estado de bloqueio alterado para:', newState ? 'Travado' : 'Destravado');
   };
 
   const toggleEmergencyMode = () => {
