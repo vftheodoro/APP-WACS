@@ -18,6 +18,7 @@ export const BluetoothProvider = ({ children }) => {
   const [isScanning, setIsScanning] = useState(false);
   const [bluetoothState, setBluetoothState] = useState('Unknown');
   const [locationPermission, setLocationPermission] = useState('unknown');
+  const [lastCommand, setLastCommand] = useState('');
 
   // Monitorar estado do Bluetooth
   useEffect(() => {
@@ -166,6 +167,28 @@ export const BluetoothProvider = ({ children }) => {
     Alert.alert('Desconectado', 'O dispositivo foi desconectado.');
   };
 
+  // --- ENVIO DE COMANDOS BLUETOOTH (HC-06) --- //
+  // Adapte o UUID do serviço/característica conforme seu módulo BLE, se necessário
+  const SERVICE_UUID = '0000ffe0-0000-1000-8000-00805f9b34fb';
+  const CHARACTERISTIC_UUID = '0000ffe1-0000-1000-8000-00805f9b34fb';
+
+  // Envia comando string para o dispositivo conectado
+  const sendCommand = async (command) => {
+    if (!bleConnectedDevice) return false;
+    try {
+      await bleConnectedDevice.writeCharacteristicWithResponseForService(
+        SERVICE_UUID,
+        CHARACTERISTIC_UUID,
+        Buffer.from(command + '\n').toString('base64')
+      );
+      setLastCommand(command);
+      return true;
+    } catch (e) {
+      console.error('Erro ao enviar comando Bluetooth:', e);
+      return false;
+    }
+  };
+
   // Limpeza ao desmontar
   useEffect(() => {
     return () => {
@@ -192,6 +215,8 @@ export const BluetoothProvider = ({ children }) => {
         locationPermission,
         openBluetoothSettings,
         openAppSettings,
+        sendCommand,
+        lastCommand,
       }}
     >
       {children}

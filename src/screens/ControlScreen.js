@@ -70,6 +70,8 @@ export const ControlScreen = () => {
     connectionStrength,
     estimatedAutonomy,
     disconnectFromDevice,
+    sendCommand,
+    lastCommand,
   } = useBluetooth();
 
   const navigation = useNavigation();
@@ -151,6 +153,11 @@ export const ControlScreen = () => {
     pointerEvents: scrollLockAnim.value > 0.1 ? 'auto' : 'none',
   }));
 
+  // --- JOYSTICK: ENVIO DE COMANDOS --- //
+  // Armazena último comando enviado para evitar repetição
+  const lastJoystickCommand = useRef('S');
+  const lastSentPower = useRef(0);
+
   const handleGestureEvent = useAnimatedGestureHandler({
     onStart: (_, ctx) => {
       if (!(isConnected || mockMode) || isLockedSharedState || brakeReleased) {
@@ -160,6 +167,8 @@ export const ControlScreen = () => {
       ctx.offsetY = translateY.value;
       // Travar scroll automaticamente ao iniciar joystick
       if (!scrollLocked) runOnJS(setScrollLocked)(true);
+      // Destrava freio automaticamente se não estiver destravado manualmente
+      if (!brakeManual) runOnJS(sendCommand)('F1');
     },
     onActive: (event, ctx) => {
       if (!(isConnected || mockMode) || isLockedSharedState || brakeReleased) {
@@ -178,14 +187,34 @@ export const ControlScreen = () => {
       }
       const normalizedX = translateX.value / MAX_DISTANCE;
       const normalizedY = translateY.value / MAX_DISTANCE;
-      const command = {
-        type: 'move',
-        mode: speedModeShared.value,
-        x: normalizedX,
-        y: normalizedY,
-      };
-      // TODO: Enviar comando real via Bluetooth para o HC-06 aqui, se conectado
-      // Exemplo: bluetoothWrite(command)
+      // Lógica inline para comando do joystick (evita erro de worklet)
+      let cmd = 'S';
+      if (Math.abs(normalizedX) < 0.2 && Math.abs(normalizedY) < 0.2) cmd = 'S';
+      else if (normalizedY < -0.5 && Math.abs(normalizedX) < 0.4) cmd = 'F';
+      else if (normalizedY > 0.5 && Math.abs(normalizedX) < 0.4) cmd = 'B';
+      else if (normalizedX < -0.5 && Math.abs(normalizedY) < 0.4) cmd = 'L';
+      else if (normalizedX > 0.5 && Math.abs(normalizedY) < 0.4) cmd = 'R';
+      else if (normalizedY < -0.3 && normalizedX < -0.3) cmd = 'G';
+      else if (normalizedY < -0.3 && normalizedX > 0.3) cmd = 'H';
+      else if (normalizedY > 0.3 && normalizedX < -0.3) cmd = 'I';
+      else if (normalizedY > 0.3 && normalizedX > 0.3) cmd = 'J';
+      // Só envia comando se mudou
+      if (lastJoystickCommand.current !== cmd) {
+        runOnJS(sendCommand)(cmd);
+        lastJoystickCommand.current = cmd;
+      }
+      // --- Potência dinâmica ---
+      // Calcula distância do centro (0 a 1)
+      const dist = Math.sqrt(normalizedX * normalizedX + normalizedY * normalizedY);
+      // Potência máxima do modo
+      const maxPower = maxSpeedShared.value > 0 ? maxSpeedShared.value : 1;
+      // Potência proporcional (0 a maxPower)
+      const power = Math.round(dist * maxPower * 25.5); // 0-10 * 25.5 = 0-255
+      // Só envia se mudou significativamente (>5)
+      if (Math.abs(power - lastSentPower.current) > 5) {
+        runOnJS(sendCommand)(`V${power}`);
+        lastSentPower.current = power;
+      }
     },
     onEnd: () => {
       if (!(isConnected || mockMode) || isLockedSharedState || brakeReleased) {
@@ -194,12 +223,14 @@ export const ControlScreen = () => {
       translateX.value = withSpring(0);
       translateY.value = withSpring(0);
       currentSpeed.value = 0;
-      const stopCommand = {
-        type: 'stop',
-        mode: speedModeShared.value,
-      };
-      // TODO: Enviar comando de parada real via Bluetooth para o HC-06 aqui
-      // Exemplo: bluetoothWrite(stopCommand)
+      // Envia comando de parada
+      runOnJS(sendCommand)('S');
+      lastJoystickCommand.current = 'S';
+      // Potência zero
+      runOnJS(sendCommand)('V0');
+      lastSentPower.current = 0;
+      // Se não estiver destravado manualmente, trava freio ao parar
+      if (!brakeManual) runOnJS(sendCommand)('F0');
     },
   });
 
@@ -325,6 +356,19 @@ export const ControlScreen = () => {
     }
   }, [brakeReleased]);
 
+  // --- VELOCIDADE: ENVIO DE COMANDO --- //
+  useEffect(() => {
+    // Sempre que displayMaxSpeed mudar, envia comando de velocidade
+    if (isConnected && !isLocked && !brakeReleased) {
+      const v = Math.round((displayMaxSpeed / 10) * 255); // 0-10 para 0-255
+      sendCommand(`V${v}`);
+    }
+  }, [displayMaxSpeed, isConnected, isLocked, brakeReleased]);
+
+  // --- INTEGRAÇÃO BLUETOOTH: ENVIO DE COMANDOS --- //
+  // Estado para saber se freio está destravado manualmente
+  const [brakeManual, setBrakeManual] = useState(false);
+
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <LinearGradient
@@ -407,11 +451,17 @@ export const ControlScreen = () => {
                       'Os freios eletromagnéticos impedem que a cadeira se mova acidentalmente em rampas ou quando desligada. Tem certeza que deseja destravar os freios? A cadeira NÃO irá se mover enquanto os freios estiverem destravados.',
                       [
                         { text: 'Cancelar', style: 'cancel' },
-                        { text: 'Destravar', style: 'destructive', onPress: () => setBrakeReleased(true) }
+                        { text: 'Destravar', style: 'destructive', onPress: async () => {
+                            setBrakeReleased(true);
+                            setBrakeManual(true);
+                            await sendCommand('F1'); // Destrava freio manualmente
+                          } }
                       ]
                     );
                   } else {
                     setBrakeReleased(false);
+                    setBrakeManual(false);
+                    sendCommand('F0'); // Trava freio manualmente
                   }
                 }}
                 style={[
