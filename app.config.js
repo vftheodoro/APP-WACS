@@ -53,7 +53,8 @@ module.exports = {
         {
           photosPermission: 'O WACS precisa de acesso à sua biblioteca de fotos para que você possa selecionar uma foto de perfil.'
         }
-      ]
+      ],
+      'react-native-ble-plx',
     ],
     newArchEnabled: true,
     extra: {
@@ -65,7 +66,11 @@ module.exports = {
       FIREBASE_APP_ID: process.env.FIREBASE_APP_ID,
       FIREBASE_MEASUREMENT_ID: process.env.FIREBASE_MEASUREMENT_ID,
       GOOGLE_MAPS_API_KEY: process.env.GOOGLE_MAPS_API_KEY,
-      WEBSOCKET_URL: process.env.WEBSOCKET_URL
+      WEBSOCKET_URL: process.env.WEBSOCKET_URL,
+      USE_BLUETOOTH_MOCK: process.env.USE_BLUETOOTH_MOCK,
+      eas: {
+        projectId: "a8a4ca48-63e4-4cc2-999e-ffc5f82ffc47"
+      }
     }
   }
 }; 

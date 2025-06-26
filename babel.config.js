@@ -14,14 +14,6 @@ module.exports = function (api) {
           },
         },
       ],
-      ['module:react-native-dotenv', {
-        moduleName: '@env',
-        path: '.env',
-        blacklist: null,
-        whitelist: ['GOOGLE_MAPS_API_KEY'],
-        safe: true,
-        allowUndefined: true
-      }]
     ]
   };
 }; 

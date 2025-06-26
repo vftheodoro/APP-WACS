@@ -23,12 +23,20 @@ export const ConnectionScreen = () => {
     connectToDevice,
     disconnectFromDevice,
     scanForDevices,
+    isScanning: contextIsScanning,
+    devices: contextDevices,
+    bluetoothState,
+    locationPermission,
+    openBluetoothSettings,
+    openAppSettings,
   } = useBluetooth();
 
   const [isScanning, setIsScanning] = useState(false);
   const [devices, setDevices] = useState([]); 
   const [selectedDevice, setSelectedDevice] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
+
+  const isReady = bluetoothState === 'PoweredOn' && locationPermission === 'granted';
 
   useEffect(() => {
     // Iniciar a busca apenas se NÃO estiver conectado ao montar a tela
@@ -45,16 +53,20 @@ export const ConnectionScreen = () => {
     };
   }, [isConnected]); 
 
+  // Sincronizar estados locais com contexto real, se disponível
+  useEffect(() => {
+    if (contextIsScanning !== undefined) setIsScanning(contextIsScanning);
+    if (contextDevices !== undefined) setDevices(contextDevices);
+  }, [contextIsScanning, contextDevices]);
+
   const handleScan = async () => {
     if (isConnected || isScanning) return;
-
     setIsScanning(true);
     setDevices([]); 
     setSelectedDevice(null);
-    
     try {
       const foundDevices = await scanForDevices(); 
-      setDevices(foundDevices);
+      if (contextDevices === undefined) setDevices(foundDevices); // só atualiza local se mock
     } catch (error) {
       console.error('Erro ao buscar dispositivos:', error);
       Alert.alert('Erro na Busca', 'Não foi possível buscar dispositivos Bluetooth.');
@@ -108,6 +120,7 @@ export const ConnectionScreen = () => {
     const signal = getSignalStrength(device.rssi);
     const isCurrentlyConnectedDevice = isConnected && deviceInfo?.id === device.id;
     const isSelected = selectedDevice?.id === device.id;
+    const displayName = device.name || device.id || 'Dispositivo BLE';
 
     return (
       <Pressable
@@ -119,7 +132,7 @@ export const ConnectionScreen = () => {
           isCurrentlyConnectedDevice && styles.deviceCardConnected
         ]}
         onPress={() => !isConnected && !isConnecting && handleConnectPress(device)}
-        disabled={isConnected || isConnecting}
+        disabled={isConnected && !isCurrentlyConnectedDevice || isConnecting}
       >
         <View style={styles.deviceInfo}>
           <View style={styles.deviceHeader}>
@@ -128,7 +141,13 @@ export const ConnectionScreen = () => {
               size={24} 
               color={signal.color} 
             />
-            <Text style={styles.deviceName}>{device.name}</Text>
+            <View>
+              <Text style={styles.deviceName}>{displayName}</Text>
+              <Text style={styles.deviceId}>{device.id}</Text>
+              {isCurrentlyConnectedDevice && (
+                <Text style={styles.connectedLabel}>Conectado</Text>
+              )}
+            </View>
           </View>
           
           <View style={styles.deviceDetails}>
@@ -207,6 +226,30 @@ export const ConnectionScreen = () => {
       </LinearGradient>
 
       <View style={styles.content}>
+        {/* Status do Bluetooth e Permissão */}
+        {bluetoothState !== 'PoweredOn' && (
+          <View style={styles.bluetoothWarning}>
+            <Ionicons name="alert-circle-outline" size={32} color="#f59e0b" />
+            <Text style={styles.bluetoothWarningText}>
+              O Bluetooth está desligado. Ative o Bluetooth nas configurações do sistema para buscar dispositivos.
+            </Text>
+            <Pressable style={styles.openSettingsButton} onPress={openBluetoothSettings}>
+              <Text style={styles.openSettingsButtonText}>Abrir Configurações</Text>
+            </Pressable>
+          </View>
+        )}
+        {bluetoothState === 'PoweredOn' && locationPermission !== 'granted' && (
+          <View style={styles.bluetoothWarning}>
+            <Ionicons name="location-outline" size={32} color="#f59e0b" />
+            <Text style={styles.bluetoothWarningText}>
+              O app precisa de permissão de localização para buscar dispositivos Bluetooth. Vá em Configurações e permita o acesso.
+            </Text>
+            <Pressable style={styles.openSettingsButton} onPress={openAppSettings}>
+              <Text style={styles.openSettingsButtonText}>Abrir Configurações</Text>
+            </Pressable>
+          </View>
+        )}
+
         {isConnected && deviceInfo ? (
             <View style={styles.devicesList}> 
                 {renderDevice(deviceInfo)}
@@ -215,7 +258,7 @@ export const ConnectionScreen = () => {
             <View style={styles.statusCard}> 
               <View style={styles.statusHeader}>
                 <Ionicons 
-                  name={isScanning ? 'bluetooth-searching' : 'bluetooth'} 
+                  name={isScanning ? 'bluetooth' : 'bluetooth'} 
                   size={24} 
                   color={isScanning ? '#FF9800' : '#1976d2'} 
                 />
@@ -237,7 +280,7 @@ export const ConnectionScreen = () => {
                     devices.map(renderDevice)
                   ) : (
                     <View style={styles.noDevicesContainer}>
-                      <Ionicons name="bluetooth-off" size={48} color="#9E9E9E" />
+                      <Ionicons name="bluetooth-outline" size={48} color="#9E9E9E" />
                       <Text style={styles.noDevicesText}>
                         Nenhum dispositivo encontrado
                       </Text>
@@ -254,9 +297,9 @@ export const ConnectionScreen = () => {
         {/* Botão Buscar Novamente - Apenas quando não conectado */}
         {!isConnected && (
             <Pressable
-              style={styles.scanButton}
+              style={[styles.scanButton, !isReady && { opacity: 0.5 }]}
               onPress={handleScan} 
-              disabled={isScanning || isConnecting}
+              disabled={isScanning || isConnecting || !isReady}
             >
               <LinearGradient
                 colors={['#1976d2', '#2196f3']}
@@ -466,5 +509,46 @@ const styles = StyleSheet.create({
   },
   scanningIcon: {
     transform: [{ rotate: '45deg' }],
+  },
+  bluetoothWarning: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 20,
+    marginBottom: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
+    alignItems: 'center',
+  },
+  bluetoothWarningText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 20,
+    textAlign: 'center',
+  },
+  openSettingsButton: {
+    backgroundColor: '#1976d2',
+    borderRadius: 8,
+    padding: 12,
+  },
+  openSettingsButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  deviceId: {
+    fontSize: 12,
+    fontWeight: '400',
+    color: '#999',
+    marginLeft: 12,
+  },
+  connectedLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#4CAF50',
+    marginLeft: 12,
   },
 });

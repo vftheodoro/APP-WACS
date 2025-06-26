@@ -32,7 +32,7 @@ O APP-WACS é um aplicativo completo para pessoas com mobilidade reduzida, cuida
 
 - **Gerenciamento de Perfil do Usuário:** Visualize e edite suas informações pessoais e foto de perfil.
 - **Conexão Bluetooth:** Busque e conecte-se à sua cadeira de rodas via Bluetooth.
-- **Controle da Cadeira:** Interface para controlar os movimentos da cadeira de rodas.
+- **Controle da Cadeira:** Interface para controlar os movimentos da cadeira de rodas, incluindo um botão dedicado para destravar/travar os freios eletromagnéticos. Quando os freios estão destravados, a cadeira não se move e todos os controles de movimento ficam desabilitados, garantindo segurança total ao usuário. O botão de freio substitui o antigo modo de emergência.
 - **Navegação e Rastreamento:** Mapa interativo, cálculo de rotas, busca de locais e histórico.
 - **Locais Acessíveis:** Lista, filtro, avaliação e cadastro de locais acessíveis, com cálculo de distância local.
 - **Assistente Virtual:** Interface para interação com um assistente (Chat).

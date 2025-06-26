@@ -158,7 +158,7 @@ export const MainSelectionScreen = () => {
   };
 
   const getConnectionIcon = () => {
-    if (isConnecting) return 'bluetooth-searching';
+    if (isConnecting) return 'bluetooth';
     if (!isConnected) return 'bluetooth-outline';
     return connectionStrength === 'strong' ? 'bluetooth' : 'bluetooth-outline';
   };
@@ -271,8 +271,22 @@ export const MainSelectionScreen = () => {
         styles.quickActionButton,
         action.disabled && styles.quickActionDisabled
       ]}
-      onPress={action.onPress}
-      disabled={action.disabled}
+      onPress={() => {
+        if (!action.disabled) {
+          action.onPress();
+        }
+      }}
+      onLongPress={
+        action.id === 'control' && action.disabled
+          ? () => {
+              Alert.alert(
+                'Modo Simulado',
+                'Você está acessando o controle em modo simulado para testes.'
+              );
+              navigation.navigate('ControlScreen', { mockMode: true });
+            }
+          : undefined
+      }
     >
       <LinearGradient
         colors={action.disabled ? ['#e0e0e0', '#bdbdbd'] : action.gradient}
@@ -455,7 +469,7 @@ export const MainSelectionScreen = () => {
           <View style={styles.disconnectedInfo}>
             {/* Mostrar ícone de buscando se estiver conectando */}
             {isConnecting ? (
-              <Ionicons name="bluetooth-searching" size={36} color="#FF9800" />
+              <Ionicons name="bluetooth" size={36} color="#FF9800" />
             ) : (
               <Ionicons name="bluetooth-outline" size={36} color="#9E9E9E" />
             )}

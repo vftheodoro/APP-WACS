@@ -5,7 +5,6 @@ import {
   StyleSheet,
   Dimensions,
   Pressable,
-  Vibration,
   ScrollView,
   Alert,
   ActivityIndicator,
@@ -20,32 +19,26 @@ import Animated, {
   useDerivedValue,
   interpolate,
   Extrapolate,
+  useSharedValue as useRNSharedValue,
+  withTiming,
 } from 'react-native-reanimated';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useBluetooth } from '../contexts/BluetoothContext';
+import * as Haptics from 'expo-haptics';
 
 const JOYSTICK_SIZE = 280;
 const STICK_SIZE = 100;
 const MAX_DISTANCE = (JOYSTICK_SIZE - STICK_SIZE) / 2;
-const VIBRATION_DURATION = 50;
 
 export const ControlScreen = () => {
   // Estados principais - Usados para a UI do React, sincronizados com shared values quando necessário
   const [speedMode, setSpeedMode] = useState('manual');
   const [isLocked, setIsLocked] = useState(false);
-  const [emergencyMode, setEmergencyMode] = useState(false);
+  const [brakeReleased, setBrakeReleased] = useState(false);
   const currentSpeed = useSharedValue(0);
   const [isPressingLock, setIsPressingLock] = useState(false);
-
-  // Estados de telemetria - Usados para a UI do React
-  const [telemetry, setTelemetry] = useState({
-    totalDistance: '0 km',
-    sessionTime: '00:00:00',
-    avgSpeed: '0 km/h',
-    temperature: '--°C'
-  });
 
   // Refs - Usados para valores persistentes que não causam re-renderização
   const translateX = useSharedValue(0);
@@ -57,12 +50,17 @@ export const ControlScreen = () => {
 
   // Shared values - Sincronizados com os estados regulares quando sua mudança precisa ser lida no worklet
   const isLockedShared = useSharedValue(false);
-  const emergencyModeShared = useSharedValue(false);
   const speedModeShared = useSharedValue('manual');
-  const maxSpeedShared = useSharedValue(8);
+  const maxSpeedShared = useSharedValue(10);
 
   // Estado de exibição para maxSpeed, sincronizado para mostrar na UI regular
-  const [displayMaxSpeed, setDisplayMaxSpeed] = useState(8);
+  const [displayMaxSpeed, setDisplayMaxSpeed] = useState(10);
+
+  // Estado para exibir a velocidade do gauge sem acessar .value no render
+  const [displaySpeed, setDisplaySpeed] = useState('0.0');
+  useDerivedValue(() => {
+    runOnJS(setDisplaySpeed)(currentSpeed.value.toFixed(1));
+  }, [currentSpeed]);
 
   const { 
     isConnected,
@@ -75,13 +73,15 @@ export const ControlScreen = () => {
   } = useBluetooth();
 
   const navigation = useNavigation();
+  const route = useRoute();
+  const mockMode = route.params?.mockMode === true;
 
-  // Redireciona se não estiver conectado
+  // Redireciona se não estiver conectado, exceto em modo simulado
   useEffect(() => {
-    if (!isConnected && !isConnecting && !deviceInfo) {
+    if (!mockMode && !isConnected && !isConnecting && !deviceInfo) {
       navigation.goBack();
     }
-  }, [isConnected, isConnecting, deviceInfo, navigation]); // Adicionado navigation como dependência
+  }, [isConnected, isConnecting, deviceInfo, navigation, mockMode]);
 
   // Sincroniza shared values com estados regulares do React
   useEffect(() => {
@@ -89,40 +89,15 @@ export const ControlScreen = () => {
   }, [isLocked]);
 
   useEffect(() => {
-    emergencyModeShared.value = emergencyMode;
-  }, [emergencyMode]);
-
-  useEffect(() => {
     speedModeShared.value = speedMode;
     const speedLimits = {
-      'eco': 3,
-      'comfort': 5,
-      'sport': 8,
-      'manual': 8
+      'eco': 5, // 50% da potência
+      'sport': 10,
+      'manual': 10
     };
     maxSpeedShared.value = speedLimits[speedMode];
     runOnJS(setDisplayMaxSpeed)(speedLimits[speedMode]); // Sincroniza estado regular para exibição
   }, [speedMode, speedModeShared, maxSpeedShared]); // Adicionado shared values como dependência
-
-  // Simulação de dados em tempo real
-  useEffect(() => {
-    if (isConnected) {
-      sessionStartTime.current = Date.now(); // Reinicia o tempo ao conectar
-      const interval = setInterval(() => {
-        // Atualizar telemetria simulada
-        setTelemetry(prev => ({
-          ...prev,
-          sessionTime: formatTime(Date.now() - sessionStartTime.current), // Usar .current do ref
-          avgSpeed: `${(Math.random() * 2 + 3).toFixed(1)} km/h`,
-          temperature: `${Math.floor(Math.random() * 5 + 20)}°C`
-        }));
-
-        // Atualizar velocidade baseada no joystick - A velocidade é atualizada no useDerivedValue
-      }, 1000);
-
-      return () => clearInterval(interval);
-    }
-  }, [isConnected, formatTime]); // Adicionado formatTime como dependência
 
   // Derived value para calcular a velocidade em tempo real e atualizar o shared value
   useDerivedValue(() => {
@@ -158,27 +133,41 @@ export const ControlScreen = () => {
     };
   });
 
+  // Estados sincronizados com shared values para uso no JSX
+  const [isLockedSharedState, setIsLockedSharedState] = useState(false);
+  useDerivedValue(() => {
+    runOnJS(setIsLockedSharedState)(isLockedShared.value);
+  }, [isLockedShared]);
+
+  const [scrollLocked, setScrollLocked] = useState(false);
+  // Animação para overlay de scroll travado
+  const scrollLockAnim = useRNSharedValue(0);
+  useEffect(() => {
+    scrollLockAnim.value = withTiming(scrollLocked ? 1 : 0, { duration: 350 });
+  }, [scrollLocked]);
+  const scrollLockOverlayStyle = useAnimatedStyle(() => ({
+    opacity: scrollLockAnim.value,
+    transform: [{ translateY: interpolate(scrollLockAnim.value, [0, 1], [40, 0]) }],
+    pointerEvents: scrollLockAnim.value > 0.1 ? 'auto' : 'none',
+  }));
+
   const handleGestureEvent = useAnimatedGestureHandler({
     onStart: (_, ctx) => {
-      // A lógica de habilitação/desabilitação agora depende dos shared values
-      if (!isConnected || isLockedShared.value || emergencyModeShared.value) {
-        // O retorno antecipado aqui impede o início do gesto se desabilitado
+      if (!(isConnected || mockMode) || isLockedSharedState || brakeReleased) {
         return;
       }
       ctx.offsetX = translateX.value;
       ctx.offsetY = translateY.value;
+      // Travar scroll automaticamente ao iniciar joystick
+      if (!scrollLocked) runOnJS(setScrollLocked)(true);
     },
     onActive: (event, ctx) => {
-      // A lógica de habilitação/desabilitação agora depende dos shared values
-      if (!isConnected || isLockedShared.value || emergencyModeShared.value) {
-        // O retorno antecipado aqui impede o movimento do joystick se desabilitado
+      if (!(isConnected || mockMode) || isLockedSharedState || brakeReleased) {
         return;
       }
       const newTranslateX = event.translationX + ctx.offsetX;
       const newTranslateY = event.translationY + ctx.offsetY;
-
       const distance = Math.sqrt(newTranslateX * newTranslateX + newTranslateY * newTranslateY);
-
       if (distance <= MAX_DISTANCE) {
         translateX.value = newTranslateX;
         translateY.value = newTranslateY;
@@ -187,34 +176,30 @@ export const ControlScreen = () => {
         translateX.value = Math.cos(angle) * MAX_DISTANCE;
         translateY.value = Math.sin(angle) * MAX_DISTANCE;
       }
-
       const normalizedX = translateX.value / MAX_DISTANCE;
       const normalizedY = translateY.value / MAX_DISTANCE;
-
       const command = {
         type: 'move',
         mode: speedModeShared.value,
         x: normalizedX,
         y: normalizedY,
       };
-      // Em um cenário real, você enviaria o comando Bluetooth aqui
+      // TODO: Enviar comando real via Bluetooth para o HC-06 aqui, se conectado
+      // Exemplo: bluetoothWrite(command)
     },
     onEnd: () => {
-      // A lógica de habilitação/desabilitação agora depende dos shared values
-      if (!isConnected || isLockedShared.value || emergencyModeShared.value) {
-        // O retorno antecipado aqui impede o reset do joystick se desabilitado
+      if (!(isConnected || mockMode) || isLockedSharedState || brakeReleased) {
         return;
       }
       translateX.value = withSpring(0);
       translateY.value = withSpring(0);
-
-      currentSpeed.value = 0; // Reseta o shared value da velocidade
-
+      currentSpeed.value = 0;
       const stopCommand = {
         type: 'stop',
         mode: speedModeShared.value,
       };
-      // Em um cenário real, você enviaria o comando Bluetooth de parada aqui
+      // TODO: Enviar comando de parada real via Bluetooth para o HC-06 aqui
+      // Exemplo: bluetoothWrite(stopCommand)
     },
   });
 
@@ -224,12 +209,10 @@ export const ControlScreen = () => {
         { translateX: translateX.value },
         { translateY: translateY.value },
       ],
-      backgroundColor: isLockedShared.value 
+      backgroundColor: isLockedSharedState 
         ? '#ef5350' 
-        : emergencyModeShared.value 
-          ? '#ffa726' 
-          : '#42a5f5',
-      opacity: isConnected ? 1 : 0.5,
+        : '#42a5f5',
+      opacity: (isConnected || mockMode) ? 1 : 0.5,
     };
   });
 
@@ -244,23 +227,24 @@ export const ControlScreen = () => {
 
   const handleSpeedModeChange = (mode) => {
     // Usar estados regulares do React para lógica UI/vibração
-    if (!isConnected || isLocked || emergencyMode) {
-      Vibration.vibrate(VIBRATION_DURATION);
+    if (!(isConnected || mockMode) || isLocked || brakeReleased) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       return;
     }
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     setSpeedMode(mode);
     // maxSpeedShared.value é atualizado no useEffect quando speedMode muda
   };
 
   const handleLockToggle = () => {
     // Usar estados regulares do React para lógica UI/vibração
-    if (!isConnected || emergencyMode) {
-      Vibration.vibrate(VIBRATION_DURATION);
+    if (!(isConnected || mockMode) || brakeReleased) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
       return;
     }
     const newState = !isLocked;
     setIsLocked(newState); // Atualiza o estado regular do React, que sincroniza o shared value via useEffect
-    Vibration.vibrate(VIBRATION_DURATION);
+    Haptics.impactAsync(newState ? Haptics.ImpactFeedbackStyle.Heavy : Haptics.ImpactFeedbackStyle.Light);
 
     if (newState) {
       // Resetar joystick e velocidade no worklet
@@ -268,43 +252,6 @@ export const ControlScreen = () => {
       translateY.value = withSpring(0);
       currentSpeed.value = 0; // Reseta o shared value
     }
-  };
-
-  const toggleEmergencyMode = () => {
-    if (!isConnected) {
-      Vibration.vibrate(VIBRATION_DURATION);
-      return;
-    }
-
-    Alert.alert(
-      "Modo de Emergência",
-      emergencyMode 
-        ? "Deseja desativar o modo de emergência?" 
-        : "ATENÇÃO: O modo de emergência irá limitar a velocidade e desativar o travamento. Deseja continuar?",
-      [
-        {
-          text: "Cancelar",
-          style: "cancel"
-        },
-        {
-          text: emergencyMode ? "Desativar" : "Ativar",
-          style: "destructive",
-          onPress: () => {
-            const newState = !emergencyMode;
-            setEmergencyMode(newState); // Atualiza o estado regular
-            if (!newState) { // Se estiver desativando
-              setIsLocked(false); // Destrava
-              setSpeedMode('manual');
-              maxSpeedShared.value = 8;
-              // Resetar joystick e velocidade no worklet
-              translateX.value = withSpring(0);
-              translateY.value = withSpring(0);
-              currentSpeed.value = 0;
-            }
-          }
-        }
-      ]
-    );
   };
 
   const handleDisconnect = () => {
@@ -331,7 +278,6 @@ export const ControlScreen = () => {
   const renderSpeedGauge = () => {
     const circumference = 2 * Math.PI * 45;
     const strokeDasharray = circumference;
-
     return (
       <View style={styles.speedGaugeContainer}>
         <View style={styles.speedGauge}>
@@ -344,18 +290,45 @@ export const ControlScreen = () => {
             }
           ]} />
           <View style={styles.speedGaugeText}>
-            <Animated.Text style={styles.speedGaugeValue}>{currentSpeed.value.toFixed(1)}</Animated.Text>
-            <Text style={styles.speedGaugeUnit}>km/h</Text>
+            <Text style={styles.speedGaugeValue}>{displaySpeed}</Text>
+            <Text style={styles.speedGaugeUnit}>
+              Potência: {Math.round((parseFloat(displaySpeed) / 10) * 100) || 0}%
+            </Text>
           </View>
         </View>
       </View>
     );
   };
 
+  // Definir cores dinâmicas conforme estado de bloqueio/freio
+  const isBlocked = isLocked || brakeReleased;
+  const headerColors = isBlocked ? ['#bdbdbd', '#f59e0b'] : ['#1976d2', '#2196f3'];
+  const joystickBgColor = isBlocked ? '#f3f4f6' : '#fff';
+  const joystickStickColor = isBlocked ? '#bdbdbd' : '#42a5f5';
+  const mainContentBg = isBlocked ? '#fef3c7' : '#fff';
+
+  // Feedback háptico ao travar/destravar scroll
+  useEffect(() => {
+    if (scrollLocked) {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    } else {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
+  }, [scrollLocked]);
+
+  // Feedback ao destravar/travar freio
+  useEffect(() => {
+    if (brakeReleased) {
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+    } else {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    }
+  }, [brakeReleased]);
+
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <LinearGradient
-        colors={['#1976d2', '#2196f3']}
+        colors={headerColors}
         style={styles.header}
       >
         <View style={styles.headerContent}>
@@ -374,12 +347,18 @@ export const ControlScreen = () => {
             <Ionicons name="bluetooth-outline" size={24} color="#fff" />
           </Pressable>
         </View>
+        {/* Aviso de modo simulado */}
+        {mockMode && (
+          <View style={{ backgroundColor: '#ff9800', padding: 8, borderRadius: 8, marginTop: 10, alignItems: 'center' }}>
+            <Text style={{ color: '#fff', fontWeight: 'bold' }}>Modo Simulado Ativo</Text>
+          </View>
+        )}
         <View style={styles.headerStatus}>
           <View style={styles.headerStatusItem}>
-            <Ionicons 
-              name={batteryLevel > 20 ? "battery-half-outline" : "battery-alert-outline"} 
-              size={20} 
-              color={batteryLevel > 20 ? "#fff" : "#ff6b6b"} 
+            <Ionicons
+              name={batteryLevel > 20 ? 'battery-half-outline' : 'battery-dead-outline'}
+              size={20}
+              color={batteryLevel > 20 ? '#fff' : '#ff6b6b'}
             />
             <Text style={[
               styles.headerStatusText,
@@ -389,22 +368,14 @@ export const ControlScreen = () => {
             </Text>
           </View>
           <View style={styles.headerStatusItem}>
-            <Ionicons name="time-outline" size={20} color="#fff" />
-            <Text style={styles.headerStatusText}>{estimatedAutonomy}</Text>
-          </View>
-          <View style={styles.headerStatusItem}>
             <Ionicons name="bluetooth-outline" size={20} color="#fff" />
             <Text style={styles.headerStatusText}>{connectionStrength}</Text>
-          </View>
-          <View style={styles.headerStatusItem}>
-            <Ionicons name="speedometer-outline" size={20} color="#fff" />
-            <Text style={styles.headerStatusText}>{displayMaxSpeed} km/h</Text>
           </View>
         </View>
       </LinearGradient>
 
-      <ScrollView contentContainerStyle={styles.scrollViewContent}>
-        {!isConnected ? (
+      <ScrollView contentContainerStyle={styles.scrollViewContent} scrollEnabled={!scrollLocked}>
+        {!(isConnected || mockMode) ? (
           <View style={styles.disconnectedContainer}>
             <Ionicons name="alert-circle-outline" size={64} color="#f59e0b" />
             <Text style={styles.disconnectedText}>Cadeira de rodas não conectada</Text>
@@ -421,47 +392,46 @@ export const ControlScreen = () => {
               </LinearGradient>
             </Pressable>
           </View>
-        ) : (
+        ) :
           <View style={styles.mainContentArea}>
-            {/* Status Cards */}
-            <View style={styles.statusCardsContainer}>
-              <View style={[styles.statusCard, styles.statusCardPurple]}>
-                <View style={styles.statusCardContent}>
-                  <View>
-                    <Text style={styles.statusCardLabel}>Tempo Sessão</Text>
-                    <Text style={styles.statusCardValue}>{telemetry.sessionTime}</Text>
-                  </View>
-                  <Ionicons name="time-outline" size={32} color="#fff" style={styles.statusCardIcon} />
-                </View>
-              </View>
-              
-              <View style={[styles.statusCard, styles.statusCardOrange]}>
-                <View style={styles.statusCardContent}>
-                  <View>
-                    <Text style={styles.statusCardLabel}>Velocidade Média</Text>
-                    <Text style={styles.statusCardValue}>{telemetry.avgSpeed}</Text>
-                  </View>
-                  <Ionicons name="speedometer-outline" size={32} color="#fff" style={styles.statusCardIcon} />
-                </View>
-              </View>
-            </View>
-
+            {/* Fundo dinâmico para área principal */}
+            <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: mainContentBg, zIndex: -1, borderRadius: 20 }} pointerEvents="none" />
             {/* Joystick Area */}
-            <View style={styles.joystickArea}>
-              {/* Emergency Button */}
+            <View style={[styles.joystickArea, { backgroundColor: joystickBgColor }]}>
+              {/* Botão de Freio Eletromagnético */}
               <Pressable
-                onPress={toggleEmergencyMode}
+                onPress={() => {
+                  if (!brakeReleased) {
+                    Alert.alert(
+                      'Destravar Freios de Segurança',
+                      'Os freios eletromagnéticos impedem que a cadeira se mova acidentalmente em rampas ou quando desligada. Tem certeza que deseja destravar os freios? A cadeira NÃO irá se mover enquanto os freios estiverem destravados.',
+                      [
+                        { text: 'Cancelar', style: 'cancel' },
+                        { text: 'Destravar', style: 'destructive', onPress: () => setBrakeReleased(true) }
+                      ]
+                    );
+                  } else {
+                    setBrakeReleased(false);
+                  }
+                }}
                 style={[
                   styles.emergencyButton,
-                  emergencyMode && styles.emergencyButtonActive
+                  brakeReleased && styles.emergencyButtonActive
                 ]}
               >
-                <Ionicons 
-                  name="power" 
-                  size={24} 
-                  color={emergencyMode ? "#fff" : "#ef4444"}
+                <Ionicons
+                  name={brakeReleased ? "remove-circle" : "lock-closed"}
+                  size={28}
+                  color={brakeReleased ? "#fff" : "#1976d2"}
                 />
               </Pressable>
+              {brakeReleased && (
+                <View style={{ marginTop: 8, backgroundColor: '#fff3cd', borderRadius: 8, padding: 8, alignItems: 'center' }}>
+                  <Text style={{ color: '#b45309', fontWeight: 'bold', fontSize: 14 }}>
+                    A cadeira não anda com os freios destravados.
+                  </Text>
+                </View>
+              )}
 
               {/* Joystick */}
               <View style={styles.joystickContainer}>
@@ -474,10 +444,10 @@ export const ControlScreen = () => {
                     onPressOut={() => setIsPressingLock(false)}
                   >
                     <PanGestureHandler 
-                      onGestureEvent={handleGestureEvent} 
-                      enabled={!isLockedShared.value && isConnected && !emergencyModeShared.value}
+                      onGestureEvent={handleGestureEvent}
+                      enabled={!isLockedSharedState && (isConnected || mockMode) && !brakeReleased}
                     >
-                      <Animated.View style={[styles.joystickStick, stickAnimatedStyle]}>
+                      <Animated.View style={[styles.joystickStick, stickAnimatedStyle, { backgroundColor: joystickStickColor }]}>
                         {isPressingLock && (
                           <Text style={styles.lockStatusText}>
                             {isLocked ? '🔒' : '🔓'}
@@ -502,18 +472,17 @@ export const ControlScreen = () => {
               <View style={styles.speedModesGrid}>
                 {[
                   { key: 'eco', label: 'Eco', icon: '🌱', desc: 'Máxima autonomia' },
-                  { key: 'comfort', label: 'Conforto', icon: '🛋️', desc: 'Equilíbrio ideal' },
                   { key: 'sport', label: 'Esporte', icon: '⚡', desc: 'Máxima performance' },
                   { key: 'manual', label: 'Manual', icon: '⚙️', desc: 'Controle total' }
                 ].map(mode => (
                   <Pressable
                     key={mode.key}
                     onPress={() => handleSpeedModeChange(mode.key)}
-                    disabled={!isConnected || isLocked || emergencyMode}
+                    disabled={!(isConnected || mockMode) || isLocked || brakeReleased}
                     style={[
                       styles.speedModeButton,
                       speedMode === mode.key && styles.speedModeButtonSelected,
-                      (!isConnected || isLocked || emergencyMode) && styles.speedModeButtonDisabled
+                      (!(isConnected || mockMode) || isLocked || brakeReleased) && styles.speedModeButtonDisabled
                     ]}
                   >
                     <View style={styles.speedModeContent}>
@@ -538,114 +507,75 @@ export const ControlScreen = () => {
               </View>
             </View>
 
-            {/* Quick Actions */}
-            <View style={styles.quickActionsContainer}>
-              <Text style={styles.sectionTitle}>Ações Rápidas</Text>
-              <View style={styles.quickActionsGrid}>
-                <Pressable
-                  onPress={handleLockToggle}
-                  disabled={!isConnected || emergencyMode}
-                  style={[
-                    styles.quickActionButton,
-                    isLocked && styles.quickActionButtonActive,
-                    (!isConnected || emergencyMode) && styles.quickActionButtonDisabled
-                  ]}
-                >
-                  <Ionicons 
-                    name={isLocked ? "lock-closed" : "lock-open"} 
-                    size={24} 
-                    color={isLocked ? "#ef4444" : "#6b7280"}
-                  />
-                  <Text style={styles.quickActionLabel}>
-                    {isLocked ? 'Destrav.' : 'Travar'}
-                  </Text>
-                </Pressable>
-
-                <Pressable
-                  disabled={!isConnected || emergencyMode}
-                  style={[
-                    styles.quickActionButton,
-                    (!isConnected || emergencyMode) && styles.quickActionButtonDisabled
-                  ]}
-                >
-                  <Ionicons name="settings-outline" size={24} color="#6b7280" />
-                  <Text style={styles.quickActionLabel}>Config.</Text>
-                </Pressable>
-
-                <Pressable
-                  onPress={toggleEmergencyMode}
-                  disabled={!isConnected}
-                  style={[
-                    styles.quickActionButton,
-                    emergencyMode && styles.quickActionButtonEmergency,
-                    !isConnected && styles.quickActionButtonDisabled
-                  ]}
-                >
-                  <Ionicons 
-                    name="flash" 
-                    size={24} 
-                    color={emergencyMode ? "#fff" : "#f97316"}
-                  />
-                  <Text style={[
-                    styles.quickActionLabel,
-                    emergencyMode && styles.quickActionLabelEmergency
-                  ]}>
-                    Emerg.
-                  </Text>
-                </Pressable>
-
-                <Pressable
-                  disabled={!isConnected || emergencyMode}
-                  style={[
-                    styles.quickActionButton,
-                    (!isConnected || emergencyMode) && styles.quickActionButtonDisabled
-                  ]}
-                >
-                  <Ionicons name="stats-chart-outline" size={24} color="#6b7280" />
-                  <Text style={styles.quickActionLabel}>Status</Text>
-                </Pressable>
-              </View>
-            </View>
-
             {/* System Status */}
             <View style={styles.systemStatusContainer}>
               <Text style={styles.sectionTitle}>Status do Sistema</Text>
-              <View style={styles.systemStatusGrid}>
-                <View style={styles.systemStatusItem}>
-                  <Text style={styles.systemStatusLabel}>Conexão</Text>
-                  <Text style={[
-                    styles.systemStatusValue,
-                    isConnected ? styles.systemStatusValueActive : styles.systemStatusValueInactive
-                  ]}>
-                    {isConnected ? 'Ativo' : 'Inativo'}
-                  </Text>
-                </View>
-                <View style={styles.systemStatusItem}>
-                  <Text style={styles.systemStatusLabel}>Modo Atual</Text>
-                  <Text style={styles.systemStatusValue}>
-                    {speedMode.charAt(0).toUpperCase() + speedMode.slice(1)}
-                  </Text>
-                </View>
-                <View style={styles.systemStatusItem}>
-                  <Text style={styles.systemStatusLabel}>Temperatura</Text>
-                  <Text style={styles.systemStatusValue}>
-                    {telemetry.temperature}
-                  </Text>
-                </View>
-                <View style={styles.systemStatusItem}>
-                  <Text style={styles.systemStatusLabel}>Segurança</Text>
-                  <Text style={[
-                    styles.systemStatusValue,
-                    isLocked ? styles.systemStatusValueWarning : styles.systemStatusValueActive
-                  ]}>
-                    {isLocked ? 'Travado' : 'Liberado'}
-                  </Text>
+              <View style={styles.statusCardModern}>
+                <View style={styles.statusGridModern}>
+                  <View style={styles.statusItemModern}>
+                    <Ionicons name={isConnected ? 'bluetooth' : 'bluetooth-outline'} size={28} color={isConnected ? '#10b981' : '#ef4444'} style={styles.statusIconModern} />
+                    <Text style={styles.statusLabelModern}>Conexão</Text>
+                    <Text style={[
+                      styles.statusValueModern,
+                      (isConnected || mockMode) ? styles.statusValueActiveModern : styles.statusValueInactiveModern
+                    ]}>
+                      {isConnected ? 'Ativo' : 'Inativo'}
+                    </Text>
+                  </View>
+                  <View style={styles.statusItemModern}>
+                    <Ionicons name="speedometer-outline" size={28} color="#3b82f6" style={styles.statusIconModern} />
+                    <Text style={styles.statusLabelModern}>Modo</Text>
+                    <Text style={styles.statusValueModern}>
+                      {speedMode.charAt(0).toUpperCase() + speedMode.slice(1)}
+                    </Text>
+                  </View>
+                  <View style={styles.statusItemModern}>
+                    <Ionicons name={isLocked ? 'lock-closed' : 'lock-open'} size={28} color={isLocked ? '#f59e0b' : '#10b981'} style={styles.statusIconModern} />
+                    <Text style={styles.statusLabelModern}>Segurança</Text>
+                    <Text style={[
+                      styles.statusValueModern,
+                      isLocked ? styles.statusValueWarningModern : styles.statusValueActiveModern
+                    ]}>
+                      {isLocked ? 'Travado' : 'Liberado'}
+                    </Text>
+                  </View>
+                  <View style={styles.statusItemModern}>
+                    <Ionicons name={brakeReleased ? 'remove-circle' : 'lock-closed'} size={28} color={brakeReleased ? '#ef4444' : '#10b981'} style={styles.statusIconModern} />
+                    <Text style={styles.statusLabelModern}>Freio</Text>
+                    <Text style={[
+                      styles.statusValueModern,
+                      brakeReleased ? styles.statusValueWarningModern : styles.statusValueActiveModern
+                    ]}>
+                      {brakeReleased ? 'Destravado' : 'Travado'}
+                    </Text>
+                  </View>
                 </View>
               </View>
             </View>
           </View>
-        )}
+        }
       </ScrollView>
+
+      {/* Overlay animado indicando scroll travado */}
+      <Animated.View pointerEvents="none" style={[styles.scrollLockOverlay, scrollLockOverlayStyle]}> 
+        <View style={styles.scrollLockOverlayContent}>
+          <Ionicons name="lock-closed" size={38} color="#1976d2" style={{ marginBottom: 8 }} />
+          <Text style={styles.scrollLockOverlayText}>Scroll travado para evitar deslize acidental</Text>
+        </View>
+      </Animated.View>
+
+      {/* Botão flutuante para travar/destravar o scroll */}
+      <Pressable
+        style={[styles.fabLockScroll, scrollLocked && styles.fabLockScrollActive]}
+        onPress={() => setScrollLocked((prev) => !prev)}
+        accessibilityLabel={scrollLocked ? 'Destravar scroll' : 'Travar scroll'}
+      >
+        <Ionicons
+          name={scrollLocked ? 'lock-closed' : 'lock-open'}
+          size={28}
+          color={scrollLocked ? '#fff' : '#1976d2'}
+        />
+      </Pressable>
     </GestureHandlerRootView>
   );
 };
@@ -663,8 +593,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   header: {
-    paddingTop: 50,
-    paddingBottom: 20,
+    paddingTop: 32,
+    paddingBottom: 12,
     paddingHorizontal: 20,
     borderBottomLeftRadius: 25,
     borderBottomRightRadius: 25,
@@ -746,47 +676,6 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     fontWeight: '600',
-  },
-  statusCardsContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 12,
-  },
-  statusCard: {
-    flex: 1,
-    minWidth: '45%',
-    borderRadius: 16,
-    padding: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  statusCardPurple: {
-    backgroundColor: '#8b5cf6',
-  },
-  statusCardOrange: {
-    backgroundColor: '#f97316',
-  },
-  statusCardContent: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  statusCardLabel: {
-    color: '#fff',
-    fontSize: 14,
-    opacity: 0.9,
-  },
-  statusCardValue: {
-    color: '#fff',
-    fontSize: 20,
-    fontWeight: 'bold',
-    marginTop: 4,
-  },
-  statusCardIcon: {
-    opacity: 0.8,
   },
   joystickArea: {
     backgroundColor: '#fff',
@@ -963,54 +852,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#6b7280',
   },
-  quickActionsContainer: {
-    backgroundColor: '#fff',
-    borderRadius: 20,
-    padding: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  quickActionsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 12,
-  },
-  quickActionButton: {
-    flex: 1,
-    minWidth: '45%',
-    aspectRatio: 1,
-    backgroundColor: '#e0f2f7',
-    borderRadius: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: 8,
-    padding: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 3,
-    elevation: 2,
-  },
-  quickActionButtonActive: {
-    backgroundColor: '#ffcdd2',
-  },
-  quickActionButtonEmergency: {
-    backgroundColor: '#ffab91',
-  },
-  quickActionButtonDisabled: {
-    opacity: 0.5,
-    backgroundColor: '#e0e0e0',
-  },
-  quickActionLabel: {
-    fontSize: 14,
-    color: '#0277bd',
-  },
-  quickActionLabelEmergency: {
-    color: '#d84315',
-  },
   systemStatusContainer: {
     backgroundColor: '#fff',
     borderRadius: 20,
@@ -1021,32 +862,114 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 4,
   },
-  systemStatusGrid: {
-    gap: 12,
+  statusCardModern: {
+    backgroundColor: '#f9fafb',
+    borderRadius: 18,
+    padding: 18,
+    marginTop: 10,
+    marginBottom: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 3,
+    alignSelf: 'center',
+    width: '100%',
+    maxWidth: 400,
   },
-  systemStatusItem: {
+  statusGridModern: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     justifyContent: 'space-between',
     alignItems: 'center',
+    gap: 8,
+  },
+  statusItemModern: {
+    flex: 1,
+    minWidth: 80,
+    alignItems: 'center',
+    marginVertical: 8,
     paddingVertical: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: '#e5e7eb',
+    borderRadius: 12,
+    backgroundColor: '#fff',
+    shadowColor: '#e0e7ef',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.06,
+    shadowRadius: 4,
+    elevation: 1,
+    marginHorizontal: 4,
   },
-  systemStatusLabel: {
-    fontSize: 14,
+  statusIconModern: {
+    marginBottom: 6,
+  },
+  statusLabelModern: {
+    fontSize: 13,
     color: '#6b7280',
+    marginBottom: 2,
+    fontWeight: '500',
   },
-  systemStatusValue: {
-    fontSize: 14,
-    fontWeight: '600',
+  statusValueModern: {
+    fontSize: 15,
+    fontWeight: 'bold',
+    marginTop: 2,
   },
-  systemStatusValueActive: {
+  statusValueActiveModern: {
     color: '#10b981',
   },
-  systemStatusValueInactive: {
+  statusValueInactiveModern: {
     color: '#ef4444',
   },
-  systemStatusValueWarning: {
-    color: '#f97316',
+  statusValueWarningModern: {
+    color: '#f59e0b',
+  },
+  fabLockScroll: {
+    position: 'absolute',
+    right: 24,
+    bottom: 32,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: '#fff',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.12,
+    shadowRadius: 8,
+    elevation: 6,
+    borderWidth: 2,
+    borderColor: '#1976d2',
+    zIndex: 10,
+  },
+  fabLockScrollActive: {
+    backgroundColor: '#1976d2',
+    borderColor: '#1976d2',
+  },
+  scrollLockOverlay: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 100,
+    alignItems: 'center',
+    zIndex: 20,
+  },
+  scrollLockOverlayContent: {
+    backgroundColor: 'rgba(255,255,255,0.95)',
+    borderRadius: 16,
+    paddingVertical: 18,
+    paddingHorizontal: 28,
+    alignItems: 'center',
+    shadowColor: '#1976d2',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.10,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  scrollLockOverlayText: {
+    color: '#1976d2',
+    fontWeight: 'bold',
+    fontSize: 15,
+    textAlign: 'center',
+    maxWidth: 220,
   },
 }); 
