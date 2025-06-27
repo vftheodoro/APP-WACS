@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState, useContext } from 'react';
+import React, { useEffect, useRef, useState, useContext, useCallback, useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Platform, Alert, Dimensions, TextInput, FlatList, ScrollView, Image, StatusBar, Vibration, Animated } from 'react-native';
 import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
 import * as Location from 'expo-location';
@@ -32,7 +32,7 @@ import InstructionPanel from '../components/mapas/InstructionPanel';
 import BottomNavigationPanel from '../components/mapas/BottomNavigationPanel';
 import MapLocationPopup from '../components/mapas/MapLocationPopup';
 
-const GOOGLE_MAPS_APIKEY = Constants.expoConfig.extra.GOOGLE_MAPS_API_KEY;
+const GOOGLE_MAPS_API_KEY = Constants.expoConfig.extra.GOOGLE_MAPS_API_KEY;
 const { width, height } = Dimensions.get('window');
 
 const COLORS = {
@@ -55,6 +55,10 @@ const MapScreen = () => {
   const [heading, setHeading] = useState(0); // TODO: integrar com bússola
   const [arrivedModalVisible, setArrivedModalVisible] = useState(false);
   const arrivedAnim = useState(new Animated.Value(0))[0];
+  const [showAccessibleDetails, setShowAccessibleDetails] = useState(false);
+  const [showDetailsPanel, setShowDetailsPanel] = useState(false);
+  const [isLoading, setIsLoading] = useState(true); // loading global
+  const [loadingRoute, setLoadingRoute] = useState(false); // loading traçar rota
 
   // MOCK: Obstáculos e elevação para demonstração
   const mockObstacles = [
@@ -68,12 +72,42 @@ const MapScreen = () => {
     { start: { latitude: -23.002, longitude: -47.002 }, end: { latitude: -23.003, longitude: -47.003 }, gradePercent: 12, status: 'critical' },
   ];
 
-  // Ao selecionar destino, traçar rota
-  const handleSelectDestination = async (destination) => {
-    if (!logic.location || !destination) return;
-    await nav.requestRoute(logic.location, destination, process.env.GOOGLE_MAPS_API_KEY || logic.GOOGLE_MAPS_APIKEY);
-    setShowRouteModal(true);
-  };
+  // useEffect para loading global inicial
+  useEffect(() => {
+    if (!logic.showLoading) {
+      setTimeout(() => setIsLoading(false), 300); // delay para UX
+    } else {
+      setIsLoading(true);
+    }
+  }, [logic.showLoading]);
+
+  // useEffect para abrir o modal de rota quando routeData for atualizado
+  useEffect(() => {
+    if (nav.routeData) {
+      setShowRouteModal(true);
+      setLoadingRoute(false); // encerra loading de rota
+      console.log('[MapScreen] Modal de rota aberto via useEffect, routeData:', nav.routeData);
+    }
+  }, [nav.routeData]);
+
+  // Função memoizada para traçar rota
+  const handleSelectDestination = useCallback(async (destination) => {
+    console.log('[handleSelectDestination] chamada com:', destination, 'location atual:', logic.location);
+    if (!logic.location || !destination) {
+      console.warn('[handleSelectDestination] location ou destination inválidos', logic.location, destination);
+      return;
+    }
+    setLoadingRoute(true);
+    await nav.requestRoute(logic.location, destination, GOOGLE_MAPS_API_KEY);
+    console.log('[handleSelectDestination] nav.requestRoute finalizado, routeData:', nav.routeData);
+    // setShowRouteModal(true); // agora controlado por useEffect
+    console.log('[handleSelectDestination] setShowRouteModal(true) chamado');
+  }, [logic.location, nav, GOOGLE_MAPS_API_KEY]);
+
+  // Função memoizada para centralizar no usuário
+  const handleCenterOnUser = useCallback(() => {
+    logic.centerOnUser();
+  }, [logic]);
 
   // Ao iniciar navegação
   const handleStartNavigation = () => {
@@ -128,11 +162,21 @@ const MapScreen = () => {
     }
   }, [nav.isNavigating, nav.currentStepIndex, nav.routeData?.steps?.length]);
 
-  if (logic.showLoading) {
+  useEffect(() => {
+    setShowAccessibleDetails(false);
+    setShowDetailsPanel(false);
+    console.log('[MapScreen] selectedLocation mudou:', logic.selectedLocation);
+  }, [logic.selectedLocation]);
+
+  const memoizedOnLongPress = useCallback(handleLongPress, [logic, nav]);
+
+  if (isLoading || loadingRoute) {
     return (
-      <View style={{ flex: 1, backgroundColor: COLORS.background, justifyContent: 'center', alignItems: 'center' }}>
+      <View style={{ flex: 1, backgroundColor: COLORS.background, justifyContent: 'center', alignItems: 'center', zIndex: 9999 }}>
         <ActivityIndicator size="large" color={COLORS.primary} />
-        <Text style={{ marginTop: 18, fontSize: 18, color: COLORS.primary, fontWeight: 'bold' }}>Carregando mapa...</Text>
+        <Text style={{ marginTop: 18, fontSize: 18, color: COLORS.primary, fontWeight: 'bold' }}>
+          {loadingRoute ? 'Traçando rota...' : 'Carregando mapa...'}
+        </Text>
       </View>
     );
   }
@@ -226,18 +270,18 @@ const MapScreen = () => {
         isNavigating={nav.isNavigating}
         simpleRouteCoords={!nav.isNavigating ? logic.simpleRouteCoords : []}
         mapInitialRegion={logic.mapInitialRegion}
-        onLongPress={handleLongPress}
+        onLongPress={memoizedOnLongPress}
         mapReady={logic.mapReady}
         setMapReady={logic.setMapReady}
         user={logic.user}
         obstacles={mockObstacles}
         elevationSegments={mockElevationSegments}
-        is3DNavigation={false} // Forçar sempre 2D
-        heading={0} // Forçar sempre 0
+        is3DNavigation={false}
+        heading={0}
       />
       {/* Botões flutuantes */}
       <FloatingButtons
-        onCenter={logic.centerOnUser}
+        onCenter={handleCenterOnUser}
         onAdd={() => logic.navigation && logic.navigation.navigate('Locais', { addModalVisible: true })}
       />
       {/* Painel de confirmação de rota temporária */}
@@ -248,37 +292,65 @@ const MapScreen = () => {
       />
       {/* Painel de detalhes do local acessível OU popup de ponto aleatório */}
       {logic.selectedLocation && (
-        logic.selectedLocation.isAccessible ? (
+        showDetailsPanel ? (
           <AccessibleLocationDetailPanel
             location={logic.selectedLocation}
-            onClose={() => logic.setSelectedLocation(null)}
+            onClose={() => setShowDetailsPanel(false)}
             onViewDetails={() => {
-              logic.setSelectedLocation(null);
+              setShowDetailsPanel(false);
               logic.navigation.navigate('LocationDetail', { locationId: logic.selectedLocation.id });
             }}
             userLocation={logic.location}
-            onStartRoute={() => handleSelectDestination(logic.extractLatLng(logic.selectedLocation))}
             loadingRoute={false}
             routeInfo={nav.routeData?.info || {}}
             onShare={logic.handleShare}
             isFavorite={logic.isFavorite}
             onToggleFavorite={() => logic.setIsFavorite(fav => !fav)}
             reviews={logic.selectedLocationReviews}
+            onStartRoute={() => {
+              console.log('[MapScreen] Traçar rota chamado via painel de detalhes', logic.selectedLocation);
+              setShowDetailsPanel(false);
+              const loc = logic.selectedLocation;
+              let lat = loc.latitude, lng = loc.longitude;
+              if (loc.location && typeof loc.location === 'object') {
+                lat = loc.location.latitude;
+                lng = loc.location.longitude;
+              }
+              if (typeof lat === 'number' && typeof lng === 'number') {
+                handleSelectDestination({ latitude: lat, longitude: lng });
+              } else {
+                console.warn('[MapScreen] Local selecionado sem latitude/longitude válidos', loc);
+              }
+            }}
           />
         ) : (
           <MapLocationPopup
-            visible={!!logic.selectedLocation}
+            visible={!!logic.selectedLocation && !showDetailsPanel}
             location={logic.selectedLocation}
             onClose={() => logic.setSelectedLocation(null)}
             onShare={() => logic.handleShare(logic.selectedLocation)}
-            onRoute={() => handleSelectDestination(logic.selectedLocation)}
+            onRoute={() => {
+              console.log('[MapScreen] Traçar rota chamado via popup', logic.selectedLocation);
+              setShowDetailsPanel(true);
+            }}
+            onDetails={() => setShowDetailsPanel(true)}
           />
         )
       )}
       {/* Modal de detalhes da rota */}
+      {nav.navigationError && (
+        <View style={{ position: 'absolute', top: 120, left: 0, right: 0, alignItems: 'center', zIndex: 9999 }}>
+          <View style={{ backgroundColor: '#fff', borderRadius: 18, padding: 18, borderWidth: 2, borderColor: '#ff4444', elevation: 8 }}>
+            <Text style={{ color: '#ff4444', fontWeight: 'bold', fontSize: 17 }}>Erro ao traçar rota: {nav.navigationError}</Text>
+          </View>
+        </View>
+      )}
       <RoutePlannerModal
         visible={showRouteModal && !!nav.routeData}
-        onClose={() => setShowRouteModal(false)}
+        onClose={() => {
+          setShowRouteModal(false);
+          console.log('[RoutePlannerModal] Fechando modal');
+        }}
         onStart={handleStartNavigation}
         onShare={logic.handleShareRoute}
         info={nav.routeData?.info || {}}
@@ -402,7 +474,7 @@ const MapScreen = () => {
             </TouchableOpacity>
             <TouchableOpacity
               style={{ width: 54, height: 54, borderRadius: 27, backgroundColor: COLORS.primary, alignItems: 'center', justifyContent: 'center', marginLeft: 8 }}
-              onPress={logic.centerOnUser}
+              onPress={handleCenterOnUser}
               accessibilityLabel="Centralizar no usuário"
             >
               <Ionicons name="location-sharp" size={28} color="#fff" accessibilityLabel="Centralizar no usuário" />

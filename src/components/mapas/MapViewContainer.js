@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import MapView, { Marker, Polyline, PROVIDER_GOOGLE } from 'react-native-maps';
 import { View } from 'react-native';
 import UserMarker from './UserMarker';
@@ -71,6 +71,91 @@ export default function MapViewContainer({
       }, { duration: 800 });
     }
   }, [is3DNavigation, location, heading]);
+
+  // Memoizar marcadores de locais acessíveis
+  const accessibleMarkers = useMemo(() => (accessibleLocations && accessibleLocations.map((loc) => {
+    let latitude = loc.latitude;
+    let longitude = loc.longitude;
+    if (loc.location && typeof loc.location === 'object') {
+      if (typeof loc.location.latitude === 'number' && typeof loc.location.longitude === 'number') {
+        latitude = loc.location.latitude;
+        longitude = loc.location.longitude;
+      }
+    }
+    if (!latitude || !longitude) {
+      if (typeof loc.location === 'string') {
+        const match = loc.location.match(/([\d.]+)[^\d-]*([S|N]),\s*([\d.]+)[^\d-]*([W|E])/i);
+        if (match) {
+          let lat = parseFloat(match[1]);
+          let lng = parseFloat(match[3]);
+          if (match[2].toUpperCase() === 'S') lat = -lat;
+          if (match[4].toUpperCase() === 'W') lng = -lng;
+          latitude = lat;
+          longitude = lng;
+        }
+      }
+    }
+    if (typeof latitude === 'number' && typeof longitude === 'number' && !isNaN(latitude) && !isNaN(longitude)) {
+      const isSelected = selectedLocation && selectedLocation.id === loc.id;
+      return (
+        <Marker
+          key={loc.id}
+          coordinate={{ latitude, longitude }}
+          onPress={() => setSelectedLocation(loc)}
+          anchor={{ x: 0.5, y: 1 }}
+          zIndex={isSelected ? 999 : 1}
+        >
+          <AccessibleMarker location={loc} isSelected={isSelected} />
+        </Marker>
+      );
+    }
+    return null;
+  })), [accessibleLocations, selectedLocation, setSelectedLocation]);
+
+  // Memoizar obstáculos
+  const obstacleMarkers = useMemo(() => (obstacles.map((obs, idx) => (
+    <Marker
+      key={`obstacle-${idx}`}
+      coordinate={{ latitude: obs.latitude, longitude: obs.longitude }}
+      title={obs.type === 'step' ? 'Degrau' : obs.type === 'hole' ? 'Buraco' : obs.type === 'ramp' ? 'Rampa' : 'Obstáculo'}
+      description={obs.description}
+      pinColor={obs.severity === 'critical' ? '#FF5252' : obs.severity === 'moderate' ? '#FFD600' : '#43e97b'}
+      accessibilityLabel={`Obstáculo: ${obs.type}`}
+      accessibilityHint={obs.description}
+    >
+      <View style={{ backgroundColor: '#fff', borderRadius: 12, padding: 4, borderWidth: 2, borderColor: getSegmentColor(obs.severity), alignItems: 'center' }}>
+        <Ionicons name={
+          obs.type === 'step' ? 'remove-outline' :
+          obs.type === 'hole' ? 'ellipse-outline' :
+          obs.type === 'ramp' ? 'trending-up-outline' :
+          'alert-circle-outline'
+        } size={28} color={getSegmentColor(obs.severity)} />
+      </View>
+    </Marker>
+  ))), [obstacles]);
+
+  // Memoizar polylines
+  const routePolyline = useMemo(() => (
+    routeCoords.length > 0 && elevationSegments.length > 0 ? (
+      elevationSegments.map((seg, idx) => (
+        <Polyline
+          key={idx}
+          coordinates={[seg.start, seg.end]}
+          strokeWidth={8}
+          strokeColor={getSegmentColor(seg.status)}
+          lineCap="round"
+        />
+      ))
+    ) : routeCoords.length > 0 ? (
+      <Polyline
+        coordinates={routeCoords}
+        strokeWidth={8}
+        strokeColor={'#1976d2'}
+        lineCap="round"
+      />
+    ) : null
+  ), [routeCoords, elevationSegments]);
+
   return (
     <MapView
       ref={mapRef}
@@ -82,8 +167,10 @@ export default function MapViewContainer({
       showsMyLocationButton={false}
       onLongPress={onLongPress}
       onMapReady={() => setMapReady(true)}
-      pitchEnabled={true}
-      rotateEnabled={true}
+      pitchEnabled={false}
+      rotateEnabled={false}
+      zoomEnabled={true}
+      scrollEnabled={true}
     >
       {location && (
         <Marker
@@ -106,82 +193,9 @@ export default function MapViewContainer({
           </View>
         </Marker>
       )}
-      {accessibleLocations && accessibleLocations.map((loc) => {
-        let latitude = loc.latitude;
-        let longitude = loc.longitude;
-        if (loc.location && typeof loc.location === 'object') {
-          if (typeof loc.location.latitude === 'number' && typeof loc.location.longitude === 'number') {
-            latitude = loc.location.latitude;
-            longitude = loc.location.longitude;
-          }
-        }
-        if (!latitude || !longitude) {
-          if (typeof loc.location === 'string') {
-            const match = loc.location.match(/([\d.]+)[^\d-]*([S|N]),\s*([\d.]+)[^\d-]*([W|E])/i);
-            if (match) {
-              let lat = parseFloat(match[1]);
-              let lng = parseFloat(match[3]);
-              if (match[2].toUpperCase() === 'S') lat = -lat;
-              if (match[4].toUpperCase() === 'W') lng = -lng;
-              latitude = lat;
-              longitude = lng;
-            }
-          }
-        }
-        if (typeof latitude === 'number' && typeof longitude === 'number' && !isNaN(latitude) && !isNaN(longitude)) {
-          const isSelected = selectedLocation && selectedLocation.id === loc.id;
-          return (
-            <Marker
-              key={loc.id}
-              coordinate={{ latitude, longitude }}
-              onPress={() => setSelectedLocation(loc)}
-              anchor={{ x: 0.5, y: 1 }}
-              zIndex={isSelected ? 999 : 1}
-            >
-              <AccessibleMarker location={loc} isSelected={isSelected} />
-            </Marker>
-          );
-        }
-        return null;
-      })}
-      {routeCoords.length > 0 && elevationSegments.length > 0 ? (
-        elevationSegments.map((seg, idx) => (
-          <Polyline
-            key={idx}
-            coordinates={[seg.start, seg.end]}
-            strokeWidth={8}
-            strokeColor={getSegmentColor(seg.status)}
-            lineCap="round"
-          />
-        ))
-      ) : routeCoords.length > 0 ? (
-        <Polyline
-          coordinates={routeCoords}
-          strokeWidth={8}
-          strokeColor={'#1976d2'}
-          lineCap="round"
-        />
-      ) : null}
-      {obstacles.map((obs, idx) => (
-        <Marker
-          key={`obstacle-${idx}`}
-          coordinate={{ latitude: obs.latitude, longitude: obs.longitude }}
-          title={obs.type === 'step' ? 'Degrau' : obs.type === 'hole' ? 'Buraco' : obs.type === 'ramp' ? 'Rampa' : 'Obstáculo'}
-          description={obs.description}
-          pinColor={obs.severity === 'critical' ? '#FF5252' : obs.severity === 'moderate' ? '#FFD600' : '#43e97b'}
-          accessibilityLabel={`Obstáculo: ${obs.type}`}
-          accessibilityHint={obs.description}
-        >
-          <View style={{ backgroundColor: '#fff', borderRadius: 12, padding: 4, borderWidth: 2, borderColor: getSegmentColor(obs.severity), alignItems: 'center' }}>
-            <Ionicons name={
-              obs.type === 'step' ? 'remove-outline' :
-              obs.type === 'hole' ? 'ellipse-outline' :
-              obs.type === 'ramp' ? 'trending-up-outline' :
-              'alert-circle-outline'
-            } size={28} color={getSegmentColor(obs.severity)} />
-          </View>
-        </Marker>
-      ))}
+      {accessibleMarkers}
+      {routePolyline}
+      {obstacleMarkers}
       {isNavigating && navigationSteps.length > 0 && currentStepIndex < navigationSteps.length && (
         <>
           <Polyline

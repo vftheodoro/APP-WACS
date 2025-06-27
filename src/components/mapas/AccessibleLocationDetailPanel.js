@@ -195,65 +195,20 @@ export default function AccessibleLocationDetailPanel({
         <View style={styles.actionsRow}>
           <TouchableOpacity style={styles.actionButton} onPress={onViewDetails}>
             <Ionicons name="information-circle-outline" size={22} color={COLORS.primary} />
-            <Text style={styles.actionButtonText}>Ver detalhes</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.routeButton} onPress={() => setShowRouteModal(true)}>
-            <Ionicons name="navigate" size={22} color="#fff" />
-            <Text style={styles.routeButtonText}>Traçar rota no app</Text>
+            <Text style={styles.actionButtonText}>Ver mais detalhes</Text>
           </TouchableOpacity>
         </View>
         <View style={{ flexDirection: 'row', justifyContent: 'center', marginTop: 6 }}>
           <TouchableOpacity
-            style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', borderRadius: 8, paddingVertical: 8, paddingHorizontal: 16, borderWidth: 1, borderColor: '#e0e0e0', elevation: 1 }}
-            onPress={handleOpenInMaps}
+            style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.primary, borderRadius: 8, paddingVertical: 12, paddingHorizontal: 24, elevation: 2 }}
+            onPress={onStartRoute}
+            activeOpacity={0.8}
+            accessibilityLabel="Traçar rota até este local"
           >
-            <Ionicons name="logo-google" size={20} color="#4285F4" style={{ marginRight: 6 }} />
-            <Text style={{ color: '#4285F4', fontWeight: 'bold', fontSize: 15 }}>Abrir no Google Maps</Text>
+            <Ionicons name="navigate" size={22} color="#fff" style={{ marginRight: 8 }} />
+            <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 16 }}>Traçar rota até aqui</Text>
           </TouchableOpacity>
         </View>
-        {/* Modal de confirmação de rota */}
-        <Modal visible={showRouteModal} animationType="slide" transparent onRequestClose={() => setShowRouteModal(false)}>
-          <TouchableOpacity style={styles.routeModalOverlay} activeOpacity={1} onPress={() => setShowRouteModal(false)}>
-            <View style={styles.routeModalContent}>
-              <Text style={styles.sectionTitle}>Resumo da viagem</Text>
-              {loadingRoute ? (
-                <View style={{ alignItems: 'center', justifyContent: 'center', padding: 18 }}>
-                  <ActivityIndicator size="large" color={COLORS.primary} />
-                  <Text style={{ marginTop: 12, color: COLORS.primary, fontWeight: 'bold', fontSize: 16 }}>Calculando rota...</Text>
-                </View>
-              ) : routeInfo && routeInfo.distance && !routeError ? (
-                <>
-                  <View style={{ alignItems: 'center', marginBottom: 10 }}>
-                    <Ionicons name="checkmark-circle" size={38} color={COLORS.accent} style={{ marginBottom: 6 }} />
-                    <Text style={styles.routeInfoText}>Distância: <Text style={{ fontWeight: 'bold' }}>{routeInfo.distance}</Text></Text>
-                    <Text style={styles.routeInfoText}>Tempo estimado: <Text style={{ fontWeight: 'bold' }}>{routeInfo.duration}</Text></Text>
-                    <Text style={styles.routeInfoText}>Instrução inicial: <Text style={{ fontWeight: 'bold' }}>{routeInfo.instruction}</Text></Text>
-                  </View>
-                  <TouchableOpacity
-                    style={[styles.confirmRouteButton, loadingRoute && { opacity: 0.6 }]}
-                    onPress={() => {
-                      setShowRouteModal(false);
-                      setTimeout(() => { onStartRoute && onStartRoute(); }, 300);
-                    }}
-                    disabled={loadingRoute}
-                  >
-                    <MaterialIcons name="play-arrow" size={22} color="#fff" />
-                    <Text style={styles.confirmRouteButtonText}>Iniciar trajeto</Text>
-                  </TouchableOpacity>
-                </>
-              ) : (
-                <View style={{ alignItems: 'center', justifyContent: 'center', padding: 18 }}>
-                  <Ionicons name="close-circle" size={38} color={COLORS.error} style={{ marginBottom: 6 }} />
-                  <Text style={{ color: COLORS.error, fontWeight: 'bold', fontSize: 16, marginBottom: 8 }}>Não foi possível obter a rota.</Text>
-                  <TouchableOpacity style={[styles.confirmRouteButton, { backgroundColor: COLORS.error }]} onPress={handleTryRouteAgain}>
-                    <Ionicons name="refresh" size={20} color="#fff" />
-                    <Text style={styles.confirmRouteButtonText}>Tentar novamente</Text>
-                  </TouchableOpacity>
-                </View>
-              )}
-            </View>
-          </TouchableOpacity>
-        </Modal>
       </TouchableOpacity>
     </TouchableOpacity>
   );
@@ -429,23 +384,6 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     marginLeft: 6,
     fontSize: 14,
-  },
-  routeButton: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: COLORS.primary,
-    borderRadius: 10,
-    marginHorizontal: 4,
-    paddingVertical: 12,
-    elevation: 2,
-  },
-  routeButtonText: {
-    color: '#fff',
-    fontWeight: 'bold',
-    marginLeft: 6,
-    fontSize: 15,
   },
   routeModalOverlay: {
     flex: 1,

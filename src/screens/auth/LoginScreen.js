@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -15,7 +15,7 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons, MaterialIcons, FontAwesome5 } from '@expo/vector-icons';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useIsFocused } from '@react-navigation/native';
 import { useAuth } from '../../contexts/AuthContext';
 
 const LoginScreen = () => {
@@ -26,7 +26,27 @@ const LoginScreen = () => {
   const [showPassword, setShowPassword] = useState(false);
   const passwordInputRef = useRef(null);
   const navigation = useNavigation();
-  const { login, signInWithGoogle } = useAuth();
+  const { login, signInWithGoogle, loading: authLoading, user } = useAuth();
+  const [navigating, setNavigating] = useState(false);
+  const isFocused = useIsFocused();
+
+  useEffect(() => {
+    console.log('[LoginScreen] user:', user, 'authLoading:', authLoading);
+    if (user && !authLoading) {
+      setNavigating(true);
+      console.log('[LoginScreen] Navegando para MainSelection...');
+      navigation.reset({
+        index: 0,
+        routes: [{ name: 'MainSelection' }],
+      });
+    }
+  }, [user, authLoading]);
+
+  useEffect(() => {
+    if (!isFocused && navigating) {
+      setNavigating(false);
+    }
+  }, [isFocused, navigating]);
 
   const handleLogin = async () => {
     setError('');
@@ -35,12 +55,16 @@ const LoginScreen = () => {
       return;
     }
     setIsLoading(true);
+    console.log('[LoginScreen] Iniciando login...');
     try {
       await login(email, password);
+      console.log('[LoginScreen] login() resolvido');
     } catch (e) {
       setError('Email ou senha inválidos.');
+      console.log('[LoginScreen] Erro no login:', e);
     } finally {
       setIsLoading(false);
+      console.log('[LoginScreen] setIsLoading(false) chamado');
     }
   };
 
@@ -68,7 +92,7 @@ const LoginScreen = () => {
     <SafeAreaView style={{ flex: 1, backgroundColor: '#f8fafc' }}>
       {/* Modal de carregamento global */}
       <Modal
-        visible={isLoading}
+        visible={isLoading || authLoading || navigating}
         transparent
         animationType="fade"
         onRequestClose={() => {}}
@@ -77,6 +101,7 @@ const LoginScreen = () => {
           <View style={{ backgroundColor: '#fff', borderRadius: 16, padding: 32, alignItems: 'center', elevation: 8 }}>
             <ActivityIndicator size="large" color="#1976d2" />
             <Text style={{ marginTop: 16, color: '#1976d2', fontWeight: 'bold', fontSize: 16 }}>Entrando...</Text>
+            <Text style={{ marginTop: 8, color: '#888', fontSize: 12 }}>isLoading: {String(isLoading)} | authLoading: {String(authLoading)} | navigating: {String(navigating)}</Text>
           </View>
         </View>
       </Modal>

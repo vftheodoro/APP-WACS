@@ -21,8 +21,10 @@ export function NavigationProvider({ children }) {
     }
     try {
       const url = `https://maps.googleapis.com/maps/api/directions/json?origin=${origin.latitude},${origin.longitude}&destination=${destination.latitude},${destination.longitude}&mode=walking&key=${apiKey}&language=pt-BR`;
+      console.log('[NavigationContext] requestRoute URL:', url);
       const response = await fetch(url);
       const data = await response.json();
+      console.log('[NavigationContext] requestRoute resposta:', data);
       if (data.routes && data.routes.length > 0) {
         const points = decodePolyline(data.routes[0].overview_polyline.points);
         const leg = data.routes[0].legs[0];
@@ -50,9 +52,11 @@ export function NavigationProvider({ children }) {
         });
       } else {
         setNavigationError(data.status || 'Rota não encontrada');
+        console.warn('[NavigationContext] Rota não encontrada ou erro:', data.status, data.error_message);
       }
     } catch (e) {
       setNavigationError('Erro ao buscar rota');
+      console.error('[NavigationContext] Erro ao buscar rota:', e);
     }
   }
 

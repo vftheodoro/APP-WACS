@@ -21,6 +21,7 @@ import RegisterScreen from '../screens/auth/RegisterScreen';
 import AddLocationScreen from '../screens/AddLocationScreen';
 import MapSettingsScreen from '../screens/mapa/MapSettingsScreen';
 import ContributeToLocationScreen from '../features/location-contributions/ContributeToLocationScreen';
+import LoadingSpinner from '../components/common/LoadingSpinner';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -76,7 +77,11 @@ const MainTabs = () => {
 */
 
 export const AppNavigator = () => {
-  const { user } = useAuth();
+  const { user, loading } = useAuth();
+
+  if (loading) {
+    return <LoadingSpinner />;
+  }
 
   return (
     <Stack.Navigator>
@@ -139,11 +144,6 @@ export const AppNavigator = () => {
             component={ConnectionScreen}
             options={{ headerShown: false }}
           />
-          
-          {/* Removed redundant Chat screen definition */}
-          {/* Removed redundant LocationsList screen definition */}
-          {/* Removed redundant UserProfile screen definition */}
-
           <Stack.Screen
             name="LocationDetail"
             component={LocationDetailScreen}

@@ -1,36 +1,57 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
-const MapLocationPopup = ({ visible, location, onClose, onShare, onRoute }) => {
+const MapLocationPopup = ({ visible, location, onClose, onShare, onRoute, onDetails }) => {
   if (!visible || !location) return null;
+  const isAccessible = !!location.isAccessible;
+
   return (
-    <View style={styles.container}>
-      <View style={styles.pinContainer}>
-        <Ionicons name="location" size={28} color="#d32f2f" />
-      </View>
-      <View style={styles.popup}>
-        <Text style={styles.title}>{location.title || location.name || 'Local selecionado'}</Text>
-        <Text style={styles.address}>{location.address || location.formatted_address || 'Endereço não disponível'}</Text>
-        <View style={styles.actions}>
-          <TouchableOpacity style={styles.shareBtn} onPress={onShare}>
-            <Text style={styles.shareText}>Compartilhar</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.routeBtn} onPress={onRoute}>
-            <Text style={styles.routeText}>Rotas</Text>
-          </TouchableOpacity>
+    <Pressable style={styles.overlay} onPress={onClose} accessibilityLabel="Fechar popup de local">
+      <View style={styles.container} pointerEvents="box-none">
+        <View style={styles.pinContainer}>
+          <Ionicons name="location" size={28} color="#d32f2f" />
+        </View>
+        <View style={styles.popup}>
+          <Text style={styles.title} numberOfLines={2}>{location.title || location.name || 'Local selecionado'}</Text>
+          <Text style={styles.address} numberOfLines={2}>{location.address || location.formatted_address || 'Endereço não disponível'}</Text>
+          <View style={styles.actions}>
+            <TouchableOpacity
+              style={styles.shareBtn}
+              onPress={onShare}
+              activeOpacity={0.7}
+              accessibilityLabel="Compartilhar local"
+            >
+              <Text style={styles.shareText}>Compartilhar</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.routeBtn}
+              onPress={isAccessible ? onDetails : onRoute}
+              activeOpacity={0.7}
+              accessibilityLabel={isAccessible ? 'Ver detalhes do local acessível' : 'Ver detalhes do local'}
+            >
+              <Text style={styles.routeText}>Detalhes</Text>
+            </TouchableOpacity>
+          </View>
         </View>
       </View>
-    </View>
+    </Pressable>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
+  overlay: {
     position: 'absolute',
     left: 0,
     right: 0,
-    top: '40%',
+    top: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.08)',
+    zIndex: 998,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  container: {
     alignItems: 'center',
     zIndex: 999,
   },
@@ -52,6 +73,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#e0e0e0',
     minWidth: 260,
+    maxWidth: 320,
   },
   title: {
     fontSize: 18,
