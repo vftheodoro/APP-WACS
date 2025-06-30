@@ -1,353 +1,247 @@
-# APP-WACS: Controle e Navegação de Cadeira de Rodas
+# APP-WACS: Mobilidade, Autonomia e Comunidade
 
-## 🧐 Como o APP-WACS Funciona?
-
-O APP-WACS é um aplicativo completo para pessoas com mobilidade reduzida, cuidadores e familiares. Ele permite:
-
-- **Controlar cadeiras de rodas motorizadas** via Bluetooth, com interface intuitiva e comandos em tempo real.
-- **Explorar e avaliar locais acessíveis** próximos, visualizando no mapa ou em lista, com filtros inteligentes por tipo e acessibilidade.
-- **Ver a distância real** até cada local, calculada automaticamente a partir da sua localização atual.
-- **Adicionar novos locais acessíveis** com sugestão automática de endereço e tipo, ajudando a comunidade.
-- **Consultar detalhes completos** de cada local: avaliações, recursos de acessibilidade, fotos, autor, data de cadastro e rota até o destino.
-- **Gerenciar seu perfil**, editar dados e foto, e acompanhar seu histórico de interações.
-- **Navegar com rotas acessíveis** e receber instruções para chegar ao destino.
-- **Utilizar assistente virtual** para dúvidas e suporte.
-
-### **Fluxo típico de uso:**
-1. O usuário abre o app e se conecta à sua cadeira de rodas (opcional).
-2. Visualiza locais acessíveis próximos, filtrando por tipo (restaurante, hotel, escola, etc.) e recursos de acessibilidade (rampa, banheiro adaptado, etc.).
-3. Consulta detalhes, avaliações e distância de cada local.
-4. Traça rota até o local desejado ou adiciona um novo local acessível.
-5. Pode controlar a cadeira de rodas pelo app, acessar o perfil e interagir com o assistente virtual.
-
-### **Diferenciais:**
-- Interface moderna, responsiva e acessível.
-- Cálculo de distância local, sem custos de API.
-- Comunidade colaborativa: qualquer usuário pode sugerir e avaliar locais.
-- Foco total em acessibilidade e experiência do usuário.
+![Logo do APP-WACS](assets/logo.png)
 
 ---
 
-## ✨ Features Principais
+## 🚀 Visão Geral
 
-- **Gerenciamento de Perfil do Usuário:** Visualize e edite suas informações pessoais e foto de perfil.
-- **Conexão Bluetooth:** Busque e conecte-se à sua cadeira de rodas via Bluetooth.
-- **Controle da Cadeira:** Interface para controlar os movimentos da cadeira de rodas, incluindo um botão dedicado para destravar/travar os freios eletromagnéticos. Quando os freios estão destravados, a cadeira não se move e todos os controles de movimento ficam desabilitados, garantindo segurança total ao usuário. O botão de freio substitui o antigo modo de emergência.
-- **Navegação e Rastreamento:** Mapa interativo, cálculo de rotas, busca de locais e histórico.
-- **Locais Acessíveis:** Lista, filtro, avaliação e cadastro de locais acessíveis, com cálculo de distância local.
-- **Assistente Virtual:** Interface para interação com um assistente (Chat).
-- **Tema Dinâmico:** Alternância entre temas claro e escuro.
+O **APP-WACS** é um aplicativo inovador para pessoas com mobilidade reduzida, cuidadores e familiares. Ele integra controle de cadeiras de rodas motorizadas, navegação acessível, descoberta de locais, gamificação e uma rede social inclusiva — tudo em uma única plataforma, moderna e fácil de usar.
 
 ---
 
-## 🌐 Sistema de Feed Social e Comunidade
+## 🧭 Funcionalidades Principais
 
-O APP-WACS conta com um sistema de feed social moderno, projetado para promover a interação, colaboração e engajamento entre os membros da comunidade. O feed está disponível tanto no aplicativo quanto na versão web, sempre integrado ao Firebase para garantir segurança, escalabilidade e sincronização em tempo real.
-
-### **Principais Funcionalidades:**
-
-- **Publicação de Posts:** Usuários autenticados podem criar posts com texto e/ou imagem, compartilhando experiências, dicas e novidades com a comunidade.
-- **Upload de Imagens:** As imagens dos posts são enviadas para o Firebase Storage e exibidas automaticamente no feed, com visualização em tela cheia ao tocar/clicar.
-- **Curtidas e Comentários:** É possível curtir/descurtir posts e comentar, promovendo discussões e reconhecimento entre os usuários.
-- **Deleção e Edição:** O autor do post pode editar ou deletar seus próprios posts, incluindo a remoção da imagem associada no Storage.
-- **Feedback Visual:** Todas as ações (postar, curtir, comentar, deletar) exibem notificações visuais (Toast) para garantir clareza e boa experiência.
-- **Feed em Tempo Real:** O feed é atualizado automaticamente sempre que um novo post, curtida ou comentário é adicionado, sem necessidade de recarregar a tela.
-- **Datas Relativas:** As datas dos posts são exibidas de forma amigável (“Hoje, HH:mm”, “Ontem”, “X dias atrás”).
-- **Acessibilidade e Visual Moderno:** Cards com sombras, bordas arredondadas, animações suaves e botões intuitivos garantem uma experiência acessível e agradável.
-
-### **Experiência Unificada App + Web**
-
-- O sistema de feed foi cuidadosamente adaptado para funcionar de forma equivalente no app e no site, mantendo a mesma lógica, permissões e experiência visual.
-- O upload e exibição de imagens, bem como as notificações de sucesso/erro, funcionam de maneira consistente em todas as plataformas.
-
-### **Tecnologias Utilizadas**
-
-- **Firebase Firestore:** Armazenamento dos posts, curtidas e comentários.
-- **Firebase Storage:** Upload e hospedagem das imagens dos posts.
-- **Firebase Auth:** Controle de autenticação e permissões.
-- **React Native (App) e HTML/JS (Web):** Interfaces modernas, responsivas e acessíveis.
+- **Controle remoto de cadeiras de rodas via Bluetooth**
+- **Mapa de locais acessíveis com avaliações e filtros inteligentes**
+- **Navegação assistida com rotas acessíveis**
+- **Feed social e chat por cidade/região**
+- **Sistema de gamificação e conquistas**
+- **Gestão de perfil e histórico do usuário**
+- **Assistente virtual para dúvidas e suporte**
+- **Tema claro/escuro dinâmico**
 
 ---
 
-## 💬 Sistema de Chat Moderno por Cidade e Regional
+## 📲 Fluxo de Uso e Telas
 
-O APP-WACS agora conta com um sistema de chat robusto, moderno e totalmente integrado à experiência social do app. O chat foi projetado para ser intuitivo, seguro e escalável, promovendo a comunicação entre usuários de cada cidade e da região.
-
-### **Principais Funcionalidades do Chat:**
-
-- **Chats por Cidade e Regional:**
-  - Cada cidade possui seu próprio chat, identificado por um nome legível (ex: `chats/registro/messages`).
-  - Existe também um chat regional para comunicação ampla.
-- **Mensagens de Texto e Imagem:**
-  - Envie textos, fotos e mensagens do sistema (ex: "Fulano saiu do grupo").
-- **Respostas (Reply) igual WhatsApp:**
-  - Responda a qualquer mensagem (inclusive a sua), com visual de reply acima do texto, mostrando nome e trecho da mensagem original.
-- **Edição e Exclusão de Mensagens:**
-  - Edite ou apague suas próprias mensagens facilmente pelo menu de contexto.
-- **Menu de Contexto Profissional:**
-  - Ao segurar uma mensagem, aparece um menu com opções de responder, editar ou apagar (quando permitido).
-- **Barra de Escrita Profissional:**
-  - Input moderno, com suporte a reply, edição, envio de imagem, botão de enviar destacado e responsividade total ao teclado.
-- **Mensagens do Sistema:**
-  - Entradas e saídas de membros, avisos e ações administrativas aparecem com destaque visual diferenciado.
-- **Performance e Segurança:**
-  - Cada chat tem sua própria subcoleção de mensagens no Firestore, garantindo performance, organização e escalabilidade.
-- **Acessibilidade e Visual Moderno:**
-  - Layout limpo, responsivo, com cores acessíveis, feedback visual e navegação fluida.
-
-### **Exemplo de Fluxo de Uso:**
-1. O usuário entra no chat da sua cidade ou regional.
-2. Visualiza mensagens, responde, edita ou apaga suas próprias mensagens.
-3. Pode enviar imagens, responder a qualquer mensagem (inclusive a própria), e ver avisos do sistema.
-4. A barra de escrita sobe junto com o teclado, nunca ficando coberta.
-5. Tudo é sincronizado em tempo real via Firebase.
+A seguir, conheça cada tela do APP-WACS, seu propósito e como elas se conectam para oferecer uma experiência completa e acessível.
 
 ---
 
-## 🚀 Tecnologias Utilizadas
+### 1. Tela Inicial
 
-- React Native
-- Expo
-- Firebase (Firestore, Auth, Storage)
-- Bluetooth Low Energy (BLE)
-- LinearGradient
-- @react-navigation
-- Outras dependências listadas no `package.json`
+![Tela Inicial](Imagens/Tela%20Inicial.jpeg)
 
----
-
-## 📋 Pré-requisitos
-
-- Node.js 16.x ou superior
-- npm 7.x ou superior ou Yarn
-- Expo CLI
-- Um dispositivo Android ou iOS para testar a conexão Bluetooth
+**O que faz:**  
+Ponto de partida do app. Apresenta atalhos para as principais funções: explorar locais, acessar o controle da cadeira, visualizar o feed social, chats e perfil.  
+**Destaques:**  
+- Layout limpo e acessível  
+- Acesso rápido a todas as áreas do app
 
 ---
 
-## 🔧 Instalação
+### 2. Tela de Login
 
-1. **Clone o repositório:**
+![Tela de Login](Imagens/Tela%20de%20Login.jpeg)
+
+**O que faz:**  
+Permite que o usuário acesse sua conta de forma segura, com autenticação via e-mail/senha.  
+**Destaques:**  
+- Feedback visual para erros  
+- Opção de recuperação de senha
+
+---
+
+### 3. Tela de Conexão Bluetooth
+
+![Tela de Conexao](Imagens/Tela%20de%20Conexao.png)
+
+**O que faz:**  
+Permite buscar, parear e conectar-se à cadeira de rodas motorizada via Bluetooth.  
+**Destaques:**  
+- Lista de dispositivos próximos  
+- Status de conexão em tempo real
+
+---
+
+### 4. Tela de Controle da Cadeira
+
+![Tela de Controle](Imagens/Tela%20de%20Controle.jpeg)  
+![Modo de Segurança](Imagens/Tela%20de%20Controle%20em%20modo%20de%20Seguran%C3%A7a.jpeg)
+
+**O que faz:**  
+Interface para controlar os movimentos da cadeira, incluindo modo de segurança (freios travados).  
+**Destaques:**  
+- Botões grandes e acessíveis  
+- Feedback visual imediato  
+- Modo de segurança para evitar movimentos acidentais
+
+---
+
+### 5. Tela de Lista de Locais Acessíveis
+
+![Lista de Locais](Imagens/Tela%20da%20Lista%20de%20Locais.jpeg)
+
+**O que faz:**  
+Exibe locais acessíveis próximos, com filtros por tipo e recursos de acessibilidade.  
+**Destaques:**  
+- Cards modernos com fotos, distância e avaliação  
+- Filtros inteligentes e busca com autocomplete  
+- Badge de distância e status visual
+
+---
+
+### 6. Tela de Detalhes do Local
+
+![Detalhes do Local](Imagens/Tela%20de%20Detalhes%20do%20Local.jpeg)  
+![Detalhes do Ponto no Mapa](Imagens/Tela%20de%20Delhes%20do%20Ponto%20Acessivel%20no%20Mapa.jpeg)
+
+**O que faz:**  
+Mostra informações completas do local: avaliações, recursos, fotos, autor, data e rota até o destino.  
+**Destaques:**  
+- Avaliações por emoji e estrelas  
+- Ícones de acessibilidade  
+- Botão para traçar rota acessível
+
+---
+
+### 7. Tela de Detalhes da Rota
+
+![Detalhes da Rota](Imagens/Tela%20de%20Detalhes%20da%20Rota.jpeg)
+
+**O que faz:**  
+Exibe o trajeto até o local escolhido, com análise de acessibilidade (rampas, escadas, plano), distância, tempo e elevação.  
+**Destaques:**  
+- Miniatura do trajeto  
+- Instruções detalhadas  
+- Painel de confirmação antes de iniciar navegação
+
+---
+
+### 8. Tela de Navegação
+
+![Tela de Navegação](Imagens/Tela%20de%20Navega%C3%A7%C3%A3o.jpeg)
+
+**O que faz:**  
+Modo de navegação assistida, com instruções passo a passo, ícones de manobra, avisos visuais e controles acessíveis.  
+**Destaques:**  
+- Segmento atual da rota destacado  
+- Feedback visual para obstáculos  
+- Controles grandes para pausar/cancelar
+
+---
+
+### 9. Tela de Perfil do Usuário
+
+![Tela de Perfil](Imagens/Tela%20de%20Perfil.jpeg)
+
+**O que faz:**  
+Permite visualizar e editar informações pessoais, foto, conquistas, XP, nível e contribuições.  
+**Destaques:**  
+- Badge de nível e barra de progresso  
+- Card de contribuições  
+- Edição de dados e foto de perfil
+
+---
+
+### 10. Tela de Feed Social (Posts)
+
+![Tela de Posts](Imagens/Tela%20de%20Posts.jpeg)
+
+**O que faz:**  
+Feed social para compartilhar experiências, dicas e novidades.  
+**Destaques:**  
+- Publicação de posts com texto e imagem  
+- Curtidas, comentários, edição e deleção  
+- Atualização em tempo real
+
+---
+
+### 11. Tela de Chat
+
+![Tela de Chat](Imagens/Tela%20de%20Chat.jpeg)  
+![Menu de Chats](Imagens/Tela%20do%20Menu%20de%20Chats.jpeg)
+
+**O que faz:**  
+Chats por cidade e região, com mensagens de texto, imagem, replies, edição e exclusão.  
+**Destaques:**  
+- Barra de escrita moderna  
+- Menu de contexto profissional  
+- Mensagens do sistema (entradas, saídas, avisos)
+
+---
+
+## 🏆 Gamificação e Conquistas
+
+- **XP por ações**: Avaliar locais, adicionar locais, contribuir com fotos, etc.
+- **Níveis e badges**: Progresso visual, badges por marcos e engajamento.
+- **Card de contribuições**: Total de avaliações e locais adicionados, com mensagem motivacional.
+
+---
+
+## 🌐 Tecnologias Utilizadas
+
+- **React Native + Expo**: Interface moderna e responsiva
+- **Firebase (Firestore, Auth, Storage)**: Backend seguro, escalável e em tempo real
+- **Bluetooth Low Energy (BLE)**: Controle físico da cadeira
+- **@react-navigation**: Navegação fluida
+- **LinearGradient**: Visual premium
+- **Outros**: Veja `package.json` para a lista completa
+
+---
+
+## ⚙️ Instalação e Execução
+
 ```bash
 git clone https://github.com/VTheodoro/APP-WACS.git
 cd APP-WACS
-```
-2. **Instale as dependências:**
-```bash
 yarn install # ou npm install
-```
-3. **Configure as variáveis de ambiente:**
-- Crie um arquivo `.env` na raiz do projeto (consulte o `.env.example` se disponível).
-- Adicione as variáveis necessárias (Firebase, Mapbox, etc.).
-4. **Inicie o aplicativo:**
-```bash
+# Configure o .env conforme o .env.example
 yarn start # ou npm start
 ```
-5. **Abra no dispositivo:**
-- Use o aplicativo Expo Go para escanear o QR code e abrir o projeto.
+Abra o app no Expo Go escaneando o QR code.
 
 ---
 
-## 📚 Estrutura Detalhada do Projeto
-
-O projeto está organizado para máxima escalabilidade, manutenibilidade e clareza, seguindo padrões profissionais de arquitetura React Native.
+## 📁 Estrutura do Projeto
 
 ```
 src/
-├── app/                    # Configurações do app e ponto de entrada
-├── assets/                 # Recursos estáticos (imagens, sons, logos)
-├── components/             # Componentes reutilizáveis e especializados
-│   ├── common/             # Elementos genéricos (AppHeader, botões, inputs)
-│   ├── mapas/              # Componentes para telas de mapa (CustomMarker, MapControls, etc.)
-│   ├── ReviewModal.js      # Modal para avaliações
-│   ├── SearchBar.js        # Barra de pesquisa com autocomplete
-│   └── ProfilePicture*.js  # Upload e gerenciamento de foto de perfil
-├── config/                 # Configurações globais (Firebase, constantes)
-├── constants/              # Constantes e enums
-├── context/                # Contextos globais (Auth)
-├── contexts/               # Contextos globais (Bluetooth, Theme, Chat, SearchHistory)
-├── hooks/                  # Custom hooks
-├── navigation/             # Navegação do app (AppNavigator, AuthNavigator)
-├── routes/                 # Definição de rotas
-├── screens/                # Telas principais do app
-│   ├── LocationsListScreen.js      # Lista de locais acessíveis
-│   ├── MapScreen.js                # Mapa interativo
-│   ├── LocationDetailScreen.js     # Detalhes de local
-│   ├── AddLocationScreen.js        # Adição de local
-│   ├── SelectLocationMapScreen.js  # Seleção de local no mapa
-│   ├── MainSelectionScreen.js      # Tela de seleção principal
-│   ├── UserProfileScreen.js        # Perfil do usuário
-│   ├── ControlScreen.js            # Controle da cadeira via Bluetooth
-│   ├── ConnectionScreen.js         # Tela de conexão Bluetooth
-│   ├── SplashScreen.js             # Tela de carregamento
-│   ├── auth/                       # Telas de autenticação
-│   └── social/                     # Telas sociais
-├── services/               # Serviços e integrações externas
-│   ├── firebase/           # Integração com Firebase
-│   ├── location/           # Serviços de localização
-│   ├── profilePictureService.js
-│   └── storage.js
-├── store/                  # Gerenciamento de estado (Redux ou Context API)
-│   ├── slices/             # Slices de estado
-│   └── index.js
-├── theme/                  # Temas e estilos globais (Colors, Typography, etc.)
-├── utils/                  # Funções utilitárias (mapUtils, storage, theme)
+├── components/      # Componentes reutilizáveis
+├── screens/         # Telas principais
+├── services/        # Integrações (Firebase, Bluetooth, etc)
+├── hooks/           # Hooks customizados
+├── context/         # Contextos globais
+├── theme/           # Temas e estilos
+├── utils/           # Funções utilitárias
 └── ...
+assets/              # Imagens, ícones, sons
 ```
 
-### **Exemplo de fluxo de tela:**
-1. **SplashScreen** → **MainSelectionScreen** → **LocationsListScreen** → **LocationDetailScreen**
-2. **UserProfileScreen** para edição de perfil e foto
-3. **ControlScreen** para controle da cadeira via Bluetooth
+---
 
-### **Destaques Arquiteturais**
-- **Componentização extrema:** Tudo que é reutilizável está em `components/`.
-- **Separação de responsabilidades:** Serviços, utilitários, temas, contextos e navegação bem separados.
-- **Pronto para escalar:** Fácil adicionar novas telas, temas, integrações e lógica de negócio.
+## ♿️ Foco em Acessibilidade
+
+- Contraste alto e fontes legíveis
+- Botões grandes e feedback visual
+- Navegação por teclado e suporte a leitores de tela
+- Informações detalhadas sobre acessibilidade dos locais
 
 ---
 
-## 📸 Screenshots
+## 🤝 Contribua!
 
-Aqui estão algumas telas do aplicativo:
-
-### Tela Inicial
-![Tela Inicial](Imagens/Tela%20Inicial.png)
-
-### Tela de Conexão
-![Tela de Conexão](Imagens/Tela%20de%20Conexao.png)
-
-### Tela de Controle
-![Tela de Controle](Imagens/Tela%20de%20Controle.png)
-
-### Tela de Perfil
-![Tela de Perfil](Imagens/Tela%20de%20Perfil.png)
-
----
-
-## 🆕 Changelog Visual e Funcional - Lista de Locais
-
-### 🔥 Melhorias Visuais e UX
-
-- **Cards Modernos e Profissionais:**
-  - Sombra suave e realista, cantos mais arredondados e padding interno maior.
-  - Borda colorida sutil (ou glow) para destacar status, sem poluir.
-  - Imagem com overlay escuro e recorte arredondado.
-  - Badge de distância padronizada: chip moderno, azul, com sombra, fonte bold e ícone alinhado, sempre no canto inferior direito da imagem.
-  - Badge de status (avaliação) agora exibe **apenas o emoji de rosto** (😃, 🙂, 😐, 😞, 🆕), sem texto, para leitura visual rápida e intuitiva.
-  - Classificação por estrelas (nota) movida para **abaixo do endereço**, dentro do conteúdo do card, para não sobrepor a foto.
-  - Ícones de acessibilidade menores, mais espaçados e com fundo suave.
-  - Fonte bold para nome, leve para endereço.
-  - Responsividade aprimorada para diferentes tamanhos de tela.
-
-### ⚡ Melhorias Funcionais
-
-- **Cálculo de Distância Local:**
-  - Distância entre usuário e local calculada localmente (Haversine), sem uso de APIs externas.
-  - Suporte a diferentes formatos de campo de localização no Firestore (`latitude/longitude` separados, array, string, objeto).
-  - Exibição da distância apenas quando os dados são válidos.
-
-- **Filtros Inteligentes:**
-  - Filtros de tipo e acessibilidade com chips dinâmicos, seleção múltipla e badges de contagem.
-  - Modal de filtro visual moderno.
-
-- **Barra de Pesquisa Profissional:**
-  - Flat, com autocomplete, sugestão de adicionar novo local e integração visual com o header.
-
-- **Remoção de Debugs e Alertas:**
-  - Todos os logs e alertas de debug removidos para produção.
-
-- **Código Modular e Escalável:**
-  - Componentização e organização para fácil manutenção e evolução.
-
----
-
-Essas melhorias tornam a experiência do usuário mais fluida, moderna e acessível, elevando o padrão visual e funcional do app para o nível dos melhores aplicativos do mercado.
-
----
-
-## 🆕 Novas Funcionalidades de Navegação no Mapa
-
-- **Rota temporária ao segurar no mapa:**
-  - Ao pressionar e segurar em qualquer ponto do mapa, uma linha tracejada é desenhada entre sua localização atual e o ponto selecionado.
-  - Um painel de confirmação aparece na parte inferior perguntando se deseja ver os detalhes da rota.
-  - Se confirmar, o modal de detalhes da rota é aberto; se cancelar, a linha desaparece.
-
-- **Confirmação antes de abrir detalhes da rota:**
-  - Evita abrir o modal de rota acidentalmente, tornando a experiência mais fluida e controlada.
-
-- **Modal de detalhes de rota com IA de acessibilidade:**
-  - Mostra endereço de origem e destino, miniatura do trajeto, distância, tempo, elevação e análise inteligente de acessibilidade (escadas, rampas, plano).
-  - Instruções detalhadas podem ser expandidas sob demanda.
-
-- **Modo de navegação profissional:**
-  - Ao iniciar navegação, um painel fixo na parte inferior exibe o passo atual, instrução, ícone de manobra, distância, tempo e avisos visuais (ex: escada/rampa).
-  - O segmento atual da rota é destacado com cor conforme a elevação (verde, amarelo, vermelho), enquanto o restante aparece em cinza claro.
-  - Controles grandes e acessíveis para pausar, cancelar e centralizar no usuário.
-  - Layout limpo, responsivo e acessível, com foco em experiência para cadeirantes.
-
----
-
-## 🏆 Sistema de Gamificação, Perfil e Contribuições
-
-O APP-WACS conta com um sistema de gamificação moderno e motivador, que valoriza cada contribuição do usuário para a comunidade. Veja como funciona:
-
-### 🎯 Como ganhar pontos (XP)
-- **Avaliar um local:** +10 XP por avaliação
-- **Adicionar um local acessível:** +30 XP
-- **Outras ações (fotos, reports, etc):** XP variável (ver código)
-
-### ⭐ Níveis e Progresso
-- O usuário sobe de nível a cada 50 XP (Nível 1: 0 XP, Nível 2: 50 XP, Nível 3: 100 XP, ...)
-- O nível é exibido de forma destacada no perfil e no header, com um badge colorido na foto de perfil (bronze, prata, ouro, azul, roxo)
-- O progresso para o próximo nível é mostrado por uma barra e um arco circular ao redor da foto
-
-### 🥇 Badges e Conquistas
-- Badges especiais são concedidos por marcos (ex: 10 fotos, 100 avaliações, etc)
-- Os badges aparecem no perfil, exceto o de "Primeiros Passos" (substituído por um card de contribuições)
-
-### 📊 Card de Contribuições
-- Mostra o total de contribuições (avaliações + locais adicionados)
-- Exibe separadamente o número de avaliações e de locais
-- Mensagem motivacional personalizada conforme o engajamento
-- Visual premium, com ícones, sombra e destaque
-
-### 🔔 Notificações e Visual
-- Ícone de notificação no header da tela principal
-- Badge de nível na foto de perfil do header
-- Layouts modernos, responsivos e acessíveis
-
-### 👤 Edição de Perfil
-- O usuário pode editar todos os dados pessoais em um formulário compacto e moderno
-- A opção de trocar foto de perfil aparece apenas fora do modo de edição, evitando duplicidade
-- O aceite dos termos aparece logo acima dos botões de salvar/cancelar
-- O espaçamento entre campos foi reduzido para facilitar o preenchimento
-
-### 🧠 Como funciona por trás
-- O XP, nível, badges e contribuições são calculados automaticamente ao logar ou realizar ações
-- O sistema é centralizado, fácil de manter e expandir
-- Não há mais streaks diários, tornando o progresso mais simples e motivador
-
-### 📱 Exemplo de fluxo:
-1. O usuário avalia um local → ganha XP → barra e badge de nível atualizam instantaneamente
-2. Adiciona um local → XP e contribuições aumentam, card de contribuições é atualizado
-3. Ao editar o perfil, só vê a opção de trocar foto fora do modo de edição
+1. Faça um fork do repositório
+2. Crie uma branch para sua feature/correção
+3. Envie um Pull Request detalhado
 
 ---
 
 ## 📄 Licença
 
-Este projeto está licenciado sob a licença MIT - veja o arquivo LICENSE para detalhes.
+MIT. Veja o arquivo LICENSE para detalhes.
 
 ---
 
-## 🤝 Contribuição
-
-Contribuições são muito bem-vindas! Para contribuir:
-1. Faça um Fork do repositório
-2. Crie uma branch para sua feature ou correção
-3. Envie um Pull Request detalhando suas alterações
-
----
-
-Desenvolvido por [VTheodoro](https://github.com/VTheodoro)
+Desenvolvido com 💙 por [vftheodoro](https://github.com/vftheodoro)
