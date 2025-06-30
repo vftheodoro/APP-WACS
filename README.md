@@ -1,6 +1,8 @@
 # APP-WACS: Mobilidade, Autonomia e Comunidade
 
-![Logo do APP-WACS](assets/logo.png)
+<p align="center">
+  <img src="assets/logo.png" alt="Logo do APP-WACS" width="350" style="border-radius:16px; box-shadow:0 4px 16px rgba(0,0,0,0.12);" />
+</p>
 
 ---
 
@@ -31,7 +33,9 @@ A seguir, conheça cada tela do APP-WACS, seu propósito e como elas se conectam
 
 ### 1. Tela Inicial
 
-![Tela Inicial](Imagens/Tela%20Inicial.jpeg)
+<p align="center">
+  <img src="Imagens/Tela%20Inicial.jpeg" alt="Tela Inicial" width="350" style="border-radius:16px; box-shadow:0 4px 16px rgba(0,0,0,0.12);" />
+</p>
 
 **O que faz:**  
 Ponto de partida do app. Apresenta atalhos para as principais funções: explorar locais, acessar o controle da cadeira, visualizar o feed social, chats e perfil.  
@@ -43,7 +47,9 @@ Ponto de partida do app. Apresenta atalhos para as principais funções: explora
 
 ### 2. Tela de Login
 
-![Tela de Login](Imagens/Tela%20de%20Login.jpeg)
+<p align="center">
+  <img src="Imagens/Tela%20de%20Login.jpeg" alt="Tela de Login" width="350" style="border-radius:16px; box-shadow:0 4px 16px rgba(0,0,0,0.12);" />
+</p>
 
 **O que faz:**  
 Permite que o usuário acesse sua conta de forma segura, com autenticação via e-mail/senha.  
@@ -55,7 +61,9 @@ Permite que o usuário acesse sua conta de forma segura, com autenticação via 
 
 ### 3. Tela de Conexão Bluetooth
 
-![Tela de Conexao](Imagens/Tela%20de%20Conexao.png)
+<p align="center">
+  <img src="Imagens/Tela%20de%20Conexao.png" alt="Tela de Conexão Bluetooth" width="350" style="border-radius:16px; box-shadow:0 4px 16px rgba(0,0,0,0.12);" />
+</p>
 
 **O que faz:**  
 Permite buscar, parear e conectar-se à cadeira de rodas motorizada via Bluetooth.  
@@ -67,8 +75,12 @@ Permite buscar, parear e conectar-se à cadeira de rodas motorizada via Bluetoot
 
 ### 4. Tela de Controle da Cadeira
 
-![Tela de Controle](Imagens/Tela%20de%20Controle.jpeg)  
-![Modo de Segurança](Imagens/Tela%20de%20Controle%20em%20modo%20de%20Seguran%C3%A7a.jpeg)
+<p align="center">
+  <img src="Imagens/Tela%20de%20Controle.jpeg" alt="Tela de Controle" width="350" style="border-radius:16px; box-shadow:0 4px 16px rgba(0,0,0,0.12);" />
+</p>
+<p align="center">
+  <img src="Imagens/Tela%20de%20Controle%20em%20modo%20de%20Seguran%C3%A7a.jpeg" alt="Modo de Segurança" width="350" style="border-radius:16px; box-shadow:0 4px 16px rgba(0,0,0,0.12);" />
+</p>
 
 **O que faz:**  
 Interface para controlar os movimentos da cadeira, incluindo modo de segurança (freios travados).  
@@ -81,7 +93,9 @@ Interface para controlar os movimentos da cadeira, incluindo modo de segurança 
 
 ### 5. Tela de Lista de Locais Acessíveis
 
-![Lista de Locais](Imagens/Tela%20da%20Lista%20de%20Locais.jpeg)
+<p align="center">
+  <img src="Imagens/Tela%20da%20Lista%20de%20Locais.jpeg" alt="Lista de Locais" width="350" style="border-radius:16px; box-shadow:0 4px 16px rgba(0,0,0,0.12);" />
+</p>
 
 **O que faz:**  
 Exibe locais acessíveis próximos, com filtros por tipo e recursos de acessibilidade.  
@@ -94,8 +108,12 @@ Exibe locais acessíveis próximos, com filtros por tipo e recursos de acessibil
 
 ### 6. Tela de Detalhes do Local
 
-![Detalhes do Local](Imagens/Tela%20de%20Detalhes%20do%20Local.jpeg)  
-![Detalhes do Ponto no Mapa](Imagens/Tela%20de%20Delhes%20do%20Ponto%20Acessivel%20no%20Mapa.jpeg)
+<p align="center">
+  <img src="Imagens/Tela%20de%20Detalhes%20do%20Local.jpeg" alt="Detalhes do Local" width="350" style="border-radius:16px; box-shadow:0 4px 16px rgba(0,0,0,0.12);" />
+</p>
+<p align="center">
+  <img src="Imagens/Tela%20de%20Delhes%20do%20Ponto%20Acessivel%20no%20Mapa.jpeg" alt="Detalhes do Ponto no Mapa" width="350" style="border-radius:16px; box-shadow:0 4px 16px rgba(0,0,0,0.12);" />
+</p>
 
 **O que faz:**  
 Mostra informações completas do local: avaliações, recursos, fotos, autor, data e rota até o destino.  
@@ -108,7 +126,9 @@ Mostra informações completas do local: avaliações, recursos, fotos, autor, d
 
 ### 7. Tela de Detalhes da Rota
 
-![Detalhes da Rota](Imagens/Tela%20de%20Detalhes%20da%20Rota.jpeg)
+<p align="center">
+  <img src="Imagens/Tela%20de%20Detalhes%20da%20Rota.jpeg" alt="Detalhes da Rota" width="350" style="border-radius:16px; box-shadow:0 4px 16px rgba(0,0,0,0.12);" />
+</p>
 
 **O que faz:**  
 Exibe o trajeto até o local escolhido, com análise de acessibilidade (rampas, escadas, plano), distância, tempo e elevação.  
@@ -121,7 +141,9 @@ Exibe o trajeto até o local escolhido, com análise de acessibilidade (rampas, 
 
 ### 8. Tela de Navegação
 
-![Tela de Navegação](Imagens/Tela%20de%20Navega%C3%A7%C3%A3o.jpeg)
+<p align="center">
+  <img src="Imagens/Tela%20de%20Navega%C3%A7%C3%A3o.jpeg" alt="Tela de Navegação" width="350" style="border-radius:16px; box-shadow:0 4px 16px rgba(0,0,0,0.12);" />
+</p>
 
 **O que faz:**  
 Modo de navegação assistida, com instruções passo a passo, ícones de manobra, avisos visuais e controles acessíveis.  
@@ -134,7 +156,9 @@ Modo de navegação assistida, com instruções passo a passo, ícones de manobr
 
 ### 9. Tela de Perfil do Usuário
 
-![Tela de Perfil](Imagens/Tela%20de%20Perfil.jpeg)
+<p align="center">
+  <img src="Imagens/Tela%20de%20Perfil.jpeg" alt="Tela de Perfil" width="350" style="border-radius:16px; box-shadow:0 4px 16px rgba(0,0,0,0.12);" />
+</p>
 
 **O que faz:**  
 Permite visualizar e editar informações pessoais, foto, conquistas, XP, nível e contribuições.  
@@ -147,7 +171,9 @@ Permite visualizar e editar informações pessoais, foto, conquistas, XP, nível
 
 ### 10. Tela de Feed Social (Posts)
 
-![Tela de Posts](Imagens/Tela%20de%20Posts.jpeg)
+<p align="center">
+  <img src="Imagens/Tela%20de%20Posts.jpeg" alt="Tela de Posts" width="350" style="border-radius:16px; box-shadow:0 4px 16px rgba(0,0,0,0.12);" />
+</p>
 
 **O que faz:**  
 Feed social para compartilhar experiências, dicas e novidades.  
@@ -160,8 +186,12 @@ Feed social para compartilhar experiências, dicas e novidades.
 
 ### 11. Tela de Chat
 
-![Tela de Chat](Imagens/Tela%20de%20Chat.jpeg)  
-![Menu de Chats](Imagens/Tela%20do%20Menu%20de%20Chats.jpeg)
+<p align="center">
+  <img src="Imagens/Tela%20de%20Chat.jpeg" alt="Tela de Chat" width="350" style="border-radius:16px; box-shadow:0 4px 16px rgba(0,0,0,0.12);" />
+</p>
+<p align="center">
+  <img src="Imagens/Tela%20do%20Menu%20de%20Chats.jpeg" alt="Menu de Chats" width="350" style="border-radius:16px; box-shadow:0 4px 16px rgba(0,0,0,0.12);" />
+</p>
 
 **O que faz:**  
 Chats por cidade e região, com mensagens de texto, imagem, replies, edição e exclusão.  
