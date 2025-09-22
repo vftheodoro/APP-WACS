@@ -45,6 +45,7 @@ export const BluetoothProvider = ({ children }) => {
   const [batteryLevel, setBatteryLevel] = useState(0);
   const [connectionStrength, setConnectionStrength] = useState('none');
   const [estimatedAutonomy, setEstimatedAutonomy] = useState('--');
+  const [systemTemperature, setSystemTemperature] = useState(36.5);
   const [bleDevices, setBleDevices] = useState([]);
   const [bleSubscription, setBleSubscription] = useState(null);
   const [bleConnectedDevice, setBleConnectedDevice] = useState(null);
@@ -61,6 +62,34 @@ export const BluetoothProvider = ({ children }) => {
     }, true);
     return () => subscription?.remove?.();
   }, []);
+
+  // Simulação periódica de status quando mock está ativo
+  useEffect(() => {
+    if (!forceMock) return undefined;
+    let mounted = true;
+    // Valores iniciais mock
+    if (mounted) {
+      setBatteryLevel(prev => (prev > 0 ? prev : 84));
+      setConnectionStrength('strong');
+      setEstimatedAutonomy('3h 10m');
+      setSystemTemperature(36.8);
+    }
+    const interval = setInterval(() => {
+      setBatteryLevel(prev => Math.max(15, Math.min(100, prev + (Math.random() * 2 - 0.8))));
+      setConnectionStrength(prev => (prev === 'strong' ? 'medium' : prev === 'medium' ? 'strong' : 'strong'));
+      setEstimatedAutonomy(() => {
+        const hours = 2 + Math.floor(Math.random() * 2); // 2-3h
+        const minutes = 10 + Math.floor(Math.random() * 40);
+        return `${hours}h ${minutes}m`;
+      });
+      setSystemTemperature(prev => {
+        const drift = (Math.random() * 0.6) - 0.3; // -0.3 a +0.3
+        const next = Math.max(32.5, Math.min(48.0, prev + drift));
+        return Math.round(next * 10) / 10;
+      });
+    }, 3000);
+    return () => { clearInterval(interval); mounted = false; };
+  }, [forceMock]);
 
   // Checar permissão de localização
   const checkLocationPermission = async () => {
@@ -239,6 +268,7 @@ export const BluetoothProvider = ({ children }) => {
         batteryLevel,
         connectionStrength,
         estimatedAutonomy,
+        systemTemperature,
         connectToDevice,
         disconnectFromDevice,
         scanForDevices,

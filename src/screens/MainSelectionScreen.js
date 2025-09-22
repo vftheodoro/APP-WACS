@@ -196,19 +196,14 @@ export const MainSelectionScreen = () => {
       title: 'Controle',
       icon: 'game-controller-outline',
       onPress: () => {
-        if (!isConnected) {
-          // Se não conectado, informa e navega para a tela de conexão
-          Alert.alert(
-            'Conexão Necessária',
-            'É necessário conectar à cadeira de rodas para acessar o controle.'
-          );
-          navigation.navigate('ConnectionScreen');
-          return;
+        if (isConnected) {
+          navigation.navigate('ControlScreen', { deviceInfo: deviceInfo });
+        } else {
+          // Sempre permite abrir a tela de controle em modo simulado
+          navigation.navigate('ControlScreen', { mockMode: true });
         }
-        // Se conectado, navega para a tela de controle passando as informações do dispositivo do contexto
-        navigation.navigate('ControlScreen', { deviceInfo: deviceInfo });
       },
-      disabled: !isConnected, // Desabilita o botão se não estiver conectado
+      disabled: false,
       gradient: ['#1976d2', '#2196f3'],
     },
     {

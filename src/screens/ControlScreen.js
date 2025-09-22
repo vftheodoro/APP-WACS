@@ -69,6 +69,7 @@ export const ControlScreen = () => {
     batteryLevel,
     connectionStrength,
     estimatedAutonomy,
+    systemTemperature,
     disconnectFromDevice,
     sendCommand,
     lastCommand,
@@ -77,6 +78,7 @@ export const ControlScreen = () => {
   const navigation = useNavigation();
   const route = useRoute();
   const mockMode = route.params?.mockMode === true;
+  const mockDeviceName = 'WACS Falcon-1';
 
   // Redireciona se não estiver conectado, exceto em modo simulado
   useEffect(() => {
@@ -203,12 +205,12 @@ export const ControlScreen = () => {
         runOnJS(sendCommand)(cmd);
         lastJoystickCommand.current = cmd;
       }
-      // --- Potência dinâmica ---
+      // --- Velocidade dinâmica ---
       // Calcula distância do centro (0 a 1)
       const dist = Math.sqrt(normalizedX * normalizedX + normalizedY * normalizedY);
-      // Potência máxima do modo
+      // Velocidade máxima do modo
       const maxPower = maxSpeedShared.value > 0 ? maxSpeedShared.value : 1;
-      // Potência proporcional (0 a maxPower)
+      // Velocidade proporcional (0 a maxPower)
       const power = Math.round(dist * maxPower * 25.5); // 0-10 * 25.5 = 0-255
       // Só envia se mudou significativamente (>5)
       if (Math.abs(power - lastSentPower.current) > 5) {
@@ -226,7 +228,7 @@ export const ControlScreen = () => {
       // Envia comando de parada
       runOnJS(sendCommand)('S');
       lastJoystickCommand.current = 'S';
-      // Potência zero
+      // Velocidade zero
       runOnJS(sendCommand)('V0');
       lastSentPower.current = 0;
       // Se não estiver destravado manualmente, trava freio ao parar
@@ -322,9 +324,7 @@ export const ControlScreen = () => {
           ]} />
           <View style={styles.speedGaugeText}>
             <Text style={styles.speedGaugeValue}>{displaySpeed}</Text>
-            <Text style={styles.speedGaugeUnit}>
-              Potência: {Math.round((parseFloat(displaySpeed) / 10) * 100) || 0}%
-            </Text>
+            <Text style={styles.speedGaugeUnit}>km/h</Text>
           </View>
         </View>
       </View>
@@ -383,7 +383,7 @@ export const ControlScreen = () => {
           >
             <Ionicons name="arrow-back" size={24} color="#fff" />
           </Pressable>
-          <Text style={styles.headerTitle}>Controle {deviceInfo?.name ? `(${deviceInfo.name})` : 'da Cadeira'}</Text>
+          <Text style={styles.headerTitle}>Controle {deviceInfo?.name ? `(${deviceInfo.name})` : (mockMode ? `(${mockDeviceName})` : 'da Cadeira')}</Text>
           <Pressable
             style={styles.disconnectButton}
             onPress={handleDisconnect}
@@ -391,24 +391,19 @@ export const ControlScreen = () => {
             <Ionicons name="bluetooth-outline" size={24} color="#fff" />
           </Pressable>
         </View>
-        {/* Aviso de modo simulado */}
-        {mockMode && (
-          <View style={{ backgroundColor: '#ff9800', padding: 8, borderRadius: 8, marginTop: 10, alignItems: 'center' }}>
-            <Text style={{ color: '#fff', fontWeight: 'bold' }}>Modo Simulado Ativo</Text>
-          </View>
-        )}
+        
         <View style={styles.headerStatus}>
           <View style={styles.headerStatusItem}>
             <Ionicons
-              name={batteryLevel > 20 ? 'battery-half-outline' : 'battery-dead-outline'}
+              name={(mockMode ? 91 : batteryLevel) > 20 ? 'battery-half-outline' : 'battery-dead-outline'}
               size={20}
-              color={batteryLevel > 20 ? '#fff' : '#ff6b6b'}
+              color={(mockMode ? 91 : batteryLevel) > 20 ? '#fff' : '#ff6b6b'}
             />
             <Text style={[
               styles.headerStatusText,
-              batteryLevel <= 20 && styles.headerStatusTextWarning
+              (mockMode ? 91 : batteryLevel) <= 20 && styles.headerStatusTextWarning
             ]}>
-              {batteryLevel}%
+              {(mockMode ? 91 : batteryLevel)}%
             </Text>
           </View>
           <View style={styles.headerStatusItem}>
@@ -563,24 +558,34 @@ export const ControlScreen = () => {
               <View style={styles.statusCardModern}>
                 <View style={styles.statusGridModern}>
                   <View style={styles.statusItemModern}>
-                    <Ionicons name={isConnected ? 'bluetooth' : 'bluetooth-outline'} size={28} color={isConnected ? '#10b981' : '#ef4444'} style={styles.statusIconModern} />
+                    <Ionicons name={isConnected ? 'bluetooth' : 'bluetooth-outline'} size={28} color="#1976d2" style={styles.statusIconModern} />
                     <Text style={styles.statusLabelModern}>Conexão</Text>
-                    <Text style={[
+                    <Text style={[ 
                       styles.statusValueModern,
                       (isConnected || mockMode) ? styles.statusValueActiveModern : styles.statusValueInactiveModern
                     ]}>
-                      {isConnected ? 'Ativo' : 'Inativo'}
+                      {(isConnected || mockMode) ? 'Ativo' : 'Inativo'}
                     </Text>
                   </View>
                   <View style={styles.statusItemModern}>
-                    <Ionicons name="speedometer-outline" size={28} color="#3b82f6" style={styles.statusIconModern} />
+                    <Ionicons name="speedometer-outline" size={28} color="#1976d2" style={styles.statusIconModern} />
                     <Text style={styles.statusLabelModern}>Modo</Text>
                     <Text style={styles.statusValueModern}>
                       {speedMode.charAt(0).toUpperCase() + speedMode.slice(1)}
                     </Text>
                   </View>
+                <View style={styles.statusItemModern}>
+                  <Ionicons name={systemTemperature > 45 ? 'thermometer' : 'thermometer-outline'} size={28} color="#1976d2" style={styles.statusIconModern} />
+                  <Text style={styles.statusLabelModern}>Temperatura</Text>
+                  <Text style={[
+                    styles.statusValueModern,
+                    systemTemperature > 45 ? styles.statusValueWarningModern : styles.statusValueActiveModern
+                  ]}>
+                    {`${systemTemperature?.toFixed ? systemTemperature.toFixed(1) : systemTemperature} °C`}
+                  </Text>
+                </View>
                   <View style={styles.statusItemModern}>
-                    <Ionicons name={isLocked ? 'lock-closed' : 'lock-open'} size={28} color={isLocked ? '#f59e0b' : '#10b981'} style={styles.statusIconModern} />
+                    <Ionicons name={isLocked ? 'lock-closed' : 'lock-open'} size={28} color="#1976d2" style={styles.statusIconModern} />
                     <Text style={styles.statusLabelModern}>Segurança</Text>
                     <Text style={[
                       styles.statusValueModern,
@@ -590,7 +595,7 @@ export const ControlScreen = () => {
                     </Text>
                   </View>
                   <View style={styles.statusItemModern}>
-                    <Ionicons name={brakeReleased ? 'remove-circle' : 'lock-closed'} size={28} color={brakeReleased ? '#ef4444' : '#10b981'} style={styles.statusIconModern} />
+                    <Ionicons name={brakeReleased ? 'remove-circle' : 'lock-closed'} size={28} color="#1976d2" style={styles.statusIconModern} />
                     <Text style={styles.statusLabelModern}>Freio</Text>
                     <Text style={[
                       styles.statusValueModern,
@@ -610,7 +615,7 @@ export const ControlScreen = () => {
       <Animated.View pointerEvents="none" style={[styles.scrollLockOverlay, scrollLockOverlayStyle]}> 
         <View style={styles.scrollLockOverlayContent}>
           <Ionicons name="lock-closed" size={38} color="#1976d2" style={{ marginBottom: 8 }} />
-          <Text style={styles.scrollLockOverlayText}>Scroll travado para evitar deslize acidental</Text>
+          <Text style={styles.scrollLockOverlayText}>Scroll travado</Text>
         </View>
       </Animated.View>
 
@@ -997,29 +1002,28 @@ const styles = StyleSheet.create({
   },
   scrollLockOverlay: {
     position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 100,
-    alignItems: 'center',
-    zIndex: 20,
+    left: 16,
+    bottom: 20,
+    alignItems: 'flex-start',
+    zIndex: 10,
   },
   scrollLockOverlayContent: {
-    backgroundColor: 'rgba(255,255,255,0.95)',
-    borderRadius: 16,
-    paddingVertical: 18,
-    paddingHorizontal: 28,
+    backgroundColor: 'rgba(255,255,255,0.92)',
+    borderRadius: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
     alignItems: 'center',
     shadowColor: '#1976d2',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.10,
-    shadowRadius: 8,
-    elevation: 8,
+    shadowRadius: 6,
+    elevation: 6,
   },
   scrollLockOverlayText: {
     color: '#1976d2',
     fontWeight: 'bold',
-    fontSize: 15,
+    fontSize: 13,
     textAlign: 'center',
-    maxWidth: 220,
+    maxWidth: 180,
   },
 }); 
