@@ -187,12 +187,35 @@ export default function useMapLogic() {
   useEffect(() => {
     let lastUpdate = 0;
     let lastCoords = null;
+    let watchdog;
     (async () => {
       let { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== 'granted') {
         setErrorMsg('Permissão para acessar a localização foi negada');
+        // Fallback: define uma região padrão para não travar loading
+        if (!mapInitialRegion) {
+          setMapInitialRegion({
+            latitude: -23.55052,
+            longitude: -46.633308,
+            latitudeDelta: 0.05,
+            longitudeDelta: 0.05,
+          });
+          setShowLoading(false);
+        }
         return;
       }
+      // Watchdog: se em 5s não tivermos região, defina padrão e siga
+      watchdog = setTimeout(() => {
+        if (!mapInitialRegion && !location) {
+          setMapInitialRegion({
+            latitude: -23.55052,
+            longitude: -46.633308,
+            latitudeDelta: 0.05,
+            longitudeDelta: 0.05,
+          });
+          setShowLoading(false);
+        }
+      }, 5000);
       const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
       setLocation(loc.coords);
       lastCoords = loc.coords;
@@ -218,6 +241,7 @@ export default function useMapLogic() {
     })();
     return () => {
       if (locationWatcher.current) locationWatcher.current.remove();
+      if (watchdog) clearTimeout(watchdog);
     };
   }, []);
 

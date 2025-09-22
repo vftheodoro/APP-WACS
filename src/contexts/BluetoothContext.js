@@ -1,9 +1,42 @@
 import React, { createContext, useState, useContext, useEffect } from 'react';
 import { Alert, Platform, PermissionsAndroid, Linking } from 'react-native';
-import { BleManager } from 'react-native-ble-plx';
+import Constants from 'expo-constants';
 
 const BluetoothContext = createContext(null);
-let bleManager = new BleManager();
+
+// Em ambientes onde o módulo nativo não está disponível (Expo Go/web),
+// a importação direta pode falhar. Fazemos require dinâmico e fallback.
+const forceMock = Constants.expoConfig?.extra?.USE_BLUETOOTH_MOCK === true ||
+                  Constants.expoConfig?.extra?.USE_BLUETOOTH_MOCK === 'true';
+
+function createMockBleManager() {
+  return {
+    state: async () => 'PoweredOff',
+    onStateChange: (cb) => ({ remove: () => {} }),
+    startDeviceScan: () => {},
+    stopDeviceScan: () => {},
+    connectToDevice: async () => ({
+      discoverAllServicesAndCharacteristics: async () => {},
+      writeCharacteristicWithResponseForService: async () => {},
+      cancelConnection: async () => {},
+    }),
+    destroy: () => {},
+  };
+}
+
+let bleManager;
+try {
+  if (!forceMock) {
+    // eslint-disable-next-line global-require
+    const { BleManager } = require('react-native-ble-plx');
+    bleManager = new BleManager();
+  }
+} catch (e) {
+  bleManager = null;
+}
+if (!bleManager) {
+  bleManager = createMockBleManager();
+}
 
 export const BluetoothProvider = ({ children }) => {
   const [isConnected, setIsConnected] = useState(false);
@@ -22,11 +55,11 @@ export const BluetoothProvider = ({ children }) => {
 
   // Monitorar estado do Bluetooth
   useEffect(() => {
-    bleManager.state().then(setBluetoothState);
+    bleManager.state().then(setBluetoothState).catch(() => setBluetoothState('Unknown'));
     const subscription = bleManager.onStateChange((state) => {
       setBluetoothState(state);
     }, true);
-    return () => subscription.remove();
+    return () => subscription?.remove?.();
   }, []);
 
   // Checar permissão de localização

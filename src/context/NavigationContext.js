@@ -19,6 +19,11 @@ export function NavigationProvider({ children }) {
       setNavigationError('Origem ou destino inválido.');
       return;
     }
+    if (!apiKey) {
+      // Evita travar caso a API key não esteja disponível; mostra erro amigável
+      setNavigationError('Chave da API do Google Maps ausente.');
+      return;
+    }
     try {
       const url = `https://maps.googleapis.com/maps/api/directions/json?origin=${origin.latitude},${origin.longitude}&destination=${destination.latitude},${destination.longitude}&mode=walking&key=${apiKey}&language=pt-BR`;
       console.log('[NavigationContext] requestRoute URL:', url);
