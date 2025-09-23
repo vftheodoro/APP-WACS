@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
+    "postinstall": "node scripts/ensure-expo-native.js",
     "start": "expo start",
     "preandroid": "node scripts/injectGoogleMapsApiKey.js",
     "android": "npm run preandroid && expo run:android",
@@ -24,16 +25,18 @@
     "@react-navigation/stack": "^6.3.20",
     "debounce": "^1.2.1",
     "expo": "53.0.12",
+    "expo-asset": "~11.1.7",
     "expo-av": "~15.1.4",
     "expo-constants": "~17.1.6",
-    "expo-dev-client": "~5.2.1",
     "expo-device": "~7.1.4",
+    "expo-file-system": "~18.1.11",
     "expo-haptics": "^14.1.4",
     "expo-image-manipulator": "~13.1.6",
     "expo-image-picker": "~16.1.4",
     "expo-linear-gradient": "~14.1.5",
     "expo-local-authentication": "~16.0.4",
     "expo-location": "~18.1.5",
+    "expo-speech": "~13.1.7",
     "expo-splash-screen": "~0.30.9",
     "expo-status-bar": "~2.2.3",
     "firebase": "^10.7.1",
@@ -55,8 +58,7 @@
     "react-native-screens": "~4.11.1",
     "react-native-svg": "^15.11.2",
     "react-native-webview": "13.13.5",
-    "remove-accents": "^0.5.0",
-    "expo-speech": "~13.1.7"
+    "remove-accents": "^0.5.0"
   },
   "devDependencies": {
     "@babel/core": "^7.23.7",

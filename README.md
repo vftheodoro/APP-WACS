@@ -234,7 +234,34 @@ Abra o app no Expo Go escaneando o QR code.
 
 ---
 
-## 📁 Estrutura do Projeto
+## � Instalação automática de módulos nativos do Expo
+
+Este projeto garante automaticamente que os módulos nativos do Expo necessários (por exemplo `expo-file-system` e `expo-asset`) sejam instalados após `npm install` / `yarn install`.
+
+- Implementação: existe um script `postinstall` que executa `node scripts/ensure-expo-native.js`.
+- Esse script verifica se `expo-file-system` e `expo-asset` estão em `node_modules`; se estiverem faltando, ele executa `npx expo install <missing-packages>` usando uma versão compatível com o SDK do Expo definido no projeto.
+
+Como testar / solucionar:
+
+- Depois de clonar o repo, rode `npm install` ou `yarn install` — o `postinstall` será executado automaticamente.
+- Para forçar uma reinstalação limpa e ver o script em ação:
+
+```powershell
+rm -r node_modules package-lock.json yarn.lock; npm install
+```
+
+- Se ocorrer algum erro de rede durante a instalação, execute manualmente (no diretório do projeto):
+
+```powershell
+npx expo install expo-file-system expo-asset
+```
+
+- Se quiser que o processo falhe em CI quando a instalação falhar, podemos alterar o script `scripts/ensure-expo-native.js` para lançar uma exceção (faço isso se desejar).
+
+
+---
+
+## �📁 Estrutura do Projeto
 
 ```
 src/

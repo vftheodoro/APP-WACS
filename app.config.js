@@ -55,6 +55,8 @@ module.exports = {
         }
       ],
       'react-native-ble-plx',
+      // Ensure expo-asset is registered as a plugin so native assets are available
+      'expo-asset',
     ],
     newArchEnabled: true,
     extra: {
