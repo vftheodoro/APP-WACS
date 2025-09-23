@@ -27,6 +27,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useBluetooth } from '../contexts/BluetoothContext';
 import * as Haptics from 'expo-haptics';
+import { Platform } from 'react-native';
+import { sendToArduino } from '../services/arduinoHttp';
 
 const JOYSTICK_SIZE = 280;
 const STICK_SIZE = 100;
@@ -75,10 +77,14 @@ export const ControlScreen = () => {
     lastCommand,
   } = useBluetooth();
 
+  // ...existing code...
+
   const navigation = useNavigation();
   const route = useRoute();
   const mockMode = route.params?.mockMode === true;
   const mockDeviceName = 'WACS Falcon-1';
+
+  // Nenhuma conexão extra necessária para o envio simples via HTTP
 
   // Redireciona se não estiver conectado, exceto em modo simulado
   useEffect(() => {
@@ -170,7 +176,7 @@ export const ControlScreen = () => {
       // Travar scroll automaticamente ao iniciar joystick
       if (!scrollLocked) runOnJS(setScrollLocked)(true);
       // Destrava freio automaticamente se não estiver destravado manualmente
-      if (!brakeManual) runOnJS(sendCommand)('F1');
+  if (!brakeManual) runOnJS(sendCommand)('F1');
     },
     onActive: (event, ctx) => {
       if (!(isConnected || mockMode) || isLockedSharedState || brakeReleased) {
@@ -226,13 +232,13 @@ export const ControlScreen = () => {
       translateY.value = withSpring(0);
       currentSpeed.value = 0;
       // Envia comando de parada
-      runOnJS(sendCommand)('S');
+  runOnJS(sendCommand)('S');
       lastJoystickCommand.current = 'S';
       // Velocidade zero
-      runOnJS(sendCommand)('V0');
+  runOnJS(sendCommand)('V0');
       lastSentPower.current = 0;
       // Se não estiver destravado manualmente, trava freio ao parar
-      if (!brakeManual) runOnJS(sendCommand)('F0');
+  if (!brakeManual) runOnJS(sendCommand)('F0');
     },
   });
 
@@ -361,7 +367,7 @@ export const ControlScreen = () => {
     // Sempre que displayMaxSpeed mudar, envia comando de velocidade
     if (isConnected && !isLocked && !brakeReleased) {
       const v = Math.round((displayMaxSpeed / 10) * 255); // 0-10 para 0-255
-      sendCommand(`V${v}`);
+  sendCommand(`V${v}`);
     }
   }, [displayMaxSpeed, isConnected, isLocked, brakeReleased]);
 
@@ -390,9 +396,29 @@ export const ControlScreen = () => {
           >
             <Ionicons name="bluetooth-outline" size={24} color="#fff" />
           </Pressable>
+          {/* Botão de teste: envia a palavra "esporte" para o Arduino (HTTP simples) */}
+          <Pressable
+            style={styles.testButton}
+            onPress={async () => {
+              try {
+                const res = await sendToArduino('esporte');
+                if (res?.ok) {
+                  Alert.alert('Enviado', 'Mensagem "esporte" enviada ao Arduino.');
+                } else {
+                  Alert.alert('Falha ao enviar', `Status: ${res?.status || ''} ${res?.data?.error || res?.error || ''}`.trim());
+                }
+              } catch (e) {
+                Alert.alert('Erro', String(e));
+              }
+            }}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            accessibilityLabel="Enviar comando esporte"
+          >
+            <Ionicons name="flash" size={24} color="#fff" />
+          </Pressable>
         </View>
         
-        <View style={styles.headerStatus}>
+          <View style={styles.headerStatus}>
           <View style={styles.headerStatusItem}>
             <Ionicons
               name={(mockMode ? 91 : batteryLevel) > 20 ? 'battery-half-outline' : 'battery-dead-outline'}
@@ -410,7 +436,8 @@ export const ControlScreen = () => {
             <Ionicons name="bluetooth-outline" size={20} color="#fff" />
             <Text style={styles.headerStatusText}>{connectionStrength}</Text>
           </View>
-        </View>
+          
+          </View>
       </LinearGradient>
 
       <ScrollView contentContainerStyle={styles.scrollViewContent} scrollEnabled={!scrollLocked}>
@@ -433,6 +460,7 @@ export const ControlScreen = () => {
           </View>
         ) :
           <View style={styles.mainContentArea}>
+            {/* Removed Arduino server controls (WebSocket UI) - reverted to original behavior */}
             {/* Fundo dinâmico para área principal */}
             <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: mainContentBg, zIndex: -1, borderRadius: 20 }} pointerEvents="none" />
             {/* Joystick Area */}
@@ -447,9 +475,9 @@ export const ControlScreen = () => {
                       [
                         { text: 'Cancelar', style: 'cancel' },
                         { text: 'Destravar', style: 'destructive', onPress: async () => {
-                            setBrakeReleased(true);
-                            setBrakeManual(true);
-                            await sendCommand('F1'); // Destrava freio manualmente
+                setBrakeReleased(true);
+                  setBrakeManual(true);
+                  await sendCommand('F1'); // Destrava freio manualmente
                           } }
                       ]
                     );
@@ -679,6 +707,12 @@ const styles = StyleSheet.create({
     padding: 10,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  testButton: {
+    padding: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginLeft: 4,
   },
   headerStatus: {
     flexDirection: 'row',
@@ -1026,4 +1060,4 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     maxWidth: 180,
   },
-}); 
+});
