@@ -40,6 +40,18 @@ export const MainSelectionScreen = () => {
   const [slideAnim] = useState(new Animated.Value(-50));
   const [gamification, setGamification] = useState({ xp: 0, level: 1, badges: [] });
   const [hasNewPosts, setHasNewPosts] = useState(false);
+  const [connectBlinkAnim] = useState(new Animated.Value(1));
+
+  const triggerConnectBlink = () => {
+    // Pisca o botão de conectar algumas vezes
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(connectBlinkAnim, { toValue: 0.4, duration: 180, useNativeDriver: true }),
+        Animated.timing(connectBlinkAnim, { toValue: 1, duration: 180, useNativeDriver: true }),
+      ]),
+      { iterations: 3 }
+    ).start();
+  };
 
   useEffect(() => {
     // Animação de entrada
@@ -198,12 +210,9 @@ export const MainSelectionScreen = () => {
       onPress: () => {
         if (isConnected) {
           navigation.navigate('ControlScreen', { deviceInfo: deviceInfo });
-        } else {
-          // Sempre permite abrir a tela de controle em modo simulado
-          navigation.navigate('ControlScreen', { mockMode: true });
         }
       },
-      disabled: false,
+      disabled: !isConnected,
       gradient: ['#1976d2', '#2196f3'],
     },
     {
@@ -269,19 +278,11 @@ export const MainSelectionScreen = () => {
       onPress={() => {
         if (!action.disabled) {
           action.onPress();
+        } else if (action.id === 'control' && !isConnected) {
+          triggerConnectBlink();
         }
       }}
-      onLongPress={
-        action.id === 'control' && action.disabled
-          ? () => {
-              Alert.alert(
-                'Modo Simulado',
-                'Você está acessando o controle em modo simulado para testes.'
-              );
-              navigation.navigate('ControlScreen', { mockMode: true });
-            }
-          : undefined
-      }
+      onLongPress={undefined}
     >
       <LinearGradient
         colors={action.disabled ? ['#e0e0e0', '#bdbdbd'] : action.gradient}
@@ -480,13 +481,15 @@ export const MainSelectionScreen = () => {
                 style={styles.connectButton}
                 onPress={() => navigation.navigate('ConnectionScreen')}
               >
-                <LinearGradient
-                  colors={['#1976d2', '#2196f3']}
-                  style={styles.connectButtonGradient}
-                >
-                  <Ionicons name="bluetooth-outline" size={16} color="#fff" />
-                  <Text style={styles.connectButtonText}>Conectar Cadeira</Text>
-                </LinearGradient>
+                <Animated.View style={[styles.connectButtonAnimated, { opacity: connectBlinkAnim, transform: [{ scale: connectBlinkAnim.interpolate({ inputRange: [0.4, 1], outputRange: [0.98, 1] }) }] }]}>
+                  <LinearGradient
+                    colors={['#1976d2', '#2196f3']}
+                    style={styles.connectButtonGradient}
+                  >
+                    <Ionicons name="bluetooth-outline" size={16} color="#fff" />
+                    <Text style={styles.connectButtonText}>Conectar Cadeira</Text>
+                  </LinearGradient>
+                </Animated.View>
               </Pressable>
             )}
           </View>
