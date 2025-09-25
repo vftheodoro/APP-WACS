@@ -208,11 +208,15 @@ export const MainSelectionScreen = () => {
       title: 'Controle',
       icon: 'game-controller-outline',
       onPress: () => {
-        if (isConnected) {
-          navigation.navigate('ControlScreen', { deviceInfo: deviceInfo });
-        }
+        // Criando uma cópia serializada do deviceInfo, convertendo Date para string
+        const serializedDeviceInfo = deviceInfo ? {
+          ...deviceInfo,
+          lastConnected: deviceInfo.lastConnected ? deviceInfo.lastConnected.toISOString() : null
+        } : null;
+        
+        navigation.navigate('ControlScreen', { deviceInfo: serializedDeviceInfo });
       },
-      disabled: !isConnected,
+      disabled: false, // Botão sempre habilitado
       gradient: ['#1976d2', '#2196f3'],
     },
     {

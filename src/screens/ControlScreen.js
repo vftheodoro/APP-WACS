@@ -90,7 +90,20 @@ export const ControlScreen = () => {
 
   // Nenhuma conexão extra necessária para o envio simples via HTTP
 
-  // Sem redirecionamento: serial via HTTP não depende de pareamento aplicativo
+  // Configuração para redirecionar para a tela inicial ao tentar voltar
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('beforeRemove', (e) => {
+      // Previne a ação padrão de voltar apenas se não for uma navegação programática
+      if (e.data.action.type !== 'NAVIGATE') {
+        e.preventDefault();
+        
+        // Navega para a tela inicial em vez da tela anterior
+        navigation.navigate('MainSelection');
+      }
+    });
+
+    return unsubscribe;
+  }, [navigation]);
 
   // Sincroniza shared values com estados regulares do React
   useEffect(() => {
@@ -269,7 +282,9 @@ export const ControlScreen = () => {
       'Tem certeza que deseja desconectar a cadeira?',
       [
         { text: 'Cancelar', style: 'cancel' },
-        { text: 'Desconectar', style: 'destructive', onPress: () => { navigation.goBack(); } }
+        { text: 'Desconectar', style: 'destructive', onPress: () => { 
+          navigation.navigate('MainSelection'); 
+        } }
       ]
     );
   };
