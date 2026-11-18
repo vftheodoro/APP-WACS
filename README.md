@@ -1,137 +1,62 @@
-# ♿ WACS - Wheelchair Accessible Control System
+# WACS — Mobile Application
 
-**WACS** (Sistema de Controle de Cadeira de Rodas Acessível) é uma aplicação móvel inovadora desenvolvida para transformar a experiência de mobilidade de pessoas com deficiência. O projeto integra controle de hardware (cadeira de rodas motorizada), navegação inteligente focada em acessibilidade, e uma rede social inclusiva.
+Mobile application from **WACS (Wheelchair Automation Control System)**, an assistive-mobility project developed alongside hardware and research components. This repository contains the React Native / Expo app; hardware and broader technical materials are in [TCC-WACS](https://github.com/vftheodoro/TCC-WACS).
 
----
+## Project areas
 
-## 🚀 Visão Geral do Projeto
+- Wheelchair control interface and connectivity work.
+- Mapping and accessibility-related screens.
+- User profiles, community interactions, and location contributions.
+- Authentication, cloud data, and app navigation.
 
-O WACS não é apenas um controle remoto; é um ecossistema completo de assistência. Ele combina tecnologias modernas (React Native, Firebase, IoT) para oferecer:
+**Project status:** research/prototype software. The presence of a screen or integration in the source does not establish that every feature is validated on physical hardware or ready for unsupervised use.
 
-1.  **Controle Remoto Universal**: Interface para controlar cadeiras de rodas via Bluetooth/Wi-Fi.
-2.  **Navegação Acessível**: Mapas que destacam rotas sem barreiras e locais adaptados.
-3.  **Rede Social Inclusiva**: Conecta usuários para compartilhar experiências e avaliações de locais.
-4.  **Gamificação**: Incentiva a colaboração da comunidade através de pontos e conquistas.
+## Stack
 
----
+React Native, Expo, JavaScript, React Navigation, Firebase, React Native Maps, Bluetooth-related libraries, and Socket.IO client integrations. Check `package.json` and individual modules for the versions and actual feature implementations.
 
-## 📱 Funcionalidades Principais
+## Local development
 
-### 1. Controle & Hardware (`/src/screens/ControlScreen.js`)
-- **Joystick Virtual**: Controle preciso da cadeira com interface sensível ao toque.
-- **Modos de Velocidade**: Eco, Normal e Sport.
-- **Comandos de Voz**: Controle total por voz ("Para frente", "Parar", "Luzes").
-- **Telemetria**: Monitoramento em tempo real de bateria, temperatura e conexão.
-
-### 2. Navegação Inteligente (`/src/screens/MapScreen.js`)
-- **Rotas Acessíveis**: Algoritmos que priorizam caminhos com rampas e calçadas adequadas.
-- **Mapeamento Colaborativo**: Usuários podem adicionar e avaliar locais (banheiros adaptados, estacionamento).
-- **Alertas de Obstáculos**: Avisos visuais e sonoros sobre buracos ou barreiras na via.
-
-### 3. Rede Social & Chat (`/src/screens/social`)
-- **Feed de Comunidade**: Compartilhamento de fotos e histórias.
-- **Chats Regionais**: Salas de bate-papo organizadas por cidade (ex: Vale do Ribeira) para conectar pessoas próximas.
-- **Avaliações Detalhadas**: Sistema de review focado em critérios de acessibilidade.
-
-### 4. Gamificação (`/src/features/gamification`)
-- **Sistema de Níveis**: Usuários ganham XP ao contribuir com o mapa ou ajudar outros.
-- **Conquistas**: Medalhas por engajamento (ex: "Explorador", "Guia Local").
-
----
-
-## 🛠️ Arquitetura Técnica
-
-O projeto segue uma arquitetura moderna e escalável:
-
-### Front-end (Mobile)
-- **Framework**: React Native (Expo SDK 52).
-- **Linguagem**: JavaScript (ES6+).
-- **Navegação**: React Navigation (Stack & Tabs).
-- **Mapas**: `react-native-maps` com integração Google Maps API.
-- **Comunicação**: `react-native-ble-plx` (Bluetooth) e `socket.io-client` (Real-time).
-
-### Back-end (BaaS)
-- **Plataforma**: Firebase.
-- **Auth**: Autenticação de usuários (Email/Senha).
-- **Firestore**: Banco de dados NoSQL em tempo real.
-- **Storage**: Armazenamento de mídias (fotos de perfil, posts).
-
-### Hardware (IoT)
-- **Microcontrolador**: Arduino / ESP32.
-- **Protocolo**: Comunicação via HTTP (Wi-Fi) ou BLE (Bluetooth Low Energy).
-
----
-
-## 💾 Estrutura do Banco de Dados (Firestore)
-
-O banco de dados é estruturado em coleções principais para garantir performance e escalabilidade:
-
-### `users` (Coleção)
-Armazena perfis de usuários.
-- `uid`: Identificador único.
-- `mobilityType`: Tipo de mobilidade (Cadeira motorizada, manual, etc.).
-- `xp`: Pontos de experiência acumulados.
-
-### `accessibleLocations` (Coleção)
-Locais mapeados pela comunidade.
-- `location`: GeoPoint (Latitude/Longitude).
-- `features`: Array de tags (ex: `['ramp', 'bathroom']`).
-- `featureRatings`: Média de avaliações por critério.
-
-### `posts` (Coleção)
-Feed da rede social.
-- `imageUrl`: Link da imagem no Firebase Storage.
-- `likes`: Array de UIDs que curtiram.
-- **Sub-coleção `comments`**: Comentários do post.
-
-### `chats` (Coleção)
-Salas de bate-papo.
-- `type`: 'regional' ou 'cidade'.
-- `members`: Lista de participantes ativos.
-
----
-
-## 📂 Estrutura de Pastas
-
-```
-src/
-├── components/     # Componentes reutilizáveis (Botões, Cards, Inputs)
-├── config/         # Configurações globais (Firebase, API Keys)
-├── contexts/       # React Contexts (Auth, Bluetooth, Navigation)
-├── features/       # Módulos funcionais (Gamificação, Contribuições)
-├── navigation/     # Configuração de rotas (AppNavigator)
-├── screens/        # Telas da aplicação (Control, Map, Social, Profile)
-├── services/       # Integrações externas (Arduino, Firebase API)
-└── utils/          # Funções auxiliares e formatadores
+```bash
+git clone https://github.com/vftheodoro/APP-WACS.git
+cd APP-WACS
+npm ci
+npm run start
 ```
 
----
+The `start` script invokes Expo. The `web` script (`npm run web`) launches the web target, which may not support native hardware features.
 
-## 🚀 Como Executar
+## Environment configuration
 
-1.  **Pré-requisitos**: Node.js, npm/yarn, Expo CLI.
-2.  **Instalação**:
-    ```bash
-    npm install
-    ```
-3.  **Configuração**:
-    - Crie um projeto no Firebase.
-    - Adicione as credenciais em `src/config/firebase.js`.
-    - Adicione sua Google Maps API Key em `app.json` ou `.env`.
-4.  **Execução**:
-    ```bash
-    npx expo start
-    ```
+`app.config.js` reads environment variables for Firebase, Google Maps, WebSocket connectivity, and the Bluetooth mock flag. Configure your own development environment with, as applicable:
 
----
+```dotenv
+FIREBASE_API_KEY=
+FIREBASE_AUTH_DOMAIN=
+FIREBASE_PROJECT_ID=
+FIREBASE_STORAGE_BUCKET=
+FIREBASE_MESSAGING_SENDER_ID=
+FIREBASE_APP_ID=
+GOOGLE_MAPS_API_KEY=
+WEBSOCKET_URL=
+USE_BLUETOOTH_MOCK=
+```
 
-## 🤝 Contribuição
+Do not commit live private credentials or personal data. Native Bluetooth features may require a compatible device and development build; browser/Expo Go behavior may differ.
 
-Este é um projeto Open Source focado em impacto social. Contribuições são bem-vindas, especialmente em:
-- Melhorias nos algoritmos de rota acessível.
-- Novas integrações de hardware.
-- Traduções e acessibilidade da interface (i18n, a11y).
+## Relevant paths
 
----
+- `src/screens`: application screens.
+- `src/components`: shared UI and map components.
+- `src/contexts`: application state and connectivity contexts.
+- `src/config`: configuration and architectural notes.
+- `scripts`: project maintenance utilities.
 
-**Desenvolvido com ❤️ para um mundo mais acessível.**
+## Safety and limitations
+
+This is an assistive-technology prototype, **not a medically certified mobility controller**. Hardware control must be tested under appropriate supervision with an emergency stop and physical safety measures. Map accessibility information must not be treated as guaranteed without local validation.
+
+## Related work
+
+- [WACS hardware and technical project](https://github.com/vftheodoro/TCC-WACS)
+- [Victor Theodoro](https://github.com/vftheodoro)
